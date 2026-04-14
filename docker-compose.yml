@@ -1,0 +1,32 @@
+services:
+  # основна реляційна база даних
+  postgres:
+    image: postgres:15-alpine
+    container_name: diploma_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: diploma_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # пошуковий рушій для аналізу
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    container_name: diploma_elastic
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false # Вимикаємо сек'юрність для локальної розробки, інакше згоримо на сертифікатах
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Обмежуємо пам'ять, щоб не завис комп'ютер
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticdata:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  elasticdata:
