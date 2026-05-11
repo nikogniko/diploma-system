@@ -9,8 +9,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
-
+  //output   = "../generated/prisma"
 }
 
 datasource db {
@@ -301,16 +300,16 @@ model Company {
   registrationType   RegistrationType
   registrationNumber String           @unique @db.VarChar(50)
   legalName          String           @db.VarChar(200)
-  corporateDomain    String           @db.VarChar(100) 
+  corporateDomain    String?          @db.VarChar(100) 
   verificationStatus ModerationStatus @default(PENDING)
   
   logoUrl            String?          @db.VarChar(255)
   publicName         String           @db.VarChar(100) 
   websiteUrl         String?          @db.VarChar(255)
   foundationYear     Int              @db.SmallInt 
-  employeeCount      CompanySize
+  employeeCount      CompanySize?
   
-  about              String?          @db.Text 
+  about              String           @db.Text 
   publicEmail        String           @db.VarChar(255)
   publicPhone        String?          @db.VarChar(50)
   
