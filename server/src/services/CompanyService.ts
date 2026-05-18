@@ -54,6 +54,11 @@ export class CompanyService {
     return this.getCompanyForHrOrThrow(clerkUserId);
   }
 
+  /** Шукає компанії для вибору під час onboarding роботодавця. */
+  async searchCompanies(query?: string) {
+    return this.companies.searchCompanies(query);
+  }
+
   /** Повертає список HR профілів компанії поточного HR. */
   async getMyCompanyHrs(clerkUserId: string) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);

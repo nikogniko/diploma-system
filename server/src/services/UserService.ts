@@ -152,7 +152,7 @@ export class UserService {
     this.ensureUserCanOnboard(user);
     this.ensureNoProfileExists(user.studentProfile, "Student profile already exists");
 
-    return this.txManager.run(async (tx) => {
+    const result = await this.txManager.run(async (tx) => {
       const txUsers = new UserRepository(tx);
       const txStudents = new StudentProfileRepository(tx);
 
@@ -177,6 +177,13 @@ export class UserService {
 
       return { user: updatedUser, studentProfile };
     });
+
+    await this.syncClerkPublicMetadataBestEffort(clerkUserId, {
+      role: UserRole.STUDENT,
+      status: UserStatus.ACTIVE,
+    });
+
+    return result;
   }
 
   /** Завершує HR onboarding для існуючої або нової компанії. */
@@ -228,6 +235,21 @@ export class UserService {
     }
 
     return publicInfo;
+  }
+
+  /** Повертає роль і статус поточного користувача для клієнтського redirect після входу. */
+  async getMyAuthSnapshot(clerkUserId: string) {
+    const user = await this.users.findAuthSnapshotByClerkId(clerkUserId);
+
+    if (!user) {
+      throw new BusinessLogicError(
+        "User is not synced from Clerk yet",
+        HttpStatus.NOT_FOUND,
+        "USER_NOT_SYNCED",
+      );
+    }
+
+    return user;
   }
 
   /** Оновлює email поточного користувача в Clerk і локальній БД з валідацією за роллю. */
@@ -414,6 +436,18 @@ export class UserService {
       await this.clerkSync.deleteUser(clerkUserId);
     } catch (error) {
       console.error("Failed to delete Clerk user after rejected onboarding", error);
+    }
+  }
+
+  /** Синхронізує роль/статус у Clerk без відкату локальної транзакції при зовнішній помилці. */
+  private async syncClerkPublicMetadataBestEffort(
+    clerkUserId: string,
+    metadata: Record<string, string>,
+  ) {
+    try {
+      await this.clerkSync.updatePublicMetadata(clerkUserId, metadata);
+    } catch (error) {
+      console.error("Failed to update Clerk public metadata", error);
     }
   }
 }

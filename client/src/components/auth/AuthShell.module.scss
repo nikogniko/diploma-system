@@ -1,0 +1,58 @@
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: center;
+  max-width: var(--layout-max);
+  min-height: calc(100vh - 96px);
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.hero {
+  padding: 1rem 0;
+}
+
+.eyebrow {
+  color: var(--color-primary);
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+
+.title {
+  color: var(--color-dark-main);
+  font-size: 2.4rem;
+  line-height: 1.1;
+  max-width: 620px;
+}
+
+.subtitle {
+  color: var(--color-dark-muted);
+  margin-top: 1rem;
+  max-width: 560px;
+}
+
+.panel {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+
+  :global(.cl-rootBox),
+  :global(.cl-cardBox),
+  :global(.cl-card) {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  .page {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding: 1rem;
+  }
+}

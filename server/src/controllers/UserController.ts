@@ -48,6 +48,30 @@ export const handleClerkWebhook = async (
   }
 };
 
+/** Повертає роль і статус поточного користувача для переходу після входу. */
+export const getMyAuthSnapshot = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      throw new BusinessLogicError(
+        "Unauthorized. Clerk user id is missing.",
+        HttpStatus.UNAUTHORIZED,
+        "UNAUTHORIZED",
+      );
+    }
+
+    const result = await userService.getMyAuthSnapshot(userId);
+    res.status(HttpStatus.OK).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const updateUserStatus = async (
   req: Request,
   res: Response,

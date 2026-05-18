@@ -1,5 +1,9 @@
 @use "./variables";
 
+html {
+  min-height: 100%;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -7,11 +11,22 @@
 }
 
 body {
-  font-family: "Inter", system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Manrope Variable", Manrope, Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   background-color: var(--color-bg-main);
   color: var(--color-dark-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 a {

@@ -1,0 +1,19 @@
+.section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  background: var(--color-surface);
+}
+
+.title {
+  color: var(--color-dark-main);
+  font-size: 1.28rem;
+  line-height: 1.25;
+  font-weight: 900;
+}
+
+.description {
+  color: var(--color-dark-muted);
+  margin-top: 0.25rem;
+}

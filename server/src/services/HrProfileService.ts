@@ -19,6 +19,10 @@ import {
 import { transactionManager, TransactionManager } from "../repositories/TransactionManager.js";
 import { UserRepository, userRepository } from "../repositories/UserRepository.js";
 import { EmailValidator } from "../utils/EmailValidator.js";
+import {
+  ClerkUserSyncService,
+  clerkUserSyncService,
+} from "./ClerkUserSyncService.js";
 
 type LinkInput = {
   linkType: LinkType;
@@ -72,6 +76,7 @@ export class HrProfileService {
     private readonly companies: CompanyRepository = companyRepository,
     private readonly hrs: HrProfileRepository = hrProfileRepository,
     private readonly txManager: TransactionManager = transactionManager,
+    private readonly clerkSync: ClerkUserSyncService = clerkUserSyncService,
   ) {}
 
   /** Завершує HR onboarding: компанія створюється першою, потім оновлюється User, потім створюється HrProfile. */
@@ -105,7 +110,7 @@ export class HrProfileService {
       );
     }
 
-    return this.txManager.run(async (tx) => {
+    const result = await this.txManager.run(async (tx) => {
       const txUsers = new UserRepository(tx);
       const txCompanies = new CompanyRepository(tx);
       const txHrs = new HrProfileRepository(tx);
@@ -148,8 +153,16 @@ export class HrProfileService {
         position: this.requiredString(body.position, "position"),
       });
 
+      // HR має пройти модерацію, але роль потрібна фронтенду для переходу в кабінет.
       return { user: updatedUser, company, hrProfile };
     });
+
+    await this.syncClerkPublicMetadataBestEffort(clerkUserId, {
+      role: UserRole.HR,
+      status: UserStatus.PENDING_VERIFICATION,
+    });
+
+    return result;
   }
 
   /** Повертає HR профіль поточного рекрутера. */
@@ -264,6 +277,18 @@ export class HrProfileService {
     }
 
     return value as T[keyof T];
+  }
+
+  /** Синхронізує роль/статус у Clerk без відкату локальної транзакції при зовнішній помилці. */
+  private async syncClerkPublicMetadataBestEffort(
+    clerkUserId: string,
+    metadata: Record<string, string>,
+  ) {
+    try {
+      await this.clerkSync.updatePublicMetadata(clerkUserId, metadata);
+    } catch (error) {
+      console.error("Failed to update Clerk public metadata", error);
+    }
   }
 }
 

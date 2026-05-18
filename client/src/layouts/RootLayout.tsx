@@ -1,13 +1,14 @@
 import { Outlet } from "react-router-dom";
 import Header from "../components/Header";
+import classes from "./RootLayout.module.scss";
 
 export default function RootLayout() {
   return (
-    <>
+    <div className={classes.shell}>
       <Header />
-      <main style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+      <main className={classes.main}>
         <Outlet />
       </main>
-    </>
+    </div>
   );
 }

@@ -50,6 +50,29 @@ export class CompanyRepository {
     });
   }
 
+  /** Шукає компанії за публічною або юридичною назвою для HR onboarding. */
+  async searchCompanies(query?: string) {
+    return this.db.company.findMany({
+      where: query
+        ? {
+            OR: [
+              { publicName: { contains: query, mode: "insensitive" } },
+              { legalName: { contains: query, mode: "insensitive" } },
+            ],
+          }
+        : undefined,
+      select: {
+        id: true,
+        publicName: true,
+        legalName: true,
+        corporateDomain: true,
+        verificationStatus: true,
+      },
+      orderBy: { publicName: "asc" },
+      take: 20,
+    });
+  }
+
   /** Повертає список HR профілів компанії. */
   async listCompanyHrs(companyId: string) {
     return this.db.hrProfile.findMany({

@@ -1,58 +1,40 @@
 import { SignUp } from "@clerk/react";
+import { AuthShell } from "../components/auth/AuthShell";
 
+/** Сторінка реєстрації з підказками для кандидатів і роботодавців. */
 export default function SignUpPage() {
-  // Читаємо значення синхронно прямо під час рендеру. Без стейту і ефектів.
   const role =
     typeof window !== "undefined" ? localStorage.getItem("intendedRole") : null;
 
+  const isEmployer = role === "HR";
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        marginTop: "2rem",
-      }}
+    <AuthShell
+      title={isEmployer ? "Створіть профіль роботодавця" : "Створіть профіль кандидата"}
+      subtitle={
+        isEmployer
+          ? "Після реєстрації ви зможете прив'язати або додати компанію, заповнити профіль і підготувати основу для вакансій."
+          : "Після реєстрації ми допоможемо зібрати профіль, який покаже ваші навички, освіту та проєкти роботодавцям."
+      }
+      note={
+        role === "STUDENT"
+          ? "Кандидатам потрібно реєструватися через корпоративну пошту навчального закладу."
+          : role === "HR"
+            ? "Після створення акаунта потрібно буде обрати наявну компанію або додати нову."
+            : null
+      }
+      tone={role === "STUDENT" ? "warning" : "info"}
     >
-      {role === "STUDENT" && (
-        <div
-          style={{
-            maxWidth: "400px",
-            padding: "1rem",
-            backgroundColor: "#fee2e2",
-            color: "#dc2626",
-            borderRadius: "8px",
-            marginBottom: "1rem",
-            textAlign: "center",
-            border: "1px solid #f87171",
-          }}
-        >
-          <strong>Важливо:</strong> Для студентів доступна реєстрація{" "}
-          <u>виключно</u> за корпоративною поштою вашого університету (домен{" "}
-          <b>.edu.ua</b>). Звичайні пошти (напр. Gmail) будуть відхилені
-          системою.
-        </div>
-      )}
-
-      {role === "HR" && (
-        <div
-          style={{
-            maxWidth: "400px",
-            padding: "1rem",
-            backgroundColor: "#e0f2fe",
-            color: "#0369a1",
-            borderRadius: "8px",
-            marginBottom: "1rem",
-            textAlign: "center",
-            border: "1px solid #7dd3fc",
-          }}
-        >
-          Реєстрація профілю роботодавця. На наступному кроці вам потрібно буде
-          вказати дані вашої компанії (ЄДРПОУ).
-        </div>
-      )}
-
-      <SignUp signInUrl="/sign-in" fallbackRedirectUrl="/onboarding" />
-    </div>
+      <SignUp
+        signInUrl="/sign-in"
+        fallbackRedirectUrl="/onboarding"
+        appearance={{
+          variables: {
+            colorPrimary: "var(--color-primary)",
+            borderRadius: "var(--radius-md)",
+          },
+        }}
+      />
+    </AuthShell>
   );
 }

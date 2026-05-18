@@ -1,0 +1,31 @@
+.loader {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 8rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.9rem 1rem;
+}
+
+.ring {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--color-primary-soft);
+  border-top-color: var(--color-primary);
+  border-radius: 999px;
+  animation: spin 0.75s linear infinite;
+}
+
+.text {
+  color: var(--color-dark-muted);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

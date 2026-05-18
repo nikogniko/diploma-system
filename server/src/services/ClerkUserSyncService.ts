@@ -47,6 +47,31 @@ export class ClerkUserSyncService {
 
     return { deleted: true };
   }
+
+  /** Оновлює public metadata у Clerk, щоб фронтенд одразу бачив роль і статус користувача. */
+  async updatePublicMetadata(
+    clerkUserId: string,
+    metadata: Record<string, string>,
+  ) {
+    const secretKey = process.env.CLERK_SECRET_KEY;
+    if (!secretKey) return { skipped: true };
+
+    const response = await fetch(`https://api.clerk.com/v1/users/${clerkUserId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ public_metadata: metadata }),
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`Failed to update Clerk public metadata: ${details}`);
+    }
+
+    return { updated: true };
+  }
 }
 
 export const clerkUserSyncService = new ClerkUserSyncService();

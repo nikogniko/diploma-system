@@ -102,15 +102,21 @@ export class StudentProfileRepository {
       include: {
         user: true,
         links: true,
-        education: true,
+        education: { include: { university: true } },
         languages: { include: { language: true } },
         courses: { include: { skills: { include: { skill: true } } } },
         projects: { include: { skills: { include: { skill: true } } } },
-        experiences: { include: { skills: { include: { skill: true } } } },
-        desiredProfessions: true,
-        employmentTypes: true,
-        workSchedules: true,
-        workFormats: true,
+        experiences: {
+          include: {
+            profession: true,
+            sphere: true,
+            skills: { include: { skill: true } },
+          },
+        },
+        desiredProfessions: { include: { profession: true } },
+        employmentTypes: { include: { employmentType: true } },
+        workSchedules: { include: { workSchedule: true } },
+        workFormats: { include: { workFormat: true } },
         desiredLocations: { include: { location: true } },
       },
     });

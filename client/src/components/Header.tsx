@@ -1,32 +1,37 @@
-import { Link } from "react-router-dom";
 import { UserButton, useUser } from "@clerk/react";
+import { Link, NavLink } from "react-router-dom";
 import classes from "./Header.module.scss";
 
+/** Верхня навігація сайту з лого, вакансіями та переходом у кабінет. */
 export default function Header() {
   const { isSignedIn, user } = useUser();
   const role = user?.publicMetadata?.role as string | undefined;
+  const cabinetPath =
+    role === "HR" ? "/hr" : role === "SYS_ADMIN" ? "/admin" : "/student";
 
   return (
     <header className={classes.header}>
+      <Link to="/" className={classes.logo}>
+        UniJob.ua
+      </Link>
+
       <nav className={classes.nav}>
-        <Link to="/">Головна</Link>
-
-        {role === "STUDENT" && <Link to="/student">Кабінет Студента</Link>}
-        {role === "HR" && <Link to="/hr">Кабінет HR</Link>}
-        {role === "SYS_ADMIN" && <Link to="/admin">Панель Адміністратора</Link>}
-      </nav>
-
-      <div className={classes.authActions}>
+        <NavLink to="/vacancies" className={classes.navLink}>
+          Вакансії
+        </NavLink>
+        {isSignedIn && (
+          <NavLink to={cabinetPath} className={classes.navLink}>
+            Кабінет
+          </NavLink>
+        )}
         {!isSignedIn ? (
-          <>
-            <Link to="/start" className={classes.signUpBtn}>
-              Реєстрація
-            </Link>{" "}
-          </>
+          <Link to="/start" className={classes.signUpBtn}>
+            Реєстрація
+          </Link>
         ) : (
           <UserButton />
         )}
-      </div>
+      </nav>
     </header>
   );
 }

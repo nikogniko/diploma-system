@@ -122,6 +122,21 @@ export class UserRepository {
     });
   }
 
+  /** Повертає мінімальні дані поточного користувача для клієнтського redirect після входу. */
+  async findAuthSnapshotByClerkId(clerkUserId: string) {
+    return this.db.user.findUnique({
+      where: { clerkUserId },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+        firstName: true,
+        lastName: true,
+        photoUrl: true,
+      },
+    });
+  }
+
   /** Оновлює email користувача у локальній БД. */
   async updateEmail(userId: string, email: string) {
     return this.db.user.update({

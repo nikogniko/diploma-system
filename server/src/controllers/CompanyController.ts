@@ -18,6 +18,17 @@ const requireClerkUserId = (req: Request) => {
   return userId;
 };
 
+/** Шукає компанії для onboarding роботодавця. */
+export const searchCompanies = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const query = typeof req.query.q === "string" ? req.query.q : undefined;
+    const result = await companyService.searchCompanies(query);
+    res.status(HttpStatus.OK).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /** Повертає компанію поточного HR. */
 export const getMyCompany = async (req: Request, res: Response, next: NextFunction) => {
   try {

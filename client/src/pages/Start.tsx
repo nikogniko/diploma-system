@@ -1,37 +1,47 @@
+import { Button, Group, Text, Title } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
-import classes from "./Onboarding.module.scss"; // Використаємо існуючі стилі
+import classes from "./Start.module.scss";
 
+/** Сторінка вибору ролі перед реєстрацією. */
 export default function Start() {
   const navigate = useNavigate();
 
+  /** Зберігає обрану роль і відкриває сторінку реєстрації. */
   const handleRoleSelect = (role: "STUDENT" | "HR") => {
-    // Зберігаємо намір користувача в пам'ять браузера
     localStorage.setItem("intendedRole", role);
-    // Перенаправляємо на сторінку реєстрації Clerk
     navigate("/sign-up");
   };
 
   return (
-    <div className={classes.container}>
-      <h1 className={classes.title}>Початок роботи</h1>
-      <p className={classes.subtitle}>
-        Оберіть, як саме ви плануєте використовувати UniJob.
-      </p>
+    <section className={classes.start}>
+      <div className={classes.card}>
+        <Text className={classes.eyebrow}>Початок роботи</Text>
+        <Title order={1} className={classes.title}>
+          Оберіть, як UniJob має допомогти саме вам
+        </Title>
+        <Text className={classes.subtitle}>
+          Кандидати отримують простір для сильного профілю й пошуку можливостей.
+          Роботодавці зможуть представляти компанію та знаходити релевантних
+          молодих фахівців.
+        </Text>
 
-      <div className={classes.buttonGroup}>
-        <button
-          className={classes.btnStudent}
-          onClick={() => handleRoleSelect("STUDENT")}
-        >
-          Я Студент (Шукаю роботу)
-        </button>
-        <button
-          className={classes.btnHr}
-          onClick={() => handleRoleSelect("HR")}
-        >
-          Я Роботодавець (Шукаю таланти)
-        </button>
+        <Group className={classes.actions}>
+          <Button
+            className={classes.primaryAction}
+            onClick={() => handleRoleSelect("STUDENT")}
+          >
+            <span>Я студент</span>
+            <small>(кандидат)</small>
+          </Button>
+          <Button
+            className={classes.secondaryAction}
+            onClick={() => handleRoleSelect("HR")}
+          >
+            <span>Я роботодавець</span>
+            <small>(HR / представник компанії)</small>
+          </Button>
+        </Group>
       </div>
-    </div>
+    </section>
   );
 }

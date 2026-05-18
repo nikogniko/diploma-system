@@ -1,0 +1,9 @@
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg-main);
+}
+
+.main {
+  max-width: var(--layout-max);
+  margin: 0 auto;
+}

@@ -17,6 +17,9 @@ export class CatalogService {
       workFormats,
       professions,
       spheres,
+      countries,
+      regions,
+      cities,
       skills,
     ] = await Promise.all([
       this.catalogs.listLanguages(),
@@ -25,6 +28,9 @@ export class CatalogService {
       this.catalogs.listWorkFormats(),
       this.catalogs.searchProfessions(),
       this.catalogs.searchSpheres(),
+      this.catalogs.searchCountries(),
+      this.catalogs.listRegions(),
+      this.catalogs.listCities(),
       this.skills.searchSkills(),
     ]);
 
@@ -35,6 +41,9 @@ export class CatalogService {
       workFormats,
       professions,
       spheres,
+      countries,
+      regions,
+      cities,
       skillsByCategory: this.groupSkillsByCategory(skills),
     };
   }

@@ -8,6 +8,7 @@ import Onboarding from "./pages/Onboarding";
 import Start from "./pages/Start";
 import SignUpPage from "./pages/SignUpPage";
 import SignInPage from "./pages/SignInPage";
+import AuthRedirect from "./pages/AuthRedirect";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -25,7 +26,10 @@ export const router = createBrowserRouter([
       // Захищений маршрут для завершення (вимагає тільки входу, але без ролі)
       {
         element: <ProtectedRoute />,
-        children: [{ path: "onboarding", element: <Onboarding /> }],
+        children: [
+          { path: "onboarding", element: <Onboarding /> },
+          { path: "auth/redirect", element: <AuthRedirect /> },
+        ],
       },
 
       // Зона Студента

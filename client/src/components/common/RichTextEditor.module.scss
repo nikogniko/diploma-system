@@ -1,0 +1,111 @@
+@use "../../styles/variables" as *;
+
+.root {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.label {
+  color: var(--color-dark-main);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.25rem;
+  background: var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.toolbar button {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--color-dark-muted);
+  font-weight: 900;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.14s ease;
+
+  &:hover,
+  &.activeButton {
+    color: var(--color-primary);
+    background: var(--color-primary-soft);
+    border-color: color-mix(in srgb, var(--color-primary) 26%, transparent);
+  }
+
+  &:disabled {
+    color: color-mix(in srgb, var(--color-dark-muted) 45%, transparent);
+    pointer-events: none;
+  }
+
+  svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: currentColor;
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+.activeButton {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-color: color-mix(in srgb, var(--color-primary) 26%, transparent);
+}
+
+.divider {
+  width: 1px;
+  height: 1.35rem;
+  margin: 0 0.15rem;
+  background: var(--color-border);
+}
+
+.content {
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.editor {
+  min-height: 9rem;
+  padding: 0.85rem 0.95rem;
+  color: var(--color-dark-main);
+  outline: none;
+
+  p {
+    margin: 0 0 0.55rem;
+  }
+
+  ul,
+  ol {
+    padding-left: 1.3rem;
+    margin: 0.3rem 0 0.55rem;
+  }
+
+  :global(.is-editor-empty:first-child)::before {
+    float: left;
+    height: 0;
+    color: var(--color-dark-muted);
+    content: attr(data-placeholder);
+    pointer-events: none;
+  }
+}

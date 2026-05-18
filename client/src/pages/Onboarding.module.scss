@@ -1,119 +1,51 @@
+@use "../styles/variables" as *;
+
 .container {
-  max-width: 600px;
+  width: min(100% - 2rem, 720px);
   margin: 4rem auto;
+  padding: clamp(1.25rem, 4vw, 2rem);
   text-align: center;
-  padding: 2rem;
   background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-md);
 }
 
 .title {
+  margin: 0 0 0.5rem;
   color: var(--color-dark-main);
-  margin-bottom: 1rem;
 }
 
 .subtitle {
+  max-width: 560px;
+  margin: 0 auto 2rem;
   color: var(--color-dark-muted);
-  margin-bottom: 2rem;
 }
 
 .error {
-  color: #dc2626; /* Червоний */
-  background-color: #fee2e2;
   margin: 1rem 0;
-  padding: 1rem;
+  padding: 0.9rem 1rem;
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 36%, transparent);
   border-radius: var(--radius-md);
-  border: 1px solid #f87171;
-}
-
-.buttonGroup {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 2rem;
-}
-
-.btnStudent {
-  padding: 1rem 2rem;
-  background-color: var(--color-primary);
-  color: white;
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
   font-weight: 600;
-  transition: opacity 0.2s;
-
-  &:hover {
-    opacity: 0.9;
-  }
-
-  &:disabled {
-    background-color: var(--color-dark-muted);
-    cursor: not-allowed;
-  }
 }
 
-.btnHr {
-  padding: 1rem 2rem;
-  background-color: var(--color-dark-main);
-  color: white;
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  transition: opacity 0.2s;
-
-  &:hover {
-    opacity: 0.9;
-  }
-
-  &:disabled {
-    background-color: var(--color-dark-muted);
-    cursor: not-allowed;
-  }
-}
-
-.container {
-  max-width: 600px;
-  margin: 4rem auto;
-  text-align: center;
-  padding: 2rem;
-  background-color: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-}
-
-.title {
-  color: var(--color-dark-main);
-  margin-bottom: 0.5rem;
-}
-.subtitle {
-  color: var(--color-dark-muted);
-  margin-bottom: 2rem;
-}
-.error {
-  color: #dc2626;
-  background-color: #fee2e2;
-  margin: 1rem 0;
-  padding: 1rem;
-  border-radius: var(--radius-md);
-  border: 1px solid #f87171;
-}
-
-/* Зменшений червоний блок попередження */
 .warningBlock {
-  background-color: #fee2e2;
-  padding: 1rem; /* Було 2rem, тепер він компактний */
-  border-radius: var(--radius-md);
-  border: 1px solid #dc2626;
+  padding: 1rem;
+  color: var(--color-danger);
   text-align: left;
+  background-color: var(--color-danger-soft);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 42%, transparent);
+  border-radius: var(--radius-md);
 
   h2 {
-    color: #dc2626;
     margin-top: 0;
     font-size: 1.25rem;
+    color: var(--color-danger);
   }
+
   p {
     margin-bottom: 0;
     font-size: 0.95rem;
@@ -124,6 +56,11 @@
   text-align: left;
 }
 
+.gridForm {
+  display: grid;
+  gap: 1rem;
+}
+
 .inputGroup {
   margin-bottom: 1rem;
 }
@@ -131,142 +68,146 @@
 .label {
   display: block;
   margin-bottom: 0.5rem;
-  font-weight: 500;
+  color: var(--color-dark-main);
+  font-weight: 700;
 }
 
 .requiredStar {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .inputField,
 .selectField {
   width: 100%;
-  padding: 0.6rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-dark-muted);
-  font-family: inherit;
+  min-height: 44px;
+  padding: 0.7rem 0.8rem;
+  color: var(--color-dark-main);
+  font: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
 
   &:focus {
     outline: none;
     border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-soft);
   }
 }
 
-.gridForm {
-  display: grid;
-  gap: 1rem;
+textarea.inputField {
+  min-height: 96px;
+  resize: vertical;
 }
 
-.companyCard {
-  padding: 1.25rem;
-  background-color: var(--color-surface-warm);
-  border-radius: var(--radius-md);
-  margin-bottom: 2rem;
-
-  h4 {
-    margin-top: 0;
-    margin-bottom: 0.5rem;
-    color: var(--color-primary);
-  }
-  p {
-    margin-top: 0;
-    font-size: 0.9rem;
-    color: var(--color-dark-muted);
-  }
-
-  .companyInfo {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .companyName {
-    font-weight: bold;
-  }
-  .companyEdrpou {
-    font-size: 0.8rem;
-    color: var(--color-dark-muted);
-  }
-}
-
-/* Кнопки */
+.buttonGroup,
 .buttonGroupRow {
   display: flex;
   gap: 1rem;
+  justify-content: center;
   margin-top: 1.5rem;
 }
 
-.btnPrimary {
-  background-color: var(--color-primary);
-  color: white;
-  padding: 0.75rem 1.5rem;
+.btnPrimary,
+.btnSecondary,
+.btnDanger,
+.btnSubmit,
+.btnStudent,
+.btnHr {
   border-radius: var(--radius-md);
-  border: none;
+  border: 0;
   cursor: pointer;
-  font-weight: 600;
-  flex: 1;
+  font: inherit;
+  font-weight: 800;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    opacity 0.2s,
+    background-color 0.2s;
+
   &:hover {
-    opacity: 0.9;
+    box-shadow: var(--shadow-md);
+  }
+
+  &:active {
+    transform: translateY(2px) scale(0.98);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+    box-shadow: none;
   }
 }
 
-.btnSecondary {
-  background-color: transparent;
-  color: var(--color-dark-main);
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-dark-muted);
-  cursor: pointer;
-  font-weight: 600;
+.btnStudent,
+.btnHr {
+  padding: 1rem 2rem;
+  color: var(--color-surface);
+}
+
+.btnStudent,
+.btnPrimary,
+.btnSubmit {
+  background-color: var(--color-primary);
+  color: var(--color-surface);
+
   &:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--color-primary-hover);
+  }
+}
+
+.btnHr {
+  background-color: var(--color-dark-main);
+}
+
+.btnPrimary,
+.btnSecondary {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+}
+
+.btnSecondary {
+  color: var(--color-dark-main);
+  background-color: transparent;
+  border: 1px solid var(--color-border-strong);
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--color-dark-main) 5%, transparent);
   }
 }
 
 .btnDanger {
-  background-color: #dc2626;
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
   width: 100%;
   margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  color: var(--color-surface);
+  background-color: var(--color-danger);
+
   &:hover {
-    background-color: #b91c1c;
+    background-color: color-mix(in srgb, var(--color-danger) 84%, var(--color-dark-main));
   }
 }
 
 .btnSubmit {
   width: 100%;
-  background-color: var(--color-primary);
-  color: white;
+  margin-top: 1.25rem;
   padding: 1rem;
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  margin-top: 2rem;
   font-size: 1rem;
-
-  &:hover {
-    opacity: 0.9;
-  }
-  &:disabled {
-    background-color: var(--color-dark-muted);
-    cursor: not-allowed;
-    opacity: 0.8;
-  }
 }
 
 .btnLink {
+  padding: 0;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 700;
   background: none;
   border: none;
-  color: var(--color-primary);
   cursor: pointer;
-  padding: 0;
-  font-weight: 500;
+
   &:hover {
     text-decoration: underline;
   }
@@ -277,26 +218,42 @@
 }
 
 .helperText {
-  font-size: 0.85rem;
+  margin-top: 0.55rem;
   color: var(--color-dark-muted);
-  margin-top: 0.5rem;
+  font-size: 0.88rem;
 }
 
 .selectedCompanyBlock {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
   padding: 1rem;
+  margin-bottom: 2rem;
   border: 1px dashed var(--color-primary);
   border-radius: var(--radius-md);
-  margin-bottom: 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 
   p {
     margin: 0;
   }
+}
 
-  .actions {
-    display: flex;
-    gap: 0.5rem;
+.selectedCompanyMeta {
+  margin-top: 0.25rem;
+  color: var(--color-dark-muted);
+  font-size: 0.82rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .buttonGroup,
+  .buttonGroupRow,
+  .selectedCompanyBlock {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

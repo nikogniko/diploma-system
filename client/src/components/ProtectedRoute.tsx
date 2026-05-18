@@ -1,47 +1,47 @@
 import { useUser } from "@clerk/react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { AppLoader } from "./common/AppLoader";
 
-// Типізуємо можливі ролі, які ми визначили в БД
 type AllowedRoles = "STUDENT" | "HR" | "SYS_ADMIN";
 
 interface ProtectedRouteProps {
   allowedRoles?: AllowedRoles[];
 }
 
+/** Захищає приватні сторінки та спрямовує користувача до кабінету його ролі. */
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { isLoaded, isSignedIn, user } = useUser();
   const location = useLocation();
 
-  // 1. Поки Clerk завантажує дані, показуємо лоадер
   if (!isLoaded) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        Завантаження системи безпеки...
-      </div>
-    );
+    return <AppLoader text="Відчиняємо двері кабінету..." />;
   }
 
-  // 2. Якщо не авторизований - відправляємо на головну
   if (!isSignedIn) {
     return <Navigate to="/" replace />;
   }
 
-  // Отримуємо роль з Clerk (вона з'явиться там після етапу Onboarding)
-  const userRole = user?.publicMetadata?.role as AllowedRoles | undefined;
+  const localRole =
+    typeof window !== "undefined" && user?.id
+      ? (localStorage.getItem(`currentRole:${user.id}`) as AllowedRoles | null)
+      : null;
+  const userRole =
+    (user?.publicMetadata?.role as AllowedRoles | undefined) ?? localRole ?? undefined;
 
-  // 3. Якщо ролі ще немає, і ми НЕ на сторінці onboarding - примусово туди відправляємо
-  if (!userRole && location.pathname !== "/onboarding") {
+  if (
+    !userRole &&
+    location.pathname !== "/onboarding" &&
+    location.pathname !== "/auth/redirect"
+  ) {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // 4. Якщо сторінка вимагає певних ролей, а в юзера її немає або вона інша
   if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
-    // Відправляємо його у свій кабінет
     if (userRole === "STUDENT") return <Navigate to="/student" replace />;
     if (userRole === "HR") return <Navigate to="/hr" replace />;
+    if (userRole === "SYS_ADMIN") return <Navigate to="/admin" replace />;
     return <Navigate to="/" replace />;
   }
 
-  // 5. Якщо всі перевірки пройдені - рендеримо дочірні маршрути
   return <Outlet />;
 }

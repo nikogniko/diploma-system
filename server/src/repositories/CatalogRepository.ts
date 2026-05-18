@@ -72,6 +72,11 @@ export class CatalogRepository {
     });
   }
 
+  /** Повертає всі регіони для побудови назв збережених локацій на фронтенді. */
+  async listRegions() {
+    return this.db.region.findMany({ orderBy: { name: "asc" } });
+  }
+
   /** Шукає міста в межах регіону. */
   async searchCities(regionId: number, query?: string) {
     return this.db.city.findMany({
@@ -82,6 +87,11 @@ export class CatalogRepository {
       orderBy: { name: "asc" },
       take: 30,
     });
+  }
+
+  /** Повертає всі міста для побудови назв збережених локацій на фронтенді. */
+  async listCities() {
+    return this.db.city.findMany({ orderBy: { name: "asc" } });
   }
 }
 
