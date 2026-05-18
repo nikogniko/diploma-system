@@ -1,5 +1,6 @@
 import { Button, Stack, Text } from "@mantine/core";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import classes from "./CabinetLayout.module.scss";
 
 type CabinetNavItem = {
@@ -23,11 +24,18 @@ export function CabinetLayout({
   onSelect,
   children,
 }: CabinetLayoutProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   return (
-    <main className={classes.page}>
-      <aside className={classes.sidebar}>
+    <main className={classes.page} data-collapsed={isCollapsed || undefined}>
+      <aside className={classes.sidebar} data-collapsed={isCollapsed || undefined}>
         <Stack gap="xs">
-          <Text className={classes.sidebarLabel}>Кабінет</Text>
+          <div className={classes.sidebarHeader}>
+            <Text className={classes.sidebarLabel}>Кабінет</Text>
+            <button className={classes.collapseButton} type="button" onClick={() => setIsCollapsed((value) => !value)} aria-label={isCollapsed ? "Розгорнути меню кабінету" : "Згорнути меню кабінету"}>
+              {isCollapsed ? <MenuIcon /> : <CloseIcon />}
+            </button>
+          </div>
           {navItems.map((item) => (
             <div key={item.key}>
               <Button
@@ -39,7 +47,7 @@ export function CabinetLayout({
                 leftSection={item.icon}
                 onClick={() => onSelect(item.key)}
               >
-                {item.label}
+                <span className={classes.navText}>{item.label}</span>
               </Button>
             </div>
           ))}
@@ -49,4 +57,12 @@ export function CabinetLayout({
       <section className={classes.content}>{children}</section>
     </main>
   );
+}
+
+function MenuIcon() {
+  return <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z" /></svg>;
+}
+
+function CloseIcon() {
+  return <svg viewBox="0 0 24 24"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z" /></svg>;
 }

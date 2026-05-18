@@ -5,6 +5,11 @@
   max-width: var(--layout-max);
   margin: 0 auto;
   padding: 1.5rem;
+  background: transparent;
+
+  &[data-collapsed] {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
 }
 
 .sidebar {
@@ -18,12 +23,39 @@
   box-shadow: var(--shadow-sm);
 }
 
+.sidebarHeader {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.8rem;
+  padding: 0.25rem;
+}
+
 .sidebarLabel {
   padding: 0.4rem 0.75rem;
   color: var(--color-dark-muted);
   font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.collapseButton {
+  display: inline-grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  color: var(--color-primary);
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+
+  svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: currentColor;
+  }
 }
 
 .navButton {
@@ -78,6 +110,36 @@
   }
 }
 
+.sidebar[data-collapsed] {
+  .sidebarLabel,
+  .navText {
+    display: none;
+  }
+
+  .sidebarHeader {
+    justify-content: center;
+  }
+
+  .navButton {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  :global(.mantine-Button-inner) {
+    justify-content: center;
+  }
+
+  :global(.mantine-Button-section) {
+    margin-inline: 0;
+  }
+
+  .collapseButton {
+    width: 100%;
+    border-color: color-mix(in srgb, var(--color-primary) 46%, transparent);
+    border-width: 2px;
+  }
+}
+
 .content {
   min-width: 0;
 }
@@ -86,9 +148,35 @@
   .page {
     grid-template-columns: 1fr;
     padding: 1rem;
+
+    &[data-collapsed] {
+      grid-template-columns: 1fr;
+    }
   }
 
   .sidebar {
     position: static;
+  }
+
+  .sidebarHeader {
+    justify-content: space-between;
+  }
+
+  .collapseButton {
+    margin-left: auto;
+  }
+
+  .sidebar[data-collapsed] {
+    .sidebarLabel {
+      display: block;
+    }
+
+    > :global(.mantine-Stack-root) > div:not(:first-child) {
+      display: none;
+    }
+
+    .collapseButton {
+      width: 2.15rem;
+    }
   }
 }

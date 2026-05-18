@@ -1,0 +1,15 @@
+.tooltip {
+  padding: 0.42rem 0.6rem;
+  color: var(--color-dark-main);
+  font-size: 0.78rem;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+}
+
+.arrow {
+  border-color: color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+}

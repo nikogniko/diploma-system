@@ -5,6 +5,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  Drawer,
   Group,
   MultiSelect,
   NumberInput,
@@ -22,10 +23,12 @@ import { ApiError, apiRequest } from "../../api/apiClient";
 import { ErrorBanner } from "../../components/common/ErrorBanner";
 import { FormSection } from "../../components/common/FormSection";
 import { AppLoader } from "../../components/common/AppLoader";
+import { AppTooltip } from "../../components/common/AppTooltip";
 import { RichTextEditor } from "../../components/common/RichTextEditor";
+import { ResumePreview } from "../../components/resume/ResumePreview";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { CabinetLayout } from "../../layouts/CabinetLayout";
-import { interpolate, messages } from "../../locales/i18n";
+import { interpolate, messages } from "../../locales/localizedMessages";
 import {
   formatUkrainianPhone,
   isValidEmail,
@@ -37,6 +40,7 @@ type CatalogItem = { id: number; name: string };
 type Skill = CatalogItem & { category: string };
 type LinkType = "WEBSITE" | "MESSENGER" | "SOCIAL" | "PORTFOLIO" | "OTHER";
 type LinkItem = { id?: string; linkType: LinkType; linkName: string; value: string };
+type LinkResource = { name: string; types: LinkType[]; domains?: string[]; allowAnyUrl?: boolean };
 type SkillJoin = { skill: Skill };
 type LocationJoin = {
   location: {
@@ -131,6 +135,29 @@ const navItems = [
 const cefrLevels = ["A1", "A2", "B1", "B2", "C1", "C2", "NATIVE"];
 const currentYear = new Date().getFullYear();
 const resourcePlaceholder = ui.resourcePlaceholder;
+const maxProfileLinks = 6;
+const linkResources: LinkResource[] = [
+  { name: "LinkedIn", types: ["SOCIAL", "PORTFOLIO"], domains: ["linkedin.com"] },
+  { name: ui.linksEditor.suggestions.ownWebsite, types: ["WEBSITE"], allowAnyUrl: true },
+  { name: ui.linksEditor.suggestions.portfolio, types: ["PORTFOLIO"], allowAnyUrl: true },
+  { name: "Google Drive", types: ["PORTFOLIO", "OTHER"], domains: ["drive.google.com"] },
+  { name: "OneDrive", types: ["PORTFOLIO", "OTHER"], domains: ["onedrive.live.com", "1drv.ms"] },
+  { name: "Instagram", types: ["SOCIAL", "PORTFOLIO"], domains: ["instagram.com"] },
+  { name: "Twitter / X", types: ["SOCIAL"], domains: ["x.com", "twitter.com"] },
+  { name: "Facebook", types: ["SOCIAL"], domains: ["facebook.com"] },
+  { name: "YouTube", types: ["SOCIAL", "PORTFOLIO"], domains: ["youtube.com", "youtu.be"] },
+  { name: "TikTok", types: ["SOCIAL", "PORTFOLIO"], domains: ["tiktok.com"] },
+  { name: "Notion", types: ["PORTFOLIO", "OTHER"], domains: ["notion.so", "notion.site"] },
+  { name: "Canva", types: ["PORTFOLIO", "OTHER"], domains: ["canva.com"] },
+  { name: "GitHub", types: ["PORTFOLIO"], domains: ["github.com"] },
+  { name: "GitLab", types: ["PORTFOLIO"], domains: ["gitlab.com"] },
+  { name: "LeetCode", types: ["PORTFOLIO"], domains: ["leetcode.com"] },
+  { name: "Behance", types: ["PORTFOLIO"], domains: ["behance.net"] },
+  { name: "Dribbble", types: ["PORTFOLIO"], domains: ["dribbble.com"] },
+  { name: "Figma", types: ["PORTFOLIO", "OTHER"], domains: ["figma.com"] },
+  { name: "ArtStation", types: ["PORTFOLIO"], domains: ["artstation.com"] },
+  { name: "CodePen", types: ["PORTFOLIO"], domains: ["codepen.io"] },
+];
 
 /** Кабінет кандидата з персональними даними, резюме і параметрами пошуку. */
 export default function StudentDashboard() {
@@ -142,6 +169,7 @@ export default function StudentDashboard() {
   const [blockErrors, setBlockErrors] = useState<Record<string, string | null>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isResumePreviewOpen, setIsResumePreviewOpen] = useState(false);
 
   const [personalForm, setPersonalForm] = useState({
     firstName: "",
@@ -319,9 +347,9 @@ export default function StudentDashboard() {
     if (personalForm.secondaryPhone && !isValidUkrainianPhone(personalForm.secondaryPhone)) throw new Error(ui.errors.secondaryPhone);
     if (personalForm.viber && !isValidUkrainianPhone(personalForm.viber)) throw new Error(ui.errors.viber);
     if (personalForm.telegram && !/^(@[a-zA-Z0-9_]{5,32}|\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2})$/.test(personalForm.telegram)) throw new Error(ui.errors.telegram);
-    if (personalForm.links.some((link) => !link.linkType || !link.linkName.trim() || !isValidUrlLike(link.value))) {
-      throw new Error(ui.errors.links);
-    }
+    const invalidLink = personalForm.links.find((link) => validateProfileLink(link));
+    if (personalForm.links.length > maxProfileLinks) throw new Error((ui.errors as Record<string, string>).linksLimit ?? ui.errors.links);
+    if (invalidLink) throw new Error(validateProfileLink(invalidLink) ?? ui.errors.links);
 
     const token = await getToken();
     await apiRequest("/students/my-cabinet/personal-info", token, {
@@ -342,6 +370,15 @@ export default function StudentDashboard() {
     await apiRequest("/students/my-cabinet/search-preferences", token, {
       method: "PATCH",
       body: JSON.stringify({ visibility: personalForm.visibility }),
+    });
+  });
+
+  /** Оновлює тільки текст "Про себе", не зачіпаючи контакти та посилання профілю. */
+  const saveAboutInfo = () => runBlock("about", async () => {
+    const token = await getToken();
+    await apiRequest("/students/my-cabinet/personal-info", token, {
+      method: "PATCH",
+      body: JSON.stringify({ about: clean(personalForm.about) }),
     });
   });
 
@@ -455,9 +492,18 @@ export default function StudentDashboard() {
 
   return (
     <CabinetLayout navItems={navItems} activeKey={active} onSelect={setActive}>
+      <Drawer
+        opened={isResumePreviewOpen}
+        onClose={() => setIsResumePreviewOpen(false)}
+        title={ui.resumePreview.drawerTitle}
+        position="right"
+        size="min(980px, 92vw)"
+      >
+        <ResumePreview profile={profile} />
+      </Drawer>
       <Stack gap="md">
         <ErrorBanner message={pageError} />
-        {active === "dashboard" && <DashboardTab profile={profile} />}
+        {active === "dashboard" && <DashboardTab profile={profile} onOpenResume={() => setIsResumePreviewOpen(true)} />}
         {active === "vacancies" && <SimpleTab title={ui.nav.applications} description={ui.simpleTab.applicationsDescription} />}
         {active === "personal" && (
           <PersonalTab
@@ -490,7 +536,7 @@ export default function StudentDashboard() {
             profile={profile}
             personalForm={personalForm}
             setPersonalForm={setPersonalForm}
-            savePersonalInfo={savePersonalInfo}
+            saveAboutInfo={saveAboutInfo}
             options={options}
             universities={universities}
             universityQuery={universityQuery}
@@ -510,7 +556,7 @@ export default function StudentDashboard() {
   );
 }
 
-function DashboardTab({ profile }: { profile: StudentProfile | null }) {
+function DashboardTab({ profile, onOpenResume }: { profile: StudentProfile | null; onOpenResume: () => void }) {
   return (
     <>
       <TabHeader title={ui.dashboard.title} description={ui.dashboard.description} />
@@ -522,6 +568,7 @@ function DashboardTab({ profile }: { profile: StudentProfile | null }) {
           <Badge className={classes.badge}>{interpolate(ui.dashboard.projectsBadge, { count: profile?.projects.length ?? 0 })}</Badge>
           <Badge className={classes.badge}>{interpolate(ui.dashboard.experienceBadge, { count: profile?.experiences.length ?? 0 })}</Badge>
         </Group>
+        <Button className={classes.previewButton} onClick={onOpenResume}>{ui.dashboard.previewButton}</Button>
       </FormSection>
     </>
   );
@@ -572,7 +619,7 @@ function PersonalTab({ profile, form, setForm, error, saving, onSave }: any) {
         </div>
         <LinkEditor links={form.links} setLinks={(links) => setForm({ ...form, links })} />
       </FormSection>
-      <FormSection title={ui.personal.visibilityTitle} description={ui.personal.visibilityDescription}>
+      <FormSection title={ui.personal.contactVisibilityTitle} description={ui.personal.visibilityDescription}>
         <VisibilitySelector value={form.visibility ?? "APPLIED_ONLY"} onChange={(visibility) => setForm({ ...form, visibility })} />
       </FormSection>
       <InlineError message={error} />
@@ -620,7 +667,7 @@ function SearchTab(props: any) {
 }
 
 function ResumeTab(props: any) {
-  const { profile, personalForm, setPersonalForm, savePersonalInfo, options, universities, universityQuery, setUniversityQuery, forms, setters, edits, editIds, errors, saving, actions, clearError } = props;
+  const { profile, personalForm, setPersonalForm, saveAboutInfo, options, universities, universityQuery, setUniversityQuery, forms, setters, edits, editIds, errors, saving, actions, clearError } = props;
   const { educationForm, languageForm, courseForm, projectForm, experienceForm } = forms;
   const { setEducationForm, setLanguageForm, setCourseForm, setProjectForm, setExperienceForm } = setters;
   return (
@@ -628,15 +675,15 @@ function ResumeTab(props: any) {
       <TabHeader title={ui.resume.title} description={ui.resume.description} />
       <FormSection title={ui.resume.aboutTitle} description={ui.resume.aboutDescription}>
         <RichTextEditor value={personalForm.about} onChange={(about) => setPersonalForm({ ...personalForm, about })} maxLength={500} placeholder={ui.resume.aboutPlaceholder} />
-        <InlineError message={errors.personal} />
-        <ActionButtons saving={saving.personal} isEditing={false} createLabel={commonUi.actions.save} onSave={savePersonalInfo} onCancel={() => { setPersonalForm({ ...personalForm, about: "" }); clearError("personal"); }} />
+        <InlineError message={errors.about} />
+        <ActionButtons saving={saving.about} isEditing={false} createLabel={commonUi.actions.save} onSave={saveAboutInfo} onCancel={() => { setPersonalForm({ ...personalForm, about: "" }); clearError("about"); }} />
       </FormSection>
       <FormSection title={ui.resume.educationTitle} description={ui.resume.educationDescription}>
-        <RecordList items={profile?.education ?? []} title={(i: any) => i.university?.name ?? i.customUniversityName} meta={(i: any) => `${degreeLabel(i.degree)} · ${i.specialty} · ${i.startYear}${i.endYear ? `-${i.endYear}` : ""}`} links={(i: any) => i.diplomaUrl ? [{ label: ui.links.diploma, value: i.diplomaUrl }] : []} onEdit={(i: any) => { edits.setEducationEditId(i.id); setEducationForm({ universityId: i.universityId ? String(i.universityId) : "", customUniversityName: i.customUniversityName ?? "", degree: i.degree, specialty: i.specialty, startYear: String(i.startYear), endYear: i.endYear ? String(i.endYear) : "", diplomaUrl: i.diplomaUrl ?? "" }); setUniversityQuery(i.customUniversityName ?? i.university?.name ?? ""); }} onDelete={(i: any) => actions.deleteResumeItem("education", i.id)} />
+        <RecordList items={sortByYearDesc(profile?.education ?? [])} title={(i: any) => i.university?.name ?? i.customUniversityName} meta={(i: any) => <><strong>{degreeLabel(i.degree)}</strong> · {i.specialty}<br />{i.startYear}{i.endYear ? `-${i.endYear}` : ""}</>} links={(i: any) => i.diplomaUrl ? [{ label: ui.links.diploma, value: i.diplomaUrl }] : []} onEdit={(i: any) => { edits.setEducationEditId(i.id); setEducationForm({ universityId: i.universityId ? String(i.universityId) : "", customUniversityName: i.customUniversityName ?? "", degree: i.degree, specialty: i.specialty, startYear: String(i.startYear), endYear: i.endYear ? String(i.endYear) : "", diplomaUrl: i.diplomaUrl ?? "" }); setUniversityQuery(i.customUniversityName ?? i.university?.name ?? ""); }} onDelete={(i: any) => actions.deleteResumeItem("education", i.id)} />
         <div className={classes.grid}>
           <div className={classes.fullRow}>
             <TextInput label={ui.resume.university} required placeholder={ui.resume.universityPlaceholder} value={universityQuery} onChange={(event) => { const value = event.currentTarget.value; setUniversityQuery(value); setEducationForm({ ...educationForm, universityId: "", customUniversityName: value }); }} />
-            {universities.length > 0 && (
+            {universityQuery.trim().length >= 2 && !educationForm.universityId && universities.length > 0 && (
               <div className={classes.suggestionList}>
                 {universities.map((item: CatalogItem) => <button key={item.id} type="button" onClick={() => { setUniversityQuery(item.name); setEducationForm({ ...educationForm, universityId: String(item.id), customUniversityName: "" }); }}>{item.name}</button>)}
               </div>
@@ -648,20 +695,20 @@ function ResumeTab(props: any) {
           <NumberInput label={ui.resume.endYear} min={currentYear - 60} max={currentYear} value={educationForm.endYear ? Number(educationForm.endYear) : undefined} onChange={(value) => setEducationForm({ ...educationForm, endYear: value ? String(value) : "" })} />
           <TextInput className={classes.fullRow} label={ui.resume.diplomaUrl} placeholder={resourcePlaceholder} maxLength={255} value={educationForm.diplomaUrl} onChange={(e) => setEducationForm({ ...educationForm, diplomaUrl: e.currentTarget.value })} />
         </div>
-        <InlineError message={errors.education} /><ActionButtons saving={saving.education} isEditing={Boolean(editIds.educationEditId)} onSave={actions.saveEducation} onCancel={() => { setEducationForm({ universityId: "", customUniversityName: "", degree: "BACHELOR", specialty: "", startYear: "", endYear: "", diplomaUrl: "" }); setUniversityQuery(""); clearError("education"); }} />
+        <InlineError message={errors.education} /><ActionButtons saving={saving.education} isEditing={Boolean(editIds.educationEditId)} onSave={actions.saveEducation} onCancel={() => { setEducationForm({ universityId: "", customUniversityName: "", degree: "BACHELOR", specialty: "", startYear: "", endYear: "", diplomaUrl: "" }); edits.setEducationEditId(null); setUniversityQuery(""); clearError("education"); }} />
       </FormSection>
       <FormSection title={ui.resume.languagesTitle} description={ui.resume.languagesDescription}>
-        <RecordList items={profile?.languages ?? []} title={(i: any) => i.language?.name} meta={(i: any) => i.level} links={(i: any) => i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []} onEdit={(i: any) => { edits.setLanguageEditId(i.id); setLanguageForm({ languageId: String(i.languageId), level: i.level, certificateUrl: i.certificateUrl ?? "" }); }} onDelete={(i: any) => actions.deleteResumeItem("languages", i.id)} />
+        <RecordList items={profile?.languages ?? []} title={(i: any) => `${i.language?.name ?? ""} - ${i.level}`} links={(i: any) => i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []} onEdit={(i: any) => { edits.setLanguageEditId(i.id); setLanguageForm({ languageId: String(i.languageId), level: i.level, certificateUrl: i.certificateUrl ?? "" }); }} onDelete={(i: any) => actions.deleteResumeItem("languages", i.id)} />
         <div className={classes.grid}>
           <Select label={ui.resume.language} required searchable placeholder={ui.resume.languagePlaceholder} data={options.languages} value={languageForm.languageId || null} onChange={(value) => setLanguageForm({ ...languageForm, languageId: value ?? "" })} />
           <Select label={ui.resume.level} required placeholder={ui.resume.levelPlaceholder} data={cefrLevels} value={languageForm.level || null} onChange={(value) => setLanguageForm({ ...languageForm, level: value ?? "" })} />
           <TextInput className={classes.fullRow} label={ui.resume.certificateUrl} placeholder={resourcePlaceholder} maxLength={255} value={languageForm.certificateUrl} onChange={(e) => setLanguageForm({ ...languageForm, certificateUrl: e.currentTarget.value })} />
         </div>
-        <InlineError message={errors.languages} /><ActionButtons saving={saving.languages} isEditing={Boolean(editIds.languageEditId)} onSave={actions.saveLanguage} onCancel={() => { setLanguageForm({ languageId: "", level: "", certificateUrl: "" }); clearError("languages"); }} />
+        <InlineError message={errors.languages} /><ActionButtons saving={saving.languages} isEditing={Boolean(editIds.languageEditId)} onSave={actions.saveLanguage} onCancel={() => { setLanguageForm({ languageId: "", level: "", certificateUrl: "" }); edits.setLanguageEditId(null); clearError("languages"); }} />
       </FormSection>
-      <CompetencySection type="courses" title={ui.resume.coursesTitle} description={ui.resume.coursesDescription} items={profile?.courses ?? []} form={courseForm} setForm={setCourseForm} edit={edits.setCourseEditId} isEditing={Boolean(editIds.courseEditId)} error={errors.courses} saving={saving.courses} onSave={actions.saveCourse} onDelete={actions.deleteResumeItem} options={options} clearError={clearError} />
+      <CompetencySection type="courses" title={ui.resume.coursesTitle} description={ui.resume.coursesDescription} items={sortByDateDesc(profile?.courses ?? [], "startDate")} form={courseForm} setForm={setCourseForm} edit={edits.setCourseEditId} isEditing={Boolean(editIds.courseEditId)} error={errors.courses} saving={saving.courses} onSave={actions.saveCourse} onDelete={actions.deleteResumeItem} options={options} clearError={clearError} />
       <CompetencySection type="projects" title={ui.resume.projectsTitle} description={ui.resume.projectsDescription} items={profile?.projects ?? []} form={projectForm} setForm={setProjectForm} edit={edits.setProjectEditId} isEditing={Boolean(editIds.projectEditId)} error={errors.projects} saving={saving.projects} onSave={actions.saveProject} onDelete={actions.deleteResumeItem} options={options} clearError={clearError} />
-      <ExperienceSection form={experienceForm} setForm={setExperienceForm} items={profile?.experiences ?? []} options={options} edit={edits.setExperienceEditId} isEditing={Boolean(editIds.experienceEditId)} error={errors.experiences} saving={saving.experiences} onSave={actions.saveExperience} onDelete={actions.deleteResumeItem} clearError={clearError} />
+      <ExperienceSection form={experienceForm} setForm={setExperienceForm} items={sortByDateDesc(profile?.experiences ?? [], "startDate")} options={options} edit={edits.setExperienceEditId} isEditing={Boolean(editIds.experienceEditId)} error={errors.experiences} saving={saving.experiences} onSave={actions.saveExperience} onDelete={actions.deleteResumeItem} clearError={clearError} />
     </>
   );
 }
@@ -674,17 +721,17 @@ function CompetencySection({ type, title, description, items, form, setForm, edi
     {isCourse ? <div className={classes.grid}><TextInput className={classes.fullRow} label={ui.resume.titleField} required placeholder={ui.resume.courseTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><MonthPickerInput label={ui.resume.startMonth} required placeholder={ui.resume.monthPlaceholder} value={form.startDate ? new Date(monthToDate(form.startDate)) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><MonthPickerInput label={ui.resume.endMonth} placeholder={ui.resume.monthPlaceholder} clearable value={form.endDate ? new Date(monthToDate(form.endDate)) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><TextInput className={classes.fullRow} label={ui.resume.certificateUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.certificateUrl} onChange={(e) => setForm({ ...form, certificateUrl: e.currentTarget.value })} /></div> : <><TextInput label={ui.resume.titleField} required placeholder={ui.resume.projectTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><RichTextEditor value={form.description} onChange={(description) => setForm({ ...form, description })} label={ui.resume.descriptionField} placeholder={ui.resume.projectDescriptionPlaceholder} /><TextInput label={ui.resume.projectUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.projectUrl} onChange={(e) => setForm({ ...form, projectUrl: e.currentTarget.value })} /></>}
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={isProject ? 30 : 20} />
     <Text className={classes.muted}>{ui.resume.proposedSkillTodo}</Text>
-    <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm(isCourse ? { title: "", startDate: "", endDate: "", certificateUrl: "", skillIds: [] } : { title: "", description: "", projectUrl: "", skillIds: [] }); clearError(type); }} />
+    <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm(isCourse ? { title: "", startDate: "", endDate: "", certificateUrl: "", skillIds: [] } : { title: "", description: "", projectUrl: "", skillIds: [] }); edit(null); clearError(type); }} />
   </FormSection>;
 }
 
 function ExperienceSection({ form, setForm, items, options, edit, isEditing, error, saving, onSave, onDelete, clearError }: any) {
   return <FormSection title={ui.resume.experienceTitle} description={ui.resume.experienceDescription}>
-    <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => `${dateShort(i.startDate)} - ${i.endDate ? dateShort(i.endDate) : ui.resume.now}\n${i.profession?.name ?? ""} · ${i.sphere?.name ?? ""}`} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
+    <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => <><strong>{formatDuration(i.startDate, i.endDate)}</strong> · {dateShort(i.startDate)} - {i.endDate ? dateShort(i.endDate) : ui.resume.now}<br />{i.profession?.name ?? ""} · {i.sphere?.name ?? ""}</>} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
     <div className={classes.grid}><Select label={ui.resume.profession} required searchable placeholder={ui.resume.professionPlaceholder} data={options.professions} value={form.professionId || null} onChange={(value) => setForm({ ...form, professionId: value ?? "" })} /><TextInput label={ui.resume.position} required placeholder={ui.resume.positionPlaceholder} maxLength={200} value={form.position} onChange={(e) => setForm({ ...form, position: e.currentTarget.value })} /><TextInput label={ui.resume.company} required placeholder={ui.resume.companyPlaceholder} maxLength={200} value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.currentTarget.value })} /><Select label={ui.resume.sphere} required searchable placeholder={ui.resume.spherePlaceholder} data={options.spheres} value={form.sphereId || null} onChange={(value) => setForm({ ...form, sphereId: value ?? "" })} /><DateInput label={ui.resume.startDate} required placeholder={ui.resume.datePlaceholder} value={form.startDate ? new Date(form.startDate) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><DateInput label={ui.resume.endDate} placeholder={ui.resume.datePlaceholder} clearable value={form.endDate ? new Date(form.endDate) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /></div>
     <RichTextEditor label={ui.resume.achievements} value={form.achievements} onChange={(achievements) => setForm({ ...form, achievements })} placeholder={ui.resume.achievementsPlaceholder} />
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={30} />
-    <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm({ professionId: "", sphereId: "", companyName: "", position: "", startDate: "", endDate: "", achievements: "", skillIds: [] }); clearError("experiences"); }} />
+    <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm({ professionId: "", sphereId: "", companyName: "", position: "", startDate: "", endDate: "", achievements: "", skillIds: [] }); edit(null); clearError("experiences"); }} />
   </FormSection>;
 }
 
@@ -701,33 +748,11 @@ function SmartSkillSelector({ value, onChange, options, max }: { value: string[]
 
 function RecordList({ items, title, meta, skills, links, onEdit, onDelete }: any) {
   if (!items.length) return <Text className={classes.muted}>{ui.resume.noRecords}</Text>;
-  return <div className={classes.cardList}>{items.map((item: any) => <div key={item.id} className={classes.recordCard}><span className={classes.dragHandle}>⠿</span><div><Text className={classes.recordTitle}>{title(item)}</Text><Text className={classes.recordMeta}>{meta(item)}</Text>{links?.(item)?.length > 0 && <div className={classes.urlList}>{links(item).map((link: { label: string; value: string }) => <a key={`${link.label}-${link.value}`} className={classes.resourceLink} href={normalizeHref(link.value)} title={link.value} target="_blank" rel="noreferrer">{link.label}</a>)}</div>}{skills && <SkillChips skills={skills(item)} />}</div><div className={classes.iconActions}><button className={classes.iconButton} onClick={() => onEdit(item)} title={commonUi.actions.edit}><EditIcon /></button><button className={`${classes.iconButton} ${classes.dangerIconButton}`} onClick={() => onDelete(item)} title={commonUi.actions.delete}><TrashIcon /></button></div></div>)}</div>;
+  return <div className={classes.cardList}>{items.map((item: any) => <div key={item.id} className={classes.recordCard}><span className={classes.dragHandle}>⠿</span><div><Text className={classes.recordTitle}>{title(item)}</Text>{meta?.(item) && <Text className={classes.recordMeta}>{meta(item)}</Text>}{links?.(item)?.length > 0 && <div className={classes.urlList}>{links(item).map((link: { label: string; value: string }) => <AppTooltip key={`${link.label}-${link.value}`} label={link.value}><a className={classes.resourceLink} href={normalizeHref(link.value)} target="_blank" rel="noreferrer">{link.label}</a></AppTooltip>)}</div>}{skills && <SkillChips skills={skills(item)} />}</div><div className={classes.iconActions}><AppTooltip label={commonUi.actions.edit}><button className={classes.iconButton} onClick={() => onEdit(item)}><EditIcon /></button></AppTooltip><AppTooltip label={commonUi.actions.delete}><button className={`${classes.iconButton} ${classes.dangerIconButton}`} onClick={() => onDelete(item)}><TrashIcon /></button></AppTooltip></div></div>)}</div>;
 }
 
 function LinkEditor({ links, setLinks }: { links: LinkItem[]; setLinks: (links: LinkItem[]) => void }) {
   const [error, setError] = useState<string | null>(null);
-  const suggestions: Array<{ name: string; type: LinkType }> = [
-    { name: "LinkedIn", type: "SOCIAL" },
-    { name: ui.linksEditor.suggestions.ownWebsite, type: "WEBSITE" },
-    { name: ui.linksEditor.suggestions.portfolio, type: "PORTFOLIO" },
-    { name: "Google Drive", type: "PORTFOLIO" },
-    { name: "OneDrive", type: "PORTFOLIO" },
-    { name: "Instagram", type: "SOCIAL" },
-    { name: "Twitter / X", type: "SOCIAL" },
-    { name: "Facebook", type: "SOCIAL" },
-    { name: "YouTube", type: "SOCIAL" },
-    { name: "TikTok", type: "SOCIAL" },
-    { name: "Notion", type: "PORTFOLIO" },
-    { name: "Canva", type: "PORTFOLIO" },
-    { name: "GitHub", type: "PORTFOLIO" },
-    { name: "GitLab", type: "PORTFOLIO" },
-    { name: "LeetCode", type: "PORTFOLIO" },
-    { name: "Behance", type: "PORTFOLIO" },
-    { name: "Dribbble", type: "PORTFOLIO" },
-    { name: "Figma", type: "PORTFOLIO" },
-    { name: "ArtStation", type: "PORTFOLIO" },
-    { name: "CodePen", type: "PORTFOLIO" },
-  ];
   const categoryOptions = [
     { value: "WEBSITE", label: ui.linksEditor.categories.website },
     { value: "MESSENGER", label: ui.linksEditor.categories.messenger },
@@ -737,17 +762,34 @@ function LinkEditor({ links, setLinks }: { links: LinkItem[]; setLinks: (links: 
   ];
   const add = () => {
     const last = links.at(-1);
-    if (last && (!last.linkType || !last.linkName.trim() || !isValidUrlLike(last.value))) {
-      setError(ui.errors.previousLinkRequired);
+    if (links.length >= maxProfileLinks) {
+      setError((ui.errors as Record<string, string>).linksLimit ?? ui.errors.links);
       return;
+    }
+    if (last) {
+      const validationError = validateProfileLink(last);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
     }
     setError(null);
     setLinks([...links, { linkType: "SOCIAL", linkName: "", value: "" }]);
   };
-  return <Stack gap="sm">{links.map((link, index) => <div className={classes.linkGrid} key={index}><Select required label={ui.linksEditor.category} placeholder={ui.linksEditor.categoryPlaceholder} data={categoryOptions} value={link.linkType} onChange={(value) => setLinks(links.map((item, i) => i === index ? { ...item, linkType: (value ?? "OTHER") as LinkType } : item))} /><Autocomplete required label={ui.linksEditor.name} placeholder={ui.linksEditor.namePlaceholder} data={suggestions.map((item) => item.name)} limit={suggestions.length} maxLength={100} value={link.linkName} onChange={(value) => {
-    const found = suggestions.find((item) => item.name.toLowerCase() === value.toLowerCase());
-    setLinks(links.map((item, i) => i === index ? { ...item, linkName: value, linkType: found?.type ?? item.linkType } : item));
-  }} /><TextInput required label={ui.linksEditor.value} placeholder={resourcePlaceholder} maxLength={255} value={link.value} onChange={(e) => setLinks(links.map((item, i) => i === index ? { ...item, value: e.currentTarget.value } : item))} /><button type="button" className={`${classes.iconButton} ${classes.dangerIconButton} ${classes.linkDeleteButton}`} onClick={() => { setLinks(links.filter((_, i) => i !== index)); setError(null); }} title={ui.linksEditor.deleteTitle}><TrashIcon /></button></div>)}<InlineError message={error} /><Button variant="light" onClick={add}>{ui.actions.addLink}</Button></Stack>;
+  return <Stack gap="sm">{links.map((link, index) => {
+    const selectedResource = getLinkResource(link.linkName);
+    const availableCategories = selectedResource
+      ? categoryOptions.filter((item) => selectedResource.types.includes(item.value as LinkType))
+      : categoryOptions;
+    return <div className={classes.linkGrid} key={index}><Select required label={ui.linksEditor.category} placeholder={ui.linksEditor.categoryPlaceholder} data={availableCategories} value={link.linkType} onChange={(value) => setLinks(links.map((item, i) => i === index ? { ...item, linkType: (value ?? "OTHER") as LinkType } : item))} /><Autocomplete required label={ui.linksEditor.name} placeholder={ui.linksEditor.namePlaceholder} data={linkResources.map((item) => item.name)} limit={linkResources.length} maxLength={100} value={link.linkName} onChange={(value) => {
+    const found = getLinkResource(value);
+    setLinks(links.map((item, i) => i === index ? { ...item, linkName: value, linkType: found && !found.types.includes(item.linkType) ? found.types[0] : item.linkType } : item));
+    setError(null);
+  }} /><TextInput required label={ui.linksEditor.value} placeholder={resourcePlaceholder} maxLength={255} value={link.value} onChange={(e) => {
+    setLinks(links.map((item, i) => i === index ? { ...item, value: e.currentTarget.value } : item));
+    setError(null);
+  }} /><AppTooltip label={ui.linksEditor.deleteTitle}><button type="button" className={`${classes.iconButton} ${classes.dangerIconButton} ${classes.linkDeleteButton}`} onClick={() => { setLinks(links.filter((_, i) => i !== index)); setError(null); }}><TrashIcon /></button></AppTooltip></div>;
+  })}<InlineError message={error} /><Button variant="light" onClick={add} disabled={links.length >= maxProfileLinks}>{ui.actions.addLink}</Button></Stack>;
 }
 
 function VisibilitySelector({ value, onChange }: { value: string; onChange: (value: string) => void }) {
@@ -756,7 +798,7 @@ function VisibilitySelector({ value, onChange }: { value: string; onChange: (val
     ["APPLIED_ONLY", ui.visibility.appliedLabel, ui.visibility.appliedText],
     ["HIDDEN", ui.visibility.hiddenLabel, ui.visibility.hiddenText],
   ];
-  return <div className={classes.visibilityOptions}>{items.map(([id, label, text]) => <label className={classes.visibilityOption} key={id}><Checkbox checked={value === id} onChange={() => onChange(id)} label={<><Text fw={900}>{label}</Text><Text className={classes.muted}>{text}</Text></>} /></label>)}</div>;
+  return <div className={classes.visibilityOptions}>{items.map(([id, label, text]) => <label className={classes.visibilityOption} key={id}><Checkbox className={classes.visibilityCheckbox} checked={value === id} onChange={() => onChange(id)} label={<><Text fw={900}>{label}</Text><Text className={classes.muted}>{text}</Text></>} /></label>)}</div>;
 }
 
 function SkillChips({ skills }: { skills: Skill[] }) {
@@ -794,8 +836,49 @@ const dateShort = (value: string) => dayjs(value).format("DD.MM.YYYY");
 const monthShort = (value: string) => dayjs(value).format("MM.YYYY");
 const monthToDate = (value: string) => value.length === 7 ? `${value}-01` : value;
 const isValidUrlLike = (value: string) => /^(https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,})/i.test(value.trim());
+const getLinkResource = (name: string) => linkResources.find((item) => item.name.toLowerCase() === name.trim().toLowerCase());
+const getLinkUrl = (value: string) => {
+  const trimmed = value.trim();
+  try {
+    return new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+  } catch {
+    return null;
+  }
+};
+const linkHostMatches = (host: string, domains: string[]) => domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+const validateProfileLink = (link: LinkItem) => {
+  const errors = ui.errors as Record<string, string>;
+  if (!link.linkType || !link.linkName.trim() || !link.value.trim()) return errors.linksRequired ?? ui.errors.links;
+  if (!isValidUrlLike(link.value)) return errors.linkFormatInvalid ?? ui.errors.links;
+  const resource = getLinkResource(link.linkName);
+  if (!resource) return null;
+  if (!resource.types.includes(link.linkType)) return errors.linkCategoryNotAllowed ?? ui.errors.links;
+  if (resource.allowAnyUrl || !resource.domains?.length) return null;
+  const url = getLinkUrl(link.value);
+  if (!url || !linkHostMatches(url.hostname.replace(/^www\./i, "").toLowerCase(), resource.domains)) return errors.linkDomainInvalid ?? ui.errors.links;
+  return null;
+};
 const normalizeHref = (value: string) => /^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim().replace(/^www\./i, "www.")}`;
 const stripHtml = (value: string) => value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+const sortByDateDesc = <T extends Record<string, string>>(items: T[], key: keyof T) => [...items].sort((a, b) => dayjs(String(b[key])).valueOf() - dayjs(String(a[key])).valueOf());
+const sortByYearDesc = <T extends { startYear: number }>(items: T[]) => [...items].sort((a, b) => b.startYear - a.startYear);
+const formatDuration = (start: string, end?: string | null) => {
+  const startDate = dayjs(start);
+  const endDate = end ? dayjs(end) : dayjs();
+  const years = endDate.diff(startDate, "year");
+  if (years >= 1) return `${years} ${pluralUk(years, commonUi.duration.year)}`;
+  const months = endDate.diff(startDate, "month");
+  if (months >= 1) return `${months} ${pluralUk(months, commonUi.duration.month)}`;
+  const days = Math.max(1, endDate.diff(startDate, "day"));
+  return `${days} ${pluralUk(days, commonUi.duration.day)}`;
+};
+const pluralUk = (value: number, forms: string[]) => {
+  const mod10 = value % 10;
+  const mod100 = value % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+  return forms[2];
+};
 const degreeLabel = (degree: string) => ({ JUNIOR_BACHELOR: ui.degreeLabels.juniorBachelor, BACHELOR: ui.degreeLabels.bachelor, MASTER: ui.degreeLabels.master, PHD: ui.degreeLabels.phd, OTHER: ui.degreeLabels.other }[degree] ?? degree);
 const skillClass = (category: string) => category.toLowerCase().includes("soft") ? classes.soft : category.toLowerCase().includes("tool") ? classes.tools : classes.hard;
 function formatLocation(item: LocationJoin, catalogs: StudentCatalogs) {

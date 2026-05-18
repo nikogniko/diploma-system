@@ -5,7 +5,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { messages } from "../../locales/i18n";
+import { messages } from "../../locales/localizedMessages";
 import styles from "./RichTextEditor.module.scss";
 
 type RichTextEditorProps = {

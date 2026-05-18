@@ -12,7 +12,13 @@ html {
 
 body {
   font-family: "Manrope Variable", Manrope, Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  background-color: var(--color-bg-main);
+  background:
+    radial-gradient(circle at 8% 12%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 30%),
+    radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--color-info) 12%, transparent), transparent 28%),
+    radial-gradient(circle at 78% 74%, color-mix(in srgb, var(--color-secondary) 10%, transparent), transparent 30%),
+    radial-gradient(circle at 18% 88%, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 28%),
+    var(--color-bg-main);
+  background-attachment: fixed;
   color: var(--color-dark-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;

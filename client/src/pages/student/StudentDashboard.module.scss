@@ -2,11 +2,12 @@
 
 .tabHeader {
   margin-bottom: 1rem;
+  padding-inline: 1.25rem;
 }
 
 .tabTitle {
   margin: 0;
-  color: var(--color-dark-main);
+  color: var(--color-primary);
   font-size: 1.65rem;
 }
 
@@ -95,6 +96,17 @@
   border: 1px solid var(--color-border);
 }
 
+.previewButton {
+  width: fit-content;
+  min-height: 2.65rem;
+  padding-inline: 1.15rem;
+  background: var(--color-primary);
+
+  &:hover {
+    background: var(--color-primary-hover);
+  }
+}
+
 .muted {
   color: var(--color-dark-muted);
 }
@@ -161,7 +173,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-  margin-top: 0.55rem;
+  margin-top: 0.25rem;
 }
 
 .resourceLink {
@@ -269,13 +281,13 @@
 }
 
 .soft {
-  color: var(--color-secondary);
-  background: var(--color-secondary-soft);
+  color: color-mix(in srgb, var(--color-secondary) 62%, var(--color-dark-main));
+  background: color-mix(in srgb, var(--color-secondary) 18%, var(--color-surface));
 }
 
 .tools {
-  color: var(--color-accent);
-  background: var(--color-accent-soft);
+  color: color-mix(in srgb, var(--color-accent) 58%, var(--color-dark-main));
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
 }
 
 .locationChip {
@@ -329,9 +341,31 @@
 }
 
 .visibilityOption {
+  display: grid;
+  min-height: 4.4rem;
   padding: 0.85rem;
+  align-items: center;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+}
+
+.visibilityCheckbox {
+  display: flex;
+  align-items: center;
+
+  :global(.mantine-Checkbox-body),
+  :global(.mantine-Checkbox-inner) {
+    align-items: center;
+  }
+
+  :global(.mantine-Checkbox-body) {
+    min-height: 2.8rem;
+  }
+
+  :global(.mantine-Checkbox-labelWrapper) {
+    display: grid;
+    align-content: center;
+  }
 }
 
 .inlineError {

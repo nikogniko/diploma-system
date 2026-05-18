@@ -11,6 +11,11 @@
     },
     "messages": {
       "unknownError": "Сталася невідома помилка"
+    },
+    "duration": {
+      "day": ["день", "дні", "днів"],
+      "month": ["місяць", "місяці", "місяців"],
+      "year": ["рік", "роки", "років"]
     }
   },
   "editor": {
@@ -61,7 +66,12 @@
       "courseRequired": "Вкажіть назву, місяць початку та мінімум одну навичку.",
       "projectRequired": "Вкажіть назву, опис і мінімум три навички.",
       "experienceRequired": "Заповніть професію, сферу, компанію, посаду, дату початку, опис і мінімум три навички.",
-      "previousLinkRequired": "Заповніть категорію, назву та коректний URL у попередньому рядку."
+      "previousLinkRequired": "Заповніть категорію, назву та коректний URL у попередньому рядку.",
+      "linksLimit": "Можна додати максимум 6 посилань.",
+      "linksRequired": "Для кожного посилання заповніть категорію, назву та URL.",
+      "linkFormatInvalid": "Вкажіть коректне посилання у форматі URL.",
+      "linkCategoryNotAllowed": "Для цього ресурсу оберіть відповідну категорію.",
+      "linkDomainInvalid": "Посилання не відповідає домену обраного ресурсу."
     },
     "actions": {
       "savePersonal": "Зберегти персональні дані",
@@ -81,7 +91,8 @@
       "languagesBadge": "Мови: {{count}}",
       "coursesBadge": "Курси: {{count}}",
       "projectsBadge": "Проєкти: {{count}}",
-      "experienceBadge": "Досвід: {{count}}"
+      "experienceBadge": "Досвід: {{count}}",
+      "previewButton": "Переглянути моє резюме"
     },
     "personal": {
       "title": "Персональні дані",
@@ -103,13 +114,15 @@
       "contactsTitle": "Контактні дані",
       "contactsDescription": "За замовчуванням контактна пошта дублює пошту реєстрації, але для спілкування можна вказати іншу. Академічний домен тут не обов'язковий.",
       "contactEmail": "Контактна пошта",
+      "contacts": "Контакти",
       "primaryPhone": "Основний телефон",
       "secondaryPhone": "Додатковий телефон",
       "linksTitle": "Соцмережі, месенджери, портфоліо",
       "linksDescription": "Додайте канали, які допоможуть роботодавцю краще зрозуміти ваш професійний профіль.",
       "telegramPlaceholder": "@username або +380 XX XXX XX XX",
       "visibilityTitle": "Видимість профілю",
-      "visibilityDescription": "Оберіть, коли роботодавець побачить ваші контактні дані."
+      "visibilityDescription": "Оберіть, коли роботодавець побачить ваші контактні дані.",
+      "contactVisibilityTitle": "Видимість контактних даних"
     },
     "search": {
       "title": "Параметри пошуку",
@@ -233,6 +246,52 @@
     },
     "fallbacks": {
       "location": "Локація"
+    },
+    "resumePreview": {
+      "drawerTitle": "Перегляд резюме",
+      "eyebrow": "Резюме кандидата",
+      "contactsNote": "У режимі перегляду кандидата показані всі контактні дані. Для роботодавців вони відкриватимуться за правилами видимості профілю.",
+      "contactsAfterInterview": "Контакти відкриються тільки після запрошення кандидата на співбесіду.",
+      "contactsHidden": "Контакти приховано.",
+      "contacts": "Контакти",
+      "contactEmail": "Контактна пошта",
+      "primaryPhone": "Основний телефон",
+      "secondaryPhone": "Додатковий телефон",
+      "visibility": "Видимість",
+      "activeSearch": "В активному пошуку",
+      "createdAt": "Акаунт створено",
+      "candidateAge": "Вік кандидата",
+      "ageValue": "{{age}} років",
+      "yes": "Так",
+      "no": "Ні",
+      "about": "Про себе",
+      "education": "Освіта",
+      "languages": "Мови",
+      "courses": "Неформальна освіта",
+      "projects": "Проєкти",
+      "experience": "Досвід роботи",
+      "links": "Посилання",
+      "searchPreferences": "Параметри пошуку",
+      "other": "Інше",
+      "desiredPosition": "Бажана посада",
+      "desiredProfessions": "Бажані професії",
+      "desiredLocations": "Бажані локації",
+      "minSalary": "Мінімальна зарплата",
+      "employmentTypes": "Тип зайнятості",
+      "workSchedules": "Графік роботи",
+      "workFormats": "Формат роботи",
+      "salaryValue": "від {{amount}} грн",
+      "salaryAny": "Не вказано",
+      "emptySection": "Поки не заповнено",
+      "now": "нині",
+      "certificate": "Сертифікат",
+      "diploma": "Диплом",
+      "projectLink": "Проєкт",
+      "copy": "Копіювати",
+      "copied": "Скопійовано",
+      "open": "Відкрити в новій вкладці",
+      "profileFallbackName": "Кандидат",
+      "skillsTitle": "Навички"
     }
   }
 }
