@@ -168,22 +168,23 @@
   display: inline-flex;
   align-items: center;
   min-height: 1.9rem;
-  padding: 0.25rem 0.55rem;
+  max-width: 100%;
+  padding: 0.25rem 0;
   color: var(--color-info);
   font-size: 0.84rem;
   font-weight: 900;
-  text-decoration: none;
-  background: var(--color-info-soft);
-  border: 1px solid currentColor;
-  border-radius: 999px;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.25rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   transition:
-    background-color 0.18s ease,
     color 0.18s ease,
     transform 0.14s ease;
 
   &:hover {
-    color: var(--color-surface);
-    background: var(--color-info);
+    color: var(--color-primary);
     transform: translateY(-1px);
   }
 }
@@ -300,10 +301,21 @@
   width: fit-content;
 }
 
+.inlineSwitch {
+  width: fit-content;
+}
+
+.professionPill {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
 .checkboxGroup {
   justify-self: center;
   width: min(100%, 18rem);
-  text-align: center;
+  padding-inline: 0.8rem;
+  text-align: left;
 
   :global(.mantine-Checkbox-root) {
     margin-top: 0.45rem;

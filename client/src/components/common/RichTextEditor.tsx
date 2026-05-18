@@ -1,11 +1,11 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
+import { messages } from "../../locales/i18n";
 import styles from "./RichTextEditor.module.scss";
 
 type RichTextEditorProps = {
@@ -17,14 +17,14 @@ type RichTextEditorProps = {
 };
 
 /** Форматований HTML-редактор для довших текстових полів профілю. */
-export function RichTextEditor({ label = "Текст", value, onChange, maxLength, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({ label, value, onChange, maxLength, placeholder }: RichTextEditorProps) {
+  const ui = messages.editor;
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({
-        placeholder: placeholder ?? "Опишіть головне структуровано: короткі абзаци, списки, акценти.",
+        placeholder: placeholder ?? ui.defaultPlaceholder,
       }),
     ],
     content: value || "",
@@ -56,7 +56,7 @@ export function RichTextEditor({ label = "Текст", value, onChange, maxLengt
 
   return (
     <div className={styles.root}>
-      <div className={styles.label}>{label}</div>
+      {label && <div className={styles.label}>{label}</div>}
       <TiptapToolbar editor={editor} />
       <EditorContent editor={editor} className={styles.content} />
     </div>
@@ -65,21 +65,22 @@ export function RichTextEditor({ label = "Текст", value, onChange, maxLengt
 
 /** Мінімальна панель інструментів у стилі Tiptap UI без коду, зображень і вставок. */
 function TiptapToolbar({ editor }: { editor: Editor }) {
+  const ui = messages.editor;
   return (
-    <div className={styles.toolbar} role="toolbar" aria-label="Панель форматування тексту">
-      <ToolbarButton label="Скасувати" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} icon={<UndoIcon />} />
-      <ToolbarButton label="Повторити" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} icon={<RedoIcon />} />
+    <div className={styles.toolbar} role="toolbar" aria-label={ui.toolbarLabel}>
+      <ToolbarButton label={ui.buttons.undo} disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} icon={<UndoIcon />} />
+      <ToolbarButton label={ui.buttons.redo} disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} icon={<RedoIcon />} />
       <ToolbarDivider />
-      <ToolbarButton label="Жирний текст" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} icon={<BoldIcon />} />
-      <ToolbarButton label="Курсив" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} icon={<ItalicIcon />} />
-      <ToolbarButton label="Підкреслення" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} icon={<UnderlineIcon />} />
+      <ToolbarButton label={ui.buttons.bold} active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} icon={<BoldIcon />} />
+      <ToolbarButton label={ui.buttons.italic} active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} icon={<ItalicIcon />} />
+      <ToolbarButton label={ui.buttons.underline} active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} icon={<UnderlineIcon />} />
       <ToolbarDivider />
-      <ToolbarButton label="Маркований список" active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} icon={<BulletListIcon />} />
-      <ToolbarButton label="Нумерований список" active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} icon={<OrderedListIcon />} />
+      <ToolbarButton label={ui.buttons.bulletList} active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} icon={<BulletListIcon />} />
+      <ToolbarButton label={ui.buttons.orderedList} active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} icon={<OrderedListIcon />} />
       <ToolbarDivider />
-      <ToolbarButton label="Вирівняти ліворуч" active={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()} icon={<AlignLeftIcon />} />
-      <ToolbarButton label="Вирівняти по центру" active={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()} icon={<AlignCenterIcon />} />
-      <ToolbarButton label="Вирівняти праворуч" active={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()} icon={<AlignRightIcon />} />
+      <ToolbarButton label={ui.buttons.alignLeft} active={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()} icon={<AlignLeftIcon />} />
+      <ToolbarButton label={ui.buttons.alignCenter} active={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()} icon={<AlignCenterIcon />} />
+      <ToolbarButton label={ui.buttons.alignRight} active={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()} icon={<AlignRightIcon />} />
     </div>
   );
 }

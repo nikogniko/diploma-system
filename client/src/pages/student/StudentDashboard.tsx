@@ -25,6 +25,7 @@ import { AppLoader } from "../../components/common/AppLoader";
 import { RichTextEditor } from "../../components/common/RichTextEditor";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { CabinetLayout } from "../../layouts/CabinetLayout";
+import { interpolate, messages } from "../../locales/i18n";
 import {
   formatUkrainianPhone,
   isValidEmail,
@@ -116,17 +117,20 @@ type StudentCatalogs = {
   skillsByCategory: Record<string, Skill[]>;
 };
 
+const ui = messages.studentDashboard;
+const commonUi = messages.common;
+
 const navItems = [
-  { key: "dashboard", label: "Дашборд", icon: <DashboardIcon />, underline: true },
-  { key: "vacancies", label: "Відгуки на вакансії", icon: <BriefcaseIcon />, underline: true },
-  { key: "personal", label: "Персональні дані", icon: <UserIcon /> },
-  { key: "resume", label: "Резюме", icon: <ResumeIcon /> },
-  { key: "search", label: "Параметри пошуку", icon: <SearchIcon /> },
+  { key: "dashboard", label: ui.nav.dashboard, icon: <DashboardIcon />, underline: true },
+  { key: "vacancies", label: ui.nav.applications, icon: <BriefcaseIcon />, underline: true },
+  { key: "personal", label: ui.nav.personal, icon: <UserIcon /> },
+  { key: "resume", label: ui.nav.resume, icon: <ResumeIcon /> },
+  { key: "search", label: ui.nav.search, icon: <SearchIcon /> },
 ];
 
 const cefrLevels = ["A1", "A2", "B1", "B2", "C1", "C2", "NATIVE"];
 const currentYear = new Date().getFullYear();
-const resourcePlaceholder = "Вкажіть посилання на ресурс або на файл у вашому Google Drive/OneDrive...";
+const resourcePlaceholder = ui.resourcePlaceholder;
 
 /** Кабінет кандидата з персональними даними, резюме і параметрами пошуку. */
 export default function StudentDashboard() {
@@ -310,13 +314,13 @@ export default function StudentDashboard() {
 
   /** Зберігає персональні, контактні дані та посилання кандидата. */
   const savePersonalInfo = () => runBlock("personal", async () => {
-    if (!isValidEmail(personalForm.contactEmail)) throw new Error("Введіть коректну контактну пошту.");
-    if (!isValidUkrainianPhone(personalForm.primaryPhone)) throw new Error("Основний телефон має бути у форматі +380 XX XXX XX XX.");
-    if (personalForm.secondaryPhone && !isValidUkrainianPhone(personalForm.secondaryPhone)) throw new Error("Додатковий телефон має бути у форматі +380 XX XXX XX XX.");
-    if (personalForm.viber && !isValidUkrainianPhone(personalForm.viber)) throw new Error("Viber має бути номером у форматі +380 XX XXX XX XX.");
-    if (personalForm.telegram && !/^(@[a-zA-Z0-9_]{5,32}|\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2})$/.test(personalForm.telegram)) throw new Error("Telegram має починатися з @ або бути номером телефону.");
+    if (!isValidEmail(personalForm.contactEmail)) throw new Error(ui.errors.contactEmail);
+    if (!isValidUkrainianPhone(personalForm.primaryPhone)) throw new Error(ui.errors.primaryPhone);
+    if (personalForm.secondaryPhone && !isValidUkrainianPhone(personalForm.secondaryPhone)) throw new Error(ui.errors.secondaryPhone);
+    if (personalForm.viber && !isValidUkrainianPhone(personalForm.viber)) throw new Error(ui.errors.viber);
+    if (personalForm.telegram && !/^(@[a-zA-Z0-9_]{5,32}|\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2})$/.test(personalForm.telegram)) throw new Error(ui.errors.telegram);
     if (personalForm.links.some((link) => !link.linkType || !link.linkName.trim() || !isValidUrlLike(link.value))) {
-      throw new Error("Для кожного посилання заповніть категорію, назву та коректний URL.");
+      throw new Error(ui.errors.links);
     }
 
     const token = await getToken();
@@ -343,7 +347,7 @@ export default function StudentDashboard() {
 
   /** Зберігає параметри пошуку вакансій. */
   const saveSearchPreferences = () => runBlock("search", async () => {
-    if (searchForm.desiredProfessionIds.length < 1 || searchForm.desiredProfessionIds.length > 3) throw new Error("Оберіть від 1 до 3 бажаних професій.");
+    if (searchForm.desiredProfessionIds.length < 1 || searchForm.desiredProfessionIds.length > 3) throw new Error(ui.errors.desiredProfessions);
     const token = await getToken();
     await apiRequest("/students/my-cabinet/search-preferences", token, {
       method: "PATCH",
@@ -363,14 +367,14 @@ export default function StudentDashboard() {
 
   /** Додає локацію у локальний список із перевіркою дубліката та ліміту. */
   const addLocation = () => {
-    if (searchForm.desiredLocations.length >= 5) return setBlockErrors((c) => ({ ...c, search: "Можна додати максимум 5 локацій." }));
+    if (searchForm.desiredLocations.length >= 5) return setBlockErrors((c) => ({ ...c, search: ui.errors.maxLocations }));
     const label = [
       catalogs?.countries.find((item) => item.id === newLocation.countryId)?.name,
       regions.find((item) => item.id === newLocation.regionId)?.name,
       cities.find((item) => item.id === newLocation.cityId)?.name,
     ].filter(Boolean).join(", ");
     const exists = searchForm.desiredLocations.some((item) => item.countryId === newLocation.countryId && item.regionId === (newLocation.regionId || null) && item.cityId === (newLocation.cityId || null));
-    if (exists) return setBlockErrors((c) => ({ ...c, search: "Ця локація вже додана." }));
+    if (exists) return setBlockErrors((c) => ({ ...c, search: ui.errors.duplicateLocation }));
     setSearchForm((current) => ({ ...current, desiredLocations: [...current.desiredLocations, { countryId: newLocation.countryId, regionId: newLocation.regionId || null, cityId: newLocation.cityId || null, label }] }));
     setNewLocation((current) => ({ countryId: current.countryId, regionId: 0, cityId: 0 }));
   };
@@ -384,10 +388,10 @@ export default function StudentDashboard() {
     endYear: educationForm.endYear ? Number(educationForm.endYear) : null,
     diplomaUrl: nullable(educationForm.diplomaUrl),
   }, () => { setEducationForm(emptyEducation); setEducationEditId(null); setUniversityQuery(""); }, () => {
-    if (!educationForm.universityId && !nullable(educationForm.customUniversityName || universityQuery)) return "Оберіть університет або введіть власну назву.";
-    if (!educationForm.specialty.trim()) return "Вкажіть спеціальність.";
-    if (!educationForm.startYear) return "Вкажіть рік початку.";
-    if (Number(educationForm.startYear) < currentYear - 60 || Number(educationForm.startYear) > currentYear) return `Рік початку має бути від ${currentYear - 60} до ${currentYear}.`;
+    if (!educationForm.universityId && !nullable(educationForm.customUniversityName || universityQuery)) return ui.errors.educationUniversity;
+    if (!educationForm.specialty.trim()) return ui.errors.educationSpecialty;
+    if (!educationForm.startYear) return ui.errors.educationStartYearRequired;
+    if (Number(educationForm.startYear) < currentYear - 60 || Number(educationForm.startYear) > currentYear) return interpolate(ui.errors.educationStartYearRange, { min: currentYear - 60, max: currentYear });
     return null;
   });
 
@@ -396,38 +400,30 @@ export default function StudentDashboard() {
     level: languageForm.level,
     certificateUrl: nullable(languageForm.certificateUrl),
   }, () => { setLanguageForm(emptyLanguage); setLanguageEditId(null); }, () => {
-    if (!languageForm.languageId) return "Оберіть мову.";
-    if (!languageForm.level) return "Оберіть рівень володіння мовою.";
+    if (!languageForm.languageId || !languageForm.level) return ui.errors.languageRequired;
     return null;
   });
 
   const saveCourse = () => {
-    if (courseForm.skillIds.length < 1) return setBlockErrors((c) => ({ ...c, courses: "Додайте мінімум одну навичку." }));
+    if (courseForm.skillIds.length < 1) return setBlockErrors((c) => ({ ...c, courses: ui.errors.courseRequired }));
     return runResume("courses", courseEditId, { ...courseForm, startDate: monthToDate(courseForm.startDate), endDate: courseForm.endDate ? monthToDate(courseForm.endDate) : null, certificateUrl: nullable(courseForm.certificateUrl), skillIds: courseForm.skillIds.map(Number) }, () => { setCourseForm(emptyCourse); setCourseEditId(null); }, () => {
-      if (!courseForm.title.trim()) return "Вкажіть назву курсу.";
-      if (!courseForm.startDate) return "Вкажіть місяць і рік початку курсу.";
+      if (!courseForm.title.trim() || !courseForm.startDate) return ui.errors.courseRequired;
       return null;
     });
   };
 
   const saveProject = () => {
-    if (projectForm.skillIds.length < 3) return setBlockErrors((c) => ({ ...c, projects: "Для проєкту потрібно мінімум три навички." }));
+    if (projectForm.skillIds.length < 3) return setBlockErrors((c) => ({ ...c, projects: ui.errors.projectRequired }));
     return runResume("projects", projectEditId, { ...projectForm, projectUrl: nullable(projectForm.projectUrl), skillIds: projectForm.skillIds.map(Number) }, () => { setProjectForm(emptyProject); setProjectEditId(null); }, () => {
-      if (!projectForm.title.trim()) return "Вкажіть назву проєкту.";
-      if (!projectForm.description.trim()) return "Додайте опис проєкту.";
+      if (!projectForm.title.trim() || !projectForm.description.trim()) return ui.errors.projectRequired;
       return null;
     });
   };
 
   const saveExperience = () => {
-    if (experienceForm.skillIds.length < 3) return setBlockErrors((c) => ({ ...c, experiences: "Для досвіду потрібно мінімум три навички." }));
+    if (experienceForm.skillIds.length < 3) return setBlockErrors((c) => ({ ...c, experiences: ui.errors.experienceRequired }));
     return runResume("experiences", experienceEditId, { ...experienceForm, professionId: Number(experienceForm.professionId), sphereId: Number(experienceForm.sphereId), endDate: nullable(experienceForm.endDate), skillIds: experienceForm.skillIds.map(Number) }, () => { setExperienceForm(emptyExperience); setExperienceEditId(null); }, () => {
-      if (!experienceForm.professionId) return "Оберіть професію.";
-      if (!experienceForm.position.trim()) return "Вкажіть посаду.";
-      if (!experienceForm.companyName.trim()) return "Вкажіть компанію.";
-      if (!experienceForm.sphereId) return "Оберіть сферу.";
-      if (!experienceForm.startDate) return "Вкажіть дату початку роботи.";
-      if (!experienceForm.achievements.trim()) return "Опишіть досягнення та обов'язки.";
+      if (!experienceForm.professionId || !experienceForm.position.trim() || !experienceForm.companyName.trim() || !experienceForm.sphereId || !experienceForm.startDate || !experienceForm.achievements.trim()) return ui.errors.experienceRequired;
       return null;
     });
   };
@@ -455,14 +451,14 @@ export default function StudentDashboard() {
     await apiRequest(`/students/my-cabinet/resume/${type}/${id}`, token, { method: "DELETE" });
   });
 
-  if (isLoading) return <AppLoader text="Збираємо ваш кар'єрний простір..." />;
+  if (isLoading) return <AppLoader text={ui.loading.dashboard} />;
 
   return (
     <CabinetLayout navItems={navItems} activeKey={active} onSelect={setActive}>
       <Stack gap="md">
         <ErrorBanner message={pageError} />
         {active === "dashboard" && <DashboardTab profile={profile} />}
-        {active === "vacancies" && <SimpleTab title="Відгуки на вакансії" description="Тут буде добірка вакансій і відгуки кандидата після реалізації модуля вакансій." />}
+        {active === "vacancies" && <SimpleTab title={ui.nav.applications} description={ui.simpleTab.applicationsDescription} />}
         {active === "personal" && (
           <PersonalTab
             profile={profile}
@@ -502,6 +498,7 @@ export default function StudentDashboard() {
             forms={{ educationForm, languageForm, courseForm, projectForm, experienceForm }}
             setters={{ setEducationForm, setLanguageForm, setCourseForm, setProjectForm, setExperienceForm }}
             edits={{ setEducationEditId, setLanguageEditId, setCourseEditId, setProjectEditId, setExperienceEditId }}
+            editIds={{ educationEditId, languageEditId, courseEditId, projectEditId, experienceEditId }}
             errors={blockErrors}
             saving={saving}
             actions={{ saveEducation, saveLanguage, saveCourse, saveProject, saveExperience, deleteResumeItem }}
@@ -516,14 +513,14 @@ export default function StudentDashboard() {
 function DashboardTab({ profile }: { profile: StudentProfile | null }) {
   return (
     <>
-      <TabHeader title="Дашборд кандидата" description="Короткий стан профілю: ці блоки стануть основою персональних рекомендацій і майбутнього багатофакторного аналізу." />
-      <FormSection title="Стан профілю" description="Поступово заповнюйте профіль: чим більше структурованих даних, тим точніше працюватиме зіставлення з вакансіями.">
+      <TabHeader title={ui.dashboard.title} description={ui.dashboard.description} />
+      <FormSection title={ui.dashboard.sectionTitle} description={ui.dashboard.sectionDescription}>
         <Group gap="sm">
-          <Badge className={classes.badge}>Освіта: {profile?.education.length ?? 0}</Badge>
-          <Badge className={classes.badge}>Мови: {profile?.languages.length ?? 0}</Badge>
-          <Badge className={classes.badge}>Курси: {profile?.courses.length ?? 0}</Badge>
-          <Badge className={classes.badge}>Проєкти: {profile?.projects.length ?? 0}</Badge>
-          <Badge className={classes.badge}>Досвід: {profile?.experiences.length ?? 0}</Badge>
+          <Badge className={classes.badge}>{interpolate(ui.dashboard.educationBadge, { count: profile?.education.length ?? 0 })}</Badge>
+          <Badge className={classes.badge}>{interpolate(ui.dashboard.languagesBadge, { count: profile?.languages.length ?? 0 })}</Badge>
+          <Badge className={classes.badge}>{interpolate(ui.dashboard.coursesBadge, { count: profile?.courses.length ?? 0 })}</Badge>
+          <Badge className={classes.badge}>{interpolate(ui.dashboard.projectsBadge, { count: profile?.projects.length ?? 0 })}</Badge>
+          <Badge className={classes.badge}>{interpolate(ui.dashboard.experienceBadge, { count: profile?.experiences.length ?? 0 })}</Badge>
         </Group>
       </FormSection>
     </>
@@ -533,53 +530,53 @@ function DashboardTab({ profile }: { profile: StudentProfile | null }) {
 function PersonalTab({ profile, form, setForm, error, saving, onSave }: any) {
   return (
     <>
-      <TabHeader title="Персональні дані" description="Ці дані формують блок інформації про кандидата. Контакти приховані від роботодавців і відкриваються лише за правилами видимості." />
+      <TabHeader title={ui.personal.title} description={ui.personal.description} />
       <div className={classes.tipBlock}>
-        <Text className={classes.tipTitle}><InfoIcon /> Підказка</Text>
-        <Text>Фото, пароль, пошту входу та підключені акаунти можна змінити в налаштуваннях акаунта у правому верхньому кутку.</Text>
+        <Text className={classes.tipTitle}><InfoIcon /> {ui.personal.tipTitle}</Text>
+        <Text>{ui.personal.tipText}</Text>
       </div>
-      <FormSection title="Персональні дані" description="ПІБ, стать і дата народження потрібні для коректного профілю та майбутньої генерації резюме.">
+      <FormSection title={ui.personal.personalTitle} description={ui.personal.personalDescription}>
         <div className={classes.profileTop}>
-          <img className={classes.avatar} src={profile?.user.photoUrl || "/vite.svg"} alt="Фото профілю" />
+          <img className={classes.avatar} src={profile?.user.photoUrl || "/vite.svg"} alt={ui.personal.profilePhotoAlt} />
           <Stack gap="xs">
             <Text fw={900}>{profile?.user.lastName} {profile?.user.firstName}</Text>
             <Group gap="xs">
               <StatusBadge status={profile?.user.status} />
-              <Text className={classes.muted}>Створено: {profile?.user.createdAt ? dateShort(profile.user.createdAt) : "невідомо"}</Text>
+              <Text className={classes.muted}>{interpolate(ui.personal.createdAt, { date: profile?.user.createdAt ? dateShort(profile.user.createdAt) : ui.personal.unknownDate })}</Text>
             </Group>
           </Stack>
         </div>
         <div className={classes.personalGrid}>
           <div className={classes.nameColumn}>
-            <TextInput label="Ім'я" required maxLength={100} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: lettersOnly(e.currentTarget.value) })} />
-            <TextInput label="Прізвище" required maxLength={100} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: lettersOnly(e.currentTarget.value) })} />
-            <TextInput label="По батькові" maxLength={100} value={form.middleName} onChange={(e) => setForm({ ...form, middleName: lettersOnly(e.currentTarget.value) })} />
+            <TextInput label={ui.personal.firstName} required maxLength={100} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: lettersOnly(e.currentTarget.value) })} />
+            <TextInput label={ui.personal.lastName} required maxLength={100} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: lettersOnly(e.currentTarget.value) })} />
+            <TextInput label={ui.personal.middleName} maxLength={100} value={form.middleName} onChange={(e) => setForm({ ...form, middleName: lettersOnly(e.currentTarget.value) })} />
           </div>
           <div className={classes.nameColumn}>
-            <Select label="Стать" data={[{ value: "FEMALE", label: "Жіноча" }, { value: "MALE", label: "Чоловіча" }]} value={form.gender || null} onChange={(value) => setForm({ ...form, gender: value ?? "" })} />
-            <DateInput label="Дата народження" required value={form.birthDate ? new Date(form.birthDate) : null} onChange={(value) => setForm({ ...form, birthDate: value ? dayjs(value).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" maxDate={new Date()} popoverProps={{ position: "bottom-end", withinPortal: true }} />
+            <Select label={ui.personal.gender} data={[{ value: "FEMALE", label: ui.personal.female }, { value: "MALE", label: ui.personal.male }]} value={form.gender || null} onChange={(value) => setForm({ ...form, gender: value ?? "" })} />
+            <DateInput label={ui.personal.birthDate} required value={form.birthDate ? new Date(form.birthDate) : null} onChange={(value) => setForm({ ...form, birthDate: value ? dayjs(value).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" maxDate={new Date()} popoverProps={{ position: "bottom-end", withinPortal: true }} />
           </div>
         </div>
       </FormSection>
-      <FormSection title="Контактні дані" description="За замовчуванням контактна пошта дублює пошту реєстрації, але для спілкування можна вказати іншу. Академічний домен тут не обов'язковий.">
+      <FormSection title={ui.personal.contactsTitle} description={ui.personal.contactsDescription}>
         <div className={classes.grid}>
-          <TextInput className={classes.fullRow} label="Контактна пошта" required value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.currentTarget.value })} />
-          <TextInput label="Основний телефон" required value={form.primaryPhone} onChange={(e) => setForm({ ...form, primaryPhone: formatUkrainianPhone(e.currentTarget.value) })} />
-          <TextInput label="Додатковий телефон" value={form.secondaryPhone} onChange={(e) => setForm({ ...form, secondaryPhone: formatUkrainianPhone(e.currentTarget.value) })} />
+          <TextInput className={classes.fullRow} label={ui.personal.contactEmail} required value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.currentTarget.value })} />
+          <TextInput label={ui.personal.primaryPhone} required value={form.primaryPhone} onChange={(e) => setForm({ ...form, primaryPhone: formatUkrainianPhone(e.currentTarget.value) })} />
+          <TextInput label={ui.personal.secondaryPhone} value={form.secondaryPhone} onChange={(e) => setForm({ ...form, secondaryPhone: formatUkrainianPhone(e.currentTarget.value) })} />
         </div>
       </FormSection>
-      <FormSection title="Соцмережі, месенджери, портфоліо" description="Додайте канали, які допоможуть роботодавцю краще зрозуміти ваш професійний профіль.">
+      <FormSection title={ui.personal.linksTitle} description={ui.personal.linksDescription}>
         <div className={classes.grid}>
-          <TextInput label="Telegram" placeholder="@username або +380 XX XXX XX XX" value={form.telegram} onChange={(e) => setForm({ ...form, telegram: e.currentTarget.value.startsWith("+") || /^\d/.test(e.currentTarget.value) ? formatUkrainianPhone(e.currentTarget.value) : e.currentTarget.value })} />
+          <TextInput label="Telegram" placeholder={ui.personal.telegramPlaceholder} value={form.telegram} onChange={(e) => setForm({ ...form, telegram: e.currentTarget.value.startsWith("+") || /^\d/.test(e.currentTarget.value) ? formatUkrainianPhone(e.currentTarget.value) : e.currentTarget.value })} />
           <TextInput label="Viber" value={form.viber} onChange={(e) => setForm({ ...form, viber: formatUkrainianPhone(e.currentTarget.value) })} />
         </div>
         <LinkEditor links={form.links} setLinks={(links) => setForm({ ...form, links })} />
       </FormSection>
-      <FormSection title="Видимість профілю" description="Оберіть, коли роботодавець побачить ваші контактні дані.">
+      <FormSection title={ui.personal.visibilityTitle} description={ui.personal.visibilityDescription}>
         <VisibilitySelector value={form.visibility ?? "APPLIED_ONLY"} onChange={(visibility) => setForm({ ...form, visibility })} />
       </FormSection>
       <InlineError message={error} />
-      <Button className={classes.fullButton} loading={saving} onClick={onSave}>Зберегти персональні дані</Button>
+      <Button className={classes.fullButton} loading={saving} onClick={onSave}>{ui.actions.savePersonal}</Button>
     </>
   );
 }
@@ -588,106 +585,106 @@ function SearchTab(props: any) {
   const { form, setForm, options, countries, regions, cities, newLocation, setNewLocation, error, saving, onAddLocation, onSave } = props;
   return (
     <>
-      <TabHeader title="Параметри пошуку" description="Це параметри вакансій, які вам підходять. Обирайте розумно: вони будуть жорсткими фільтрами при зіставленні резюме та вакансій, а також шаблоном для ручного пошуку." />
-      <FormSection title="Основні фільтри" description="Під час ручного моніторингу вакансій ці дані можна буде застосувати в один клік.">
-        <Switch label="В активному пошуку" checked={form.isActiveSearch} onChange={(e) => setForm({ ...form, isActiveSearch: e.currentTarget.checked })} />
+      <TabHeader title={ui.search.title} description={ui.search.description} />
+      <FormSection title={ui.search.mainTitle} description={ui.search.mainDescription}>
+        <Switch className={classes.inlineSwitch} label={ui.search.activeSearch} checked={form.isActiveSearch} onChange={(e) => setForm({ ...form, isActiveSearch: e.currentTarget.checked })} />
         <div className={classes.grid}>
-          <TextInput label="Бажана посада" maxLength={150} placeholder="Trainee React Native Developer" value={form.desiredPosition} onChange={(e) => setForm({ ...form, desiredPosition: e.currentTarget.value })} />
-          <MultiSelect label="Бажана професія" required searchable maxValues={3} data={options.professions} value={form.desiredProfessionIds} onChange={(value) => setForm({ ...form, desiredProfessionIds: value })} />
+          <TextInput label={ui.search.desiredPosition} maxLength={150} placeholder={ui.search.desiredPositionPlaceholder} value={form.desiredPosition} onChange={(e) => setForm({ ...form, desiredPosition: e.currentTarget.value })} />
+          <MultiSelect classNames={{ pill: classes.professionPill }} label={ui.search.desiredProfession} required searchable maxValues={3} data={options.professions} value={form.desiredProfessionIds} onChange={(value) => setForm({ ...form, desiredProfessionIds: value })} />
         </div>
       </FormSection>
-      <FormSection title="Бажані локації" description="Можна додати до 5 унікальних локацій. Якщо обрати тільки країну, фільтр буде ширшим.">
+      <FormSection title={ui.search.locationsTitle} description={ui.search.locationsDescription}>
         <div className={classes.chips}>{form.desiredLocations.map((item: any) => <button key={item.label} className={classes.locationChip} onClick={() => setForm({ ...form, desiredLocations: form.desiredLocations.filter((location: any) => location.label !== item.label) })}>{item.label} ×</button>)}</div>
         {form.desiredLocations.length < 5 && <div className={classes.threeGrid}>
-          <Select label="Країна" data={countries.map(asOption)} value={String(newLocation.countryId || "")} onChange={(value) => setNewLocation({ countryId: Number(value), regionId: 0, cityId: 0 })} />
-          <Select label="Область" data={regions.map(asOption)} disabled={!countries.find((c: CatalogItem) => c.id === newLocation.countryId)?.name.toLowerCase().includes("укра")} value={String(newLocation.regionId || "")} onChange={(value) => setNewLocation({ ...newLocation, regionId: Number(value), cityId: 0 })} />
-          <Select label="Місто" data={cities.map(asOption)} disabled={!newLocation.regionId} value={String(newLocation.cityId || "")} onChange={(value) => setNewLocation({ ...newLocation, cityId: Number(value) })} />
+          <Select label={ui.search.country} data={countries.map(asOption)} value={String(newLocation.countryId || "")} onChange={(value) => setNewLocation({ countryId: Number(value), regionId: 0, cityId: 0 })} />
+          <Select label={ui.search.region} data={regions.map(asOption)} disabled={!countries.find((c: CatalogItem) => c.id === newLocation.countryId)?.name.toLowerCase().includes("укра")} value={String(newLocation.regionId || "")} onChange={(value) => setNewLocation({ ...newLocation, regionId: Number(value), cityId: 0 })} />
+          <Select label={ui.search.city} data={cities.map(asOption)} disabled={!newLocation.regionId} value={String(newLocation.cityId || "")} onChange={(value) => setNewLocation({ ...newLocation, cityId: Number(value) })} />
         </div>}
-        <Button variant="light" onClick={onAddLocation}>+ Додати локацію</Button>
+        <Button variant="light" onClick={onAddLocation}>{ui.actions.addLocation}</Button>
       </FormSection>
-      <FormSection title="Зарплата та формат" description="Оберіть усі варіанти, які вам підходять. Пропозиції з іншими параметрами показуватись не будуть.">
+      <FormSection title={ui.search.salaryTitle} description={ui.search.salaryDescription}>
         <div className={classes.salaryGrid}>
-          <Checkbox className={classes.centerCheckbox} label="Показувати всі зарплати" checked={form.showAllSalary} onChange={(e) => setForm({ ...form, showAllSalary: e.currentTarget.checked, minSalary: e.currentTarget.checked ? null : form.minSalary })} />
-          <NumberInput label="Мінімальна зарплата, грн" min={0} step={1000} disabled={form.showAllSalary} value={form.minSalary ?? 0} onChange={(value) => setForm({ ...form, minSalary: Number(value) || 0 })} />
+          <Switch className={classes.centerCheckbox} label={ui.search.showAllSalary} checked={form.showAllSalary} onChange={(e) => setForm({ ...form, showAllSalary: e.currentTarget.checked, minSalary: e.currentTarget.checked ? null : form.minSalary })} />
+          <NumberInput label={ui.search.minSalary} min={0} step={1000} disabled={form.showAllSalary} value={form.minSalary ?? 0} onChange={(value) => setForm({ ...form, minSalary: Number(value) || 0 })} />
         </div>
         <div className={classes.threeGrid}>
-          <Checkbox.Group className={classes.checkboxGroup} label="Тип зайнятості" value={form.employmentTypeIds} onChange={(value) => setForm({ ...form, employmentTypeIds: value })}>{options.employmentTypes.map((item: any) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
-          <Checkbox.Group className={classes.checkboxGroup} label="Графік роботи" value={form.workScheduleIds} onChange={(value) => setForm({ ...form, workScheduleIds: value })}>{options.workSchedules.map((item: any) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
-          <Checkbox.Group className={classes.checkboxGroup} label="Формат роботи" value={form.workFormatIds} onChange={(value) => setForm({ ...form, workFormatIds: value })}>{options.workFormats.map((item: any) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
+          <Checkbox.Group className={classes.checkboxGroup} label={ui.search.employmentTypes} value={form.employmentTypeIds} onChange={(value) => setForm({ ...form, employmentTypeIds: value })}>{options.employmentTypes.map((item: any) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
+          <Checkbox.Group className={classes.checkboxGroup} label={ui.search.workSchedules} value={form.workScheduleIds} onChange={(value) => setForm({ ...form, workScheduleIds: value })}>{options.workSchedules.map((item: any) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
+          <Checkbox.Group className={classes.checkboxGroup} label={ui.search.workFormats} value={form.workFormatIds} onChange={(value) => setForm({ ...form, workFormatIds: value })}>{options.workFormats.map((item: any) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
         </div>
       </FormSection>
       <InlineError message={error} />
-      <Button className={classes.fullButton} loading={saving} onClick={onSave}>Зберегти параметри пошуку</Button>
+      <Button className={classes.fullButton} loading={saving} onClick={onSave}>{ui.actions.saveSearch}</Button>
     </>
   );
 }
 
 function ResumeTab(props: any) {
-  const { profile, personalForm, setPersonalForm, savePersonalInfo, options, universities, universityQuery, setUniversityQuery, forms, setters, edits, errors, saving, actions, clearError } = props;
+  const { profile, personalForm, setPersonalForm, savePersonalInfo, options, universities, universityQuery, setUniversityQuery, forms, setters, edits, editIds, errors, saving, actions, clearError } = props;
   const { educationForm, languageForm, courseForm, projectForm, experienceForm } = forms;
   const { setEducationForm, setLanguageForm, setCourseForm, setProjectForm, setExperienceForm } = setters;
   return (
     <>
-      <TabHeader title="Резюме" description="Заповнюйте структуровані блоки: освіта, мови, курси, проєкти й досвід дадуть системі дані для майбутнього аналізу відповідності." />
-      <FormSection title="Про себе" description="Коротко опишіть професійні інтереси, сильні сторони і ціль. Цей блок обов'язковий для повного профілю.">
-        <RichTextEditor value={personalForm.about} onChange={(about) => setPersonalForm({ ...personalForm, about })} maxLength={500} placeholder="Опишіть свої професійні інтереси, сильні сторони та ціль." />
+      <TabHeader title={ui.resume.title} description={ui.resume.description} />
+      <FormSection title={ui.resume.aboutTitle} description={ui.resume.aboutDescription}>
+        <RichTextEditor value={personalForm.about} onChange={(about) => setPersonalForm({ ...personalForm, about })} maxLength={500} placeholder={ui.resume.aboutPlaceholder} />
         <InlineError message={errors.personal} />
-        <ActionButtons saving={saving.personal} isEditing={false} onSave={savePersonalInfo} onCancel={() => { setPersonalForm({ ...personalForm, about: "" }); clearError("personal"); }} />
+        <ActionButtons saving={saving.personal} isEditing={false} createLabel={commonUi.actions.save} onSave={savePersonalInfo} onCancel={() => { setPersonalForm({ ...personalForm, about: "" }); clearError("personal"); }} />
       </FormSection>
-      <FormSection title="Формальна освіта" description="Оберіть університет із довідника або використайте введену назву, якщо його немає в списку.">
-        <RecordList items={profile?.education ?? []} title={(i: any) => i.university?.name ?? i.customUniversityName} meta={(i: any) => `${degreeLabel(i.degree)} · ${i.specialty} · ${i.startYear}${i.endYear ? `-${i.endYear}` : ""}`} links={(i: any) => i.diplomaUrl ? [{ label: "Диплом", value: i.diplomaUrl }] : []} onEdit={(i: any) => { edits.setEducationEditId(i.id); setEducationForm({ universityId: i.universityId ? String(i.universityId) : "", customUniversityName: i.customUniversityName ?? "", degree: i.degree, specialty: i.specialty, startYear: String(i.startYear), endYear: i.endYear ? String(i.endYear) : "", diplomaUrl: i.diplomaUrl ?? "" }); setUniversityQuery(i.customUniversityName ?? i.university?.name ?? ""); }} onDelete={(i: any) => actions.deleteResumeItem("education", i.id)} />
+      <FormSection title={ui.resume.educationTitle} description={ui.resume.educationDescription}>
+        <RecordList items={profile?.education ?? []} title={(i: any) => i.university?.name ?? i.customUniversityName} meta={(i: any) => `${degreeLabel(i.degree)} · ${i.specialty} · ${i.startYear}${i.endYear ? `-${i.endYear}` : ""}`} links={(i: any) => i.diplomaUrl ? [{ label: ui.links.diploma, value: i.diplomaUrl }] : []} onEdit={(i: any) => { edits.setEducationEditId(i.id); setEducationForm({ universityId: i.universityId ? String(i.universityId) : "", customUniversityName: i.customUniversityName ?? "", degree: i.degree, specialty: i.specialty, startYear: String(i.startYear), endYear: i.endYear ? String(i.endYear) : "", diplomaUrl: i.diplomaUrl ?? "" }); setUniversityQuery(i.customUniversityName ?? i.university?.name ?? ""); }} onDelete={(i: any) => actions.deleteResumeItem("education", i.id)} />
         <div className={classes.grid}>
           <div className={classes.fullRow}>
-            <TextInput label="Університет" required placeholder="Оберіть зі списку чи введіть власну назву університету" value={universityQuery} onChange={(event) => { const value = event.currentTarget.value; setUniversityQuery(value); setEducationForm({ ...educationForm, universityId: "", customUniversityName: value }); }} />
+            <TextInput label={ui.resume.university} required placeholder={ui.resume.universityPlaceholder} value={universityQuery} onChange={(event) => { const value = event.currentTarget.value; setUniversityQuery(value); setEducationForm({ ...educationForm, universityId: "", customUniversityName: value }); }} />
             {universities.length > 0 && (
               <div className={classes.suggestionList}>
                 {universities.map((item: CatalogItem) => <button key={item.id} type="button" onClick={() => { setUniversityQuery(item.name); setEducationForm({ ...educationForm, universityId: String(item.id), customUniversityName: "" }); }}>{item.name}</button>)}
               </div>
             )}
           </div>
-          <Select label="Ступінь" required placeholder="Оберіть ступінь" data={[{ value: "JUNIOR_BACHELOR", label: "Молодший бакалавр" }, { value: "BACHELOR", label: "Бакалавр" }, { value: "MASTER", label: "Магістр" }, { value: "PHD", label: "Доктор філософії" }, { value: "OTHER", label: "Інше" }]} value={educationForm.degree} onChange={(value) => setEducationForm({ ...educationForm, degree: value ?? "BACHELOR" })} />
-          <TextInput label="Спеціальність" required placeholder="Наприклад: Інженерія програмного забезпечення" maxLength={200} value={educationForm.specialty} onChange={(e) => setEducationForm({ ...educationForm, specialty: e.currentTarget.value })} />
-          <NumberInput label="Рік початку" required placeholder={String(currentYear)} min={currentYear - 60} max={currentYear} value={educationForm.startYear ? Number(educationForm.startYear) : undefined} onChange={(value) => setEducationForm({ ...educationForm, startYear: value ? String(value) : "" })} />
-          <NumberInput label="Рік завершення" min={currentYear - 60} max={currentYear} value={educationForm.endYear ? Number(educationForm.endYear) : undefined} onChange={(value) => setEducationForm({ ...educationForm, endYear: value ? String(value) : "" })} />
-          <TextInput className={classes.fullRow} label="URL-посилання на диплом" placeholder={resourcePlaceholder} maxLength={255} value={educationForm.diplomaUrl} onChange={(e) => setEducationForm({ ...educationForm, diplomaUrl: e.currentTarget.value })} />
+          <Select label={ui.resume.degree} required placeholder={ui.resume.degreePlaceholder} data={[{ value: "JUNIOR_BACHELOR", label: ui.degreeLabels.juniorBachelor }, { value: "BACHELOR", label: ui.degreeLabels.bachelor }, { value: "MASTER", label: ui.degreeLabels.master }, { value: "PHD", label: ui.degreeLabels.phd }, { value: "OTHER", label: ui.degreeLabels.other }]} value={educationForm.degree} onChange={(value) => setEducationForm({ ...educationForm, degree: value ?? "BACHELOR" })} />
+          <TextInput label={ui.resume.specialty} required placeholder={ui.resume.specialtyPlaceholder} maxLength={200} value={educationForm.specialty} onChange={(e) => setEducationForm({ ...educationForm, specialty: e.currentTarget.value })} />
+          <NumberInput label={ui.resume.startYear} required placeholder={String(currentYear)} min={currentYear - 60} max={currentYear} value={educationForm.startYear ? Number(educationForm.startYear) : undefined} onChange={(value) => setEducationForm({ ...educationForm, startYear: value ? String(value) : "" })} />
+          <NumberInput label={ui.resume.endYear} min={currentYear - 60} max={currentYear} value={educationForm.endYear ? Number(educationForm.endYear) : undefined} onChange={(value) => setEducationForm({ ...educationForm, endYear: value ? String(value) : "" })} />
+          <TextInput className={classes.fullRow} label={ui.resume.diplomaUrl} placeholder={resourcePlaceholder} maxLength={255} value={educationForm.diplomaUrl} onChange={(e) => setEducationForm({ ...educationForm, diplomaUrl: e.currentTarget.value })} />
         </div>
-        <InlineError message={errors.education} /><ActionButtons saving={saving.education} isEditing={false} onSave={actions.saveEducation} onCancel={() => { setEducationForm({ universityId: "", customUniversityName: "", degree: "BACHELOR", specialty: "", startYear: "", endYear: "", diplomaUrl: "" }); setUniversityQuery(""); clearError("education"); }} />
+        <InlineError message={errors.education} /><ActionButtons saving={saving.education} isEditing={Boolean(editIds.educationEditId)} onSave={actions.saveEducation} onCancel={() => { setEducationForm({ universityId: "", customUniversityName: "", degree: "BACHELOR", specialty: "", startYear: "", endYear: "", diplomaUrl: "" }); setUniversityQuery(""); clearError("education"); }} />
       </FormSection>
-      <FormSection title="Мовні компетенції" description="Мова і рівень CEFR є обов'язковими, сертифікат можна додати посиланням.">
-        <RecordList items={profile?.languages ?? []} title={(i: any) => i.language?.name} meta={(i: any) => i.level} links={(i: any) => i.certificateUrl ? [{ label: "Сертифікат", value: i.certificateUrl }] : []} onEdit={(i: any) => { edits.setLanguageEditId(i.id); setLanguageForm({ languageId: String(i.languageId), level: i.level, certificateUrl: i.certificateUrl ?? "" }); }} onDelete={(i: any) => actions.deleteResumeItem("languages", i.id)} />
+      <FormSection title={ui.resume.languagesTitle} description={ui.resume.languagesDescription}>
+        <RecordList items={profile?.languages ?? []} title={(i: any) => i.language?.name} meta={(i: any) => i.level} links={(i: any) => i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []} onEdit={(i: any) => { edits.setLanguageEditId(i.id); setLanguageForm({ languageId: String(i.languageId), level: i.level, certificateUrl: i.certificateUrl ?? "" }); }} onDelete={(i: any) => actions.deleteResumeItem("languages", i.id)} />
         <div className={classes.grid}>
-          <Select label="Мова" required searchable placeholder="Оберіть мову" data={options.languages} value={languageForm.languageId || null} onChange={(value) => setLanguageForm({ ...languageForm, languageId: value ?? "" })} />
-          <Select label="Рівень" required placeholder="Оберіть рівень" data={cefrLevels} value={languageForm.level || null} onChange={(value) => setLanguageForm({ ...languageForm, level: value ?? "" })} />
-          <TextInput className={classes.fullRow} label="URL-посилання на сертифікат" placeholder={resourcePlaceholder} maxLength={255} value={languageForm.certificateUrl} onChange={(e) => setLanguageForm({ ...languageForm, certificateUrl: e.currentTarget.value })} />
+          <Select label={ui.resume.language} required searchable placeholder={ui.resume.languagePlaceholder} data={options.languages} value={languageForm.languageId || null} onChange={(value) => setLanguageForm({ ...languageForm, languageId: value ?? "" })} />
+          <Select label={ui.resume.level} required placeholder={ui.resume.levelPlaceholder} data={cefrLevels} value={languageForm.level || null} onChange={(value) => setLanguageForm({ ...languageForm, level: value ?? "" })} />
+          <TextInput className={classes.fullRow} label={ui.resume.certificateUrl} placeholder={resourcePlaceholder} maxLength={255} value={languageForm.certificateUrl} onChange={(e) => setLanguageForm({ ...languageForm, certificateUrl: e.currentTarget.value })} />
         </div>
-        <InlineError message={errors.languages} /><ActionButtons saving={saving.languages} isEditing={false} onSave={actions.saveLanguage} onCancel={() => { setLanguageForm({ languageId: "", level: "", certificateUrl: "" }); clearError("languages"); }} />
+        <InlineError message={errors.languages} /><ActionButtons saving={saving.languages} isEditing={Boolean(editIds.languageEditId)} onSave={actions.saveLanguage} onCancel={() => { setLanguageForm({ languageId: "", level: "", certificateUrl: "" }); clearError("languages"); }} />
       </FormSection>
-      <CompetencySection type="courses" title="Неформальна освіта" description="Курси показують, які навички ви здобували поза університетом. Мінімум одна навичка." items={profile?.courses ?? []} form={courseForm} setForm={setCourseForm} edit={edits.setCourseEditId} error={errors.courses} saving={saving.courses} onSave={actions.saveCourse} onDelete={actions.deleteResumeItem} options={options} clearError={clearError} />
-      <CompetencySection type="projects" title="Власні проєкти" description="Проєкти демонструють практичне застосування знань. Для проєкту потрібно мінімум три навички." items={profile?.projects ?? []} form={projectForm} setForm={setProjectForm} edit={edits.setProjectEditId} error={errors.projects} saving={saving.projects} onSave={actions.saveProject} onDelete={actions.deleteResumeItem} options={options} clearError={clearError} />
-      <ExperienceSection form={experienceForm} setForm={setExperienceForm} items={profile?.experiences ?? []} options={options} edit={edits.setExperienceEditId} error={errors.experiences} saving={saving.experiences} onSave={actions.saveExperience} onDelete={actions.deleteResumeItem} clearError={clearError} />
+      <CompetencySection type="courses" title={ui.resume.coursesTitle} description={ui.resume.coursesDescription} items={profile?.courses ?? []} form={courseForm} setForm={setCourseForm} edit={edits.setCourseEditId} isEditing={Boolean(editIds.courseEditId)} error={errors.courses} saving={saving.courses} onSave={actions.saveCourse} onDelete={actions.deleteResumeItem} options={options} clearError={clearError} />
+      <CompetencySection type="projects" title={ui.resume.projectsTitle} description={ui.resume.projectsDescription} items={profile?.projects ?? []} form={projectForm} setForm={setProjectForm} edit={edits.setProjectEditId} isEditing={Boolean(editIds.projectEditId)} error={errors.projects} saving={saving.projects} onSave={actions.saveProject} onDelete={actions.deleteResumeItem} options={options} clearError={clearError} />
+      <ExperienceSection form={experienceForm} setForm={setExperienceForm} items={profile?.experiences ?? []} options={options} edit={edits.setExperienceEditId} isEditing={Boolean(editIds.experienceEditId)} error={errors.experiences} saving={saving.experiences} onSave={actions.saveExperience} onDelete={actions.deleteResumeItem} clearError={clearError} />
     </>
   );
 }
 
-function CompetencySection({ type, title, description, items, form, setForm, edit, error, saving, onSave, onDelete, options, clearError }: any) {
+function CompetencySection({ type, title, description, items, form, setForm, edit, isEditing, error, saving, onSave, onDelete, options, clearError }: any) {
   const isCourse = type === "courses";
   const isProject = type === "projects";
   return <FormSection title={title} description={description}>
-    <RecordList items={items} title={(i: any) => i.title} meta={(i: any) => isCourse ? `${monthShort(i.startDate)}${i.endDate ? ` - ${monthShort(i.endDate)}` : ""}` : stripHtml(i.description)} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} links={(i: any) => isCourse ? (i.certificateUrl ? [{ label: "Сертифікат", value: i.certificateUrl }] : []) : (i.projectUrl ? [{ label: "Проєкт", value: i.projectUrl }] : [])} onEdit={(i: any) => { edit(i.id); setForm(isCourse ? { title: i.title, startDate: i.startDate?.slice(0, 7), endDate: i.endDate?.slice(0, 7) ?? "", certificateUrl: i.certificateUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) } : { title: i.title, description: i.description, projectUrl: i.projectUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete(type, i.id)} />
-    {isCourse ? <div className={classes.grid}><TextInput className={classes.fullRow} label="Назва" required placeholder="Наприклад: React Advanced Course" maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><MonthPickerInput label="Місяць початку" required placeholder="Оберіть місяць" value={form.startDate ? new Date(monthToDate(form.startDate)) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><MonthPickerInput label="Місяць завершення" placeholder="Оберіть місяць" clearable value={form.endDate ? new Date(monthToDate(form.endDate)) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><TextInput className={classes.fullRow} label="URL-посилання на сертифікат" placeholder={resourcePlaceholder} maxLength={255} value={form.certificateUrl} onChange={(e) => setForm({ ...form, certificateUrl: e.currentTarget.value })} /></div> : <><TextInput label="Назва" required placeholder="Коротка назва проєкту" maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><RichTextEditor value={form.description} onChange={(description) => setForm({ ...form, description })} label="Опис" placeholder="Опишіть суть проєкту, вашу роль, стек і результат." /><TextInput label="URL-посилання на проєкт" placeholder={resourcePlaceholder} maxLength={255} value={form.projectUrl} onChange={(e) => setForm({ ...form, projectUrl: e.currentTarget.value })} /></>}
+    <RecordList items={items} title={(i: any) => i.title} meta={(i: any) => isCourse ? `${monthShort(i.startDate)}${i.endDate ? ` - ${monthShort(i.endDate)}` : ""}` : stripHtml(i.description)} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} links={(i: any) => isCourse ? (i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []) : (i.projectUrl ? [{ label: ui.links.project, value: i.projectUrl }] : [])} onEdit={(i: any) => { edit(i.id); setForm(isCourse ? { title: i.title, startDate: i.startDate?.slice(0, 7), endDate: i.endDate?.slice(0, 7) ?? "", certificateUrl: i.certificateUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) } : { title: i.title, description: i.description, projectUrl: i.projectUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete(type, i.id)} />
+    {isCourse ? <div className={classes.grid}><TextInput className={classes.fullRow} label={ui.resume.titleField} required placeholder={ui.resume.courseTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><MonthPickerInput label={ui.resume.startMonth} required placeholder={ui.resume.monthPlaceholder} value={form.startDate ? new Date(monthToDate(form.startDate)) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><MonthPickerInput label={ui.resume.endMonth} placeholder={ui.resume.monthPlaceholder} clearable value={form.endDate ? new Date(monthToDate(form.endDate)) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><TextInput className={classes.fullRow} label={ui.resume.certificateUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.certificateUrl} onChange={(e) => setForm({ ...form, certificateUrl: e.currentTarget.value })} /></div> : <><TextInput label={ui.resume.titleField} required placeholder={ui.resume.projectTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><RichTextEditor value={form.description} onChange={(description) => setForm({ ...form, description })} label={ui.resume.descriptionField} placeholder={ui.resume.projectDescriptionPlaceholder} /><TextInput label={ui.resume.projectUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.projectUrl} onChange={(e) => setForm({ ...form, projectUrl: e.currentTarget.value })} /></>}
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={isProject ? 30 : 20} />
-    <Text className={classes.muted}>TODO: пізніше додамо пропонування нової навички зі статусом “На модерації”.</Text>
-    <InlineError message={error} /><ActionButtons saving={saving} isEditing={false} onSave={onSave} onCancel={() => { setForm(isCourse ? { title: "", startDate: "", endDate: "", certificateUrl: "", skillIds: [] } : { title: "", description: "", projectUrl: "", skillIds: [] }); clearError(type); }} />
+    <Text className={classes.muted}>{ui.resume.proposedSkillTodo}</Text>
+    <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm(isCourse ? { title: "", startDate: "", endDate: "", certificateUrl: "", skillIds: [] } : { title: "", description: "", projectUrl: "", skillIds: [] }); clearError(type); }} />
   </FormSection>;
 }
 
-function ExperienceSection({ form, setForm, items, options, edit, error, saving, onSave, onDelete, clearError }: any) {
-  return <FormSection title="Досвід роботи" description="Досвід пов'язується з професією, сферою та здобутими навичками. Усі поля, крім дати завершення, обов'язкові.">
-    <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => `${dateShort(i.startDate)} - ${i.endDate ? dateShort(i.endDate) : "нині"}\n${i.profession?.name ?? ""} · ${i.sphere?.name ?? ""}`} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
-    <div className={classes.grid}><Select label="Професія" required searchable placeholder="Оберіть професію" data={options.professions} value={form.professionId || null} onChange={(value) => setForm({ ...form, professionId: value ?? "" })} /><TextInput label="Посада" required placeholder="Наприклад: Frontend Developer" maxLength={200} value={form.position} onChange={(e) => setForm({ ...form, position: e.currentTarget.value })} /><TextInput label="Компанія" required placeholder="Оберіть зі списку чи введіть назву компанії" maxLength={200} value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.currentTarget.value })} /><Select label="Сфера" required searchable placeholder="Оберіть сферу" data={options.spheres} value={form.sphereId || null} onChange={(value) => setForm({ ...form, sphereId: value ?? "" })} /><DateInput label="Дата початку" required placeholder="Оберіть дату" value={form.startDate ? new Date(form.startDate) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><DateInput label="Дата завершення" placeholder="Оберіть дату" clearable value={form.endDate ? new Date(form.endDate) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /></div>
-    <RichTextEditor label="Досягнення та обов'язки" value={form.achievements} onChange={(achievements) => setForm({ ...form, achievements })} placeholder="Опишіть відповідальність, досягнення і результат роботи." />
+function ExperienceSection({ form, setForm, items, options, edit, isEditing, error, saving, onSave, onDelete, clearError }: any) {
+  return <FormSection title={ui.resume.experienceTitle} description={ui.resume.experienceDescription}>
+    <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => `${dateShort(i.startDate)} - ${i.endDate ? dateShort(i.endDate) : ui.resume.now}\n${i.profession?.name ?? ""} · ${i.sphere?.name ?? ""}`} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
+    <div className={classes.grid}><Select label={ui.resume.profession} required searchable placeholder={ui.resume.professionPlaceholder} data={options.professions} value={form.professionId || null} onChange={(value) => setForm({ ...form, professionId: value ?? "" })} /><TextInput label={ui.resume.position} required placeholder={ui.resume.positionPlaceholder} maxLength={200} value={form.position} onChange={(e) => setForm({ ...form, position: e.currentTarget.value })} /><TextInput label={ui.resume.company} required placeholder={ui.resume.companyPlaceholder} maxLength={200} value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.currentTarget.value })} /><Select label={ui.resume.sphere} required searchable placeholder={ui.resume.spherePlaceholder} data={options.spheres} value={form.sphereId || null} onChange={(value) => setForm({ ...form, sphereId: value ?? "" })} /><DateInput label={ui.resume.startDate} required placeholder={ui.resume.datePlaceholder} value={form.startDate ? new Date(form.startDate) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><DateInput label={ui.resume.endDate} placeholder={ui.resume.datePlaceholder} clearable value={form.endDate ? new Date(form.endDate) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /></div>
+    <RichTextEditor label={ui.resume.achievements} value={form.achievements} onChange={(achievements) => setForm({ ...form, achievements })} placeholder={ui.resume.achievementsPlaceholder} />
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={30} />
-    <InlineError message={error} /><ActionButtons saving={saving} isEditing={false} onSave={onSave} onCancel={() => { setForm({ professionId: "", sphereId: "", companyName: "", position: "", startDate: "", endDate: "", achievements: "", skillIds: [] }); clearError("experiences"); }} />
+    <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm({ professionId: "", sphereId: "", companyName: "", position: "", startDate: "", endDate: "", achievements: "", skillIds: [] }); clearError("experiences"); }} />
   </FormSection>;
 }
 
@@ -695,7 +692,7 @@ function SmartSkillSelector({ value, onChange, options, max }: { value: string[]
   const [search, setSearch] = useState("");
   const selected = options.filter((option: any) => value.includes(option.value));
   const categories = ["HARD", "TOOL", "SOFT"];
-  return <div className={classes.selectorBox}><Select label="Навички" placeholder="Почніть вводити навичку..." searchable clearable value={null} searchValue={search} onSearchChange={setSearch} data={options.filter((option) => !value.includes(option.value))} onChange={(skillId) => { if (skillId && value.length < max) onChange([...value, skillId]); setSearch(""); }} /><div className={classes.skillGroups}>{categories.map((category) => {
+  return <div className={classes.selectorBox}><Select label={ui.resume.skills} placeholder={ui.resume.skillsPlaceholder} searchable clearable value={null} searchValue={search} onSearchChange={setSearch} data={options.filter((option) => !value.includes(option.value))} onChange={(skillId) => { if (skillId && value.length < max) onChange([...value, skillId]); setSearch(""); }} /><div className={classes.skillGroups}>{categories.map((category) => {
     const categorySkills = selected.filter((item: any) => String(item.category).toUpperCase().includes(category));
     if (!categorySkills.length) return null;
     return <div key={category}><Text className={classes.skillGroupTitle}>{category === "HARD" ? "Hard Skills" : category === "TOOL" ? "Tools" : "Soft Skills"}</Text><div className={classes.chips}>{categorySkills.map((item: any) => <button key={item.value} className={`${classes.skillChip} ${skillClass(item.category)}`} onClick={() => onChange(value.filter((id) => id !== item.value))}>{item.name ?? item.label} <span>×</span></button>)}</div></div>;
@@ -703,16 +700,16 @@ function SmartSkillSelector({ value, onChange, options, max }: { value: string[]
 }
 
 function RecordList({ items, title, meta, skills, links, onEdit, onDelete }: any) {
-  if (!items.length) return <Text className={classes.muted}>Записів поки немає. Додайте перший нижче.</Text>;
-  return <div className={classes.cardList}>{items.map((item: any) => <div key={item.id} className={classes.recordCard}><span className={classes.dragHandle}>⠿</span><div><Text className={classes.recordTitle}>{title(item)}</Text><Text className={classes.recordMeta}>{meta(item)}</Text>{links?.(item)?.length > 0 && <div className={classes.urlList}>{links(item).map((link: { label: string; value: string }) => <a key={`${link.label}-${link.value}`} className={classes.resourceLink} href={normalizeHref(link.value)} target="_blank" rel="noreferrer">{link.label}</a>)}</div>}{skills && <SkillChips skills={skills(item)} />}</div><div className={classes.iconActions}><button className={classes.iconButton} onClick={() => onEdit(item)} title="Редагувати"><EditIcon /></button><button className={`${classes.iconButton} ${classes.dangerIconButton}`} onClick={() => onDelete(item)} title="Видалити"><TrashIcon /></button></div></div>)}</div>;
+  if (!items.length) return <Text className={classes.muted}>{ui.resume.noRecords}</Text>;
+  return <div className={classes.cardList}>{items.map((item: any) => <div key={item.id} className={classes.recordCard}><span className={classes.dragHandle}>⠿</span><div><Text className={classes.recordTitle}>{title(item)}</Text><Text className={classes.recordMeta}>{meta(item)}</Text>{links?.(item)?.length > 0 && <div className={classes.urlList}>{links(item).map((link: { label: string; value: string }) => <a key={`${link.label}-${link.value}`} className={classes.resourceLink} href={normalizeHref(link.value)} title={link.value} target="_blank" rel="noreferrer">{link.label}</a>)}</div>}{skills && <SkillChips skills={skills(item)} />}</div><div className={classes.iconActions}><button className={classes.iconButton} onClick={() => onEdit(item)} title={commonUi.actions.edit}><EditIcon /></button><button className={`${classes.iconButton} ${classes.dangerIconButton}`} onClick={() => onDelete(item)} title={commonUi.actions.delete}><TrashIcon /></button></div></div>)}</div>;
 }
 
 function LinkEditor({ links, setLinks }: { links: LinkItem[]; setLinks: (links: LinkItem[]) => void }) {
   const [error, setError] = useState<string | null>(null);
   const suggestions: Array<{ name: string; type: LinkType }> = [
     { name: "LinkedIn", type: "SOCIAL" },
-    { name: "Власний сайт", type: "WEBSITE" },
-    { name: "Портфоліо", type: "PORTFOLIO" },
+    { name: ui.linksEditor.suggestions.ownWebsite, type: "WEBSITE" },
+    { name: ui.linksEditor.suggestions.portfolio, type: "PORTFOLIO" },
     { name: "Google Drive", type: "PORTFOLIO" },
     { name: "OneDrive", type: "PORTFOLIO" },
     { name: "Instagram", type: "SOCIAL" },
@@ -732,32 +729,32 @@ function LinkEditor({ links, setLinks }: { links: LinkItem[]; setLinks: (links: 
     { name: "CodePen", type: "PORTFOLIO" },
   ];
   const categoryOptions = [
-    { value: "WEBSITE", label: "Вебсайт" },
-    { value: "MESSENGER", label: "Месенджер" },
-    { value: "SOCIAL", label: "Соцмережа" },
-    { value: "PORTFOLIO", label: "Портфоліо" },
-    { value: "OTHER", label: "Інше" },
+    { value: "WEBSITE", label: ui.linksEditor.categories.website },
+    { value: "MESSENGER", label: ui.linksEditor.categories.messenger },
+    { value: "SOCIAL", label: ui.linksEditor.categories.social },
+    { value: "PORTFOLIO", label: ui.linksEditor.categories.portfolio },
+    { value: "OTHER", label: ui.linksEditor.categories.other },
   ];
   const add = () => {
     const last = links.at(-1);
     if (last && (!last.linkType || !last.linkName.trim() || !isValidUrlLike(last.value))) {
-      setError("Заповніть категорію, назву та коректний URL у попередньому рядку.");
+      setError(ui.errors.previousLinkRequired);
       return;
     }
     setError(null);
     setLinks([...links, { linkType: "SOCIAL", linkName: "", value: "" }]);
   };
-  return <Stack gap="sm">{links.map((link, index) => <div className={classes.linkGrid} key={index}><Select required label="Категорія" placeholder="Оберіть категорію" data={categoryOptions} value={link.linkType} onChange={(value) => setLinks(links.map((item, i) => i === index ? { ...item, linkType: (value ?? "OTHER") as LinkType } : item))} /><Autocomplete required label="Назва" placeholder="Оберіть зі списку чи введіть власну назву" data={suggestions.map((item) => item.name)} limit={suggestions.length} maxLength={100} value={link.linkName} onChange={(value) => {
+  return <Stack gap="sm">{links.map((link, index) => <div className={classes.linkGrid} key={index}><Select required label={ui.linksEditor.category} placeholder={ui.linksEditor.categoryPlaceholder} data={categoryOptions} value={link.linkType} onChange={(value) => setLinks(links.map((item, i) => i === index ? { ...item, linkType: (value ?? "OTHER") as LinkType } : item))} /><Autocomplete required label={ui.linksEditor.name} placeholder={ui.linksEditor.namePlaceholder} data={suggestions.map((item) => item.name)} limit={suggestions.length} maxLength={100} value={link.linkName} onChange={(value) => {
     const found = suggestions.find((item) => item.name.toLowerCase() === value.toLowerCase());
     setLinks(links.map((item, i) => i === index ? { ...item, linkName: value, linkType: found?.type ?? item.linkType } : item));
-  }} /><TextInput required label="URL / значення" placeholder={resourcePlaceholder} maxLength={255} value={link.value} onChange={(e) => setLinks(links.map((item, i) => i === index ? { ...item, value: e.currentTarget.value } : item))} /><button type="button" className={`${classes.iconButton} ${classes.dangerIconButton} ${classes.linkDeleteButton}`} onClick={() => { setLinks(links.filter((_, i) => i !== index)); setError(null); }} title="Видалити посилання"><TrashIcon /></button></div>)}<InlineError message={error} /><Button variant="light" onClick={add}>+ Додати посилання</Button></Stack>;
+  }} /><TextInput required label={ui.linksEditor.value} placeholder={resourcePlaceholder} maxLength={255} value={link.value} onChange={(e) => setLinks(links.map((item, i) => i === index ? { ...item, value: e.currentTarget.value } : item))} /><button type="button" className={`${classes.iconButton} ${classes.dangerIconButton} ${classes.linkDeleteButton}`} onClick={() => { setLinks(links.filter((_, i) => i !== index)); setError(null); }} title={ui.linksEditor.deleteTitle}><TrashIcon /></button></div>)}<InlineError message={error} /><Button variant="light" onClick={add}>{ui.actions.addLink}</Button></Stack>;
 }
 
 function VisibilitySelector({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const items = [
-    ["PUBLIC", "Відкритий", "Контактні дані видно роботодавцю одразу після відгуку на його вакансію."],
-    ["APPLIED_ONLY", "Конфіденційний", "Контакти приховані під час відгуку і відкриваються після запрошення на співбесіду."],
-    ["HIDDEN", "Прихований", "Для періоду, коли ви не шукаєте роботу; у цьому режимі не можна подаватись на вакансії."],
+    ["PUBLIC", ui.visibility.publicLabel, ui.visibility.publicText],
+    ["APPLIED_ONLY", ui.visibility.appliedLabel, ui.visibility.appliedText],
+    ["HIDDEN", ui.visibility.hiddenLabel, ui.visibility.hiddenText],
   ];
   return <div className={classes.visibilityOptions}>{items.map(([id, label, text]) => <label className={classes.visibilityOption} key={id}><Checkbox checked={value === id} onChange={() => onChange(id)} label={<><Text fw={900}>{label}</Text><Text className={classes.muted}>{text}</Text></>} /></label>)}</div>;
 }
@@ -771,15 +768,15 @@ function TabHeader({ title, description }: { title: string; description: string 
 }
 
 function SimpleTab({ title, description }: { title: string; description: string }) {
-  return <><TabHeader title={title} description={description} /><FormSection title="Скоро" description="Цей блок підключимо після реалізації вакансій."><Text className={classes.muted}>Фундамент кабінету вже готовий для майбутнього модуля.</Text></FormSection></>;
+  return <><TabHeader title={title} description={description} /><FormSection title={ui.simpleTab.soon} description={ui.simpleTab.description}><Text className={classes.muted}>{ui.simpleTab.text}</Text></FormSection></>;
 }
 
 function InlineError({ message }: { message?: string | null }) {
   return message ? <div className={classes.inlineError}>{message}</div> : null;
 }
 
-function ActionButtons({ saving, isEditing, onSave, onCancel }: { saving?: boolean; isEditing?: boolean; onSave: () => void; onCancel: () => void }) {
-  return <div className={classes.formActions}><Button className={classes.fullButton} loading={saving} onClick={onSave}>{isEditing ? "Зберегти зміни" : "Зберегти"}</Button><Button className={classes.cancelButton} variant="light" onClick={onCancel}>{isEditing ? "Відмінити зміни" : "Очистити"}</Button></div>;
+function ActionButtons({ saving, isEditing, createLabel, onSave, onCancel }: { saving?: boolean; isEditing?: boolean; createLabel?: string; onSave: () => void; onCancel: () => void }) {
+  return <div className={classes.formActions}><Button className={classes.fullButton} loading={saving} onClick={onSave}>{isEditing ? commonUi.actions.saveChanges : (createLabel ?? commonUi.actions.add)}</Button><Button className={classes.cancelButton} variant="light" onClick={onCancel}>{isEditing ? commonUi.actions.cancelChanges : commonUi.actions.clear}</Button></div>;
 }
 
 function buildLinks(form: { links: LinkItem[]; telegram: string; viber: string }): LinkItem[] {
@@ -799,7 +796,7 @@ const monthToDate = (value: string) => value.length === 7 ? `${value}-01` : valu
 const isValidUrlLike = (value: string) => /^(https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,})/i.test(value.trim());
 const normalizeHref = (value: string) => /^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim().replace(/^www\./i, "www.")}`;
 const stripHtml = (value: string) => value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-const degreeLabel = (degree: string) => ({ JUNIOR_BACHELOR: "Молодший бакалавр", BACHELOR: "Бакалавр", MASTER: "Магістр", PHD: "Доктор філософії", OTHER: "Інше" }[degree] ?? degree);
+const degreeLabel = (degree: string) => ({ JUNIOR_BACHELOR: ui.degreeLabels.juniorBachelor, BACHELOR: ui.degreeLabels.bachelor, MASTER: ui.degreeLabels.master, PHD: ui.degreeLabels.phd, OTHER: ui.degreeLabels.other }[degree] ?? degree);
 const skillClass = (category: string) => category.toLowerCase().includes("soft") ? classes.soft : category.toLowerCase().includes("tool") ? classes.tools : classes.hard;
 function formatLocation(item: LocationJoin, catalogs: StudentCatalogs) {
   const label = [
@@ -807,9 +804,9 @@ function formatLocation(item: LocationJoin, catalogs: StudentCatalogs) {
     catalogs.regions.find((region) => region.id === item.location.regionId)?.name,
     catalogs.cities.find((city) => city.id === item.location.cityId)?.name,
   ].filter(Boolean).join(", ");
-  return label || "Локація";
+  return label || ui.fallbacks.location;
 }
-function getErrorMessage(error: unknown) { return error instanceof ApiError || error instanceof Error ? error.message : "Сталася невідома помилка"; }
+function getErrorMessage(error: unknown) { return error instanceof ApiError || error instanceof Error ? error.message : commonUi.messages.unknownError; }
 
 function DashboardIcon() { return <svg viewBox="0 0 24 24"><path d="M4 13h7V4H4v9Zm0 7h7v-5H4v5Zm9 0h7v-9h-7v9Zm0-16v5h7V4h-7Z" /></svg>; }
 function BriefcaseIcon() { return <svg viewBox="0 0 24 24"><path d="M9 6V4h6v2h5a2 2 0 0 1 2 2v4H2V8a2 2 0 0 1 2-2h5Zm2 0h2V5h-2v1ZM2 14h20v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4Z" /></svg>; }
