@@ -153,6 +153,11 @@ export class HrProfileService {
         position: this.requiredString(body.position, "position"),
       });
 
+      // TODO: перенести підтвердження HR/компанії в кабінет системного адміністратора.
+      console.info(
+        `[ADMIN_APPROVAL_STUB] HR onboarding request created. userId=${user.id}; companyId=${company.id}; hrProfileId=${hrProfile.id}. Підтвердіть заявку через майбутній кабінет адміністратора.`,
+      );
+
       // HR має пройти модерацію, але роль потрібна фронтенду для переходу в кабінет.
       return { user: updatedUser, company, hrProfile };
     });

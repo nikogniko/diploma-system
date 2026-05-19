@@ -33,6 +33,8 @@ import {
   formatUkrainianPhone,
   isValidEmail,
   isValidUkrainianPhone,
+  sanitizeEmailInput,
+  sanitizeNameInput,
 } from "../../utils/formMasks";
 import classes from "./StudentDashboard.module.scss";
 
@@ -595,9 +597,9 @@ function PersonalTab({ profile, form, setForm, error, saving, onSave }: any) {
         </div>
         <div className={classes.personalGrid}>
           <div className={classes.nameColumn}>
-            <TextInput label={ui.personal.firstName} required maxLength={100} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: lettersOnly(e.currentTarget.value) })} />
-            <TextInput label={ui.personal.lastName} required maxLength={100} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: lettersOnly(e.currentTarget.value) })} />
-            <TextInput label={ui.personal.middleName} maxLength={100} value={form.middleName} onChange={(e) => setForm({ ...form, middleName: lettersOnly(e.currentTarget.value) })} />
+            <TextInput label={ui.personal.firstName} required maxLength={100} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: sanitizeNameInput(e.currentTarget.value) })} />
+            <TextInput label={ui.personal.lastName} required maxLength={100} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: sanitizeNameInput(e.currentTarget.value) })} />
+            <TextInput label={ui.personal.middleName} maxLength={100} value={form.middleName} onChange={(e) => setForm({ ...form, middleName: sanitizeNameInput(e.currentTarget.value) })} />
           </div>
           <div className={classes.nameColumn}>
             <Select label={ui.personal.gender} data={[{ value: "FEMALE", label: ui.personal.female }, { value: "MALE", label: ui.personal.male }]} value={form.gender || null} onChange={(value) => setForm({ ...form, gender: value ?? "" })} />
@@ -607,7 +609,7 @@ function PersonalTab({ profile, form, setForm, error, saving, onSave }: any) {
       </FormSection>
       <FormSection title={ui.personal.contactsTitle} description={ui.personal.contactsDescription}>
         <div className={classes.grid}>
-          <TextInput className={classes.fullRow} label={ui.personal.contactEmail} required value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.currentTarget.value })} />
+          <TextInput className={classes.fullRow} label={ui.personal.contactEmail} required value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: sanitizeEmailInput(e.currentTarget.value) })} />
           <TextInput label={ui.personal.primaryPhone} required value={form.primaryPhone} onChange={(e) => setForm({ ...form, primaryPhone: formatUkrainianPhone(e.currentTarget.value) })} />
           <TextInput label={ui.personal.secondaryPhone} value={form.secondaryPhone} onChange={(e) => setForm({ ...form, secondaryPhone: formatUkrainianPhone(e.currentTarget.value) })} />
         </div>
@@ -831,7 +833,6 @@ function buildLinks(form: { links: LinkItem[]; telegram: string; viber: string }
 const asOption = (item: CatalogItem) => ({ value: String(item.id), label: item.name });
 const clean = (value: string) => value.trim();
 const nullable = (value?: string | null) => value?.trim() || null;
-const lettersOnly = (value: string) => value.replace(/[^\p{L}' -]/gu, "").slice(0, 100);
 const dateShort = (value: string) => dayjs(value).format("DD.MM.YYYY");
 const monthShort = (value: string) => dayjs(value).format("MM.YYYY");
 const monthToDate = (value: string) => value.length === 7 ? `${value}-01` : value;

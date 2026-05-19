@@ -15,5 +15,30 @@ export function isValidUkrainianPhone(value: string) {
 
 /** Перевіряє базовий формат email без бізнес-обмежень на домен. */
 export function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+  return /^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(value.trim());
+}
+
+/** Обмежує email латиницею, цифрами та базовими службовими символами адреси. */
+export function sanitizeEmailInput(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9._+-@]/g, "").slice(0, 254);
+}
+
+/** Обмежує ПІБ літерами, пробілами, дефісом та апострофом. */
+export function sanitizeNameInput(value: string) {
+  return value.replace(/[^\p{L}' -]/gu, "").slice(0, 100);
+}
+
+/** Обмежує назву посади символами, які природно трапляються в назвах ролей. */
+export function sanitizePositionInput(value: string) {
+  return value.replace(/[^\p{L}\p{N}'’ .,+/&-]/gu, "").slice(0, 150);
+}
+
+/** Обмежує домен латиницею, цифрами, крапками та дефісами. */
+export function sanitizeDomainInput(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9.-]/g, "").replace(/\.{2,}/g, ".").slice(0, 100);
+}
+
+/** Обрізає реєстраційний номер до довжини, потрібної для типу компанії. */
+export function sanitizeRegistrationNumber(value: string, registrationType: string) {
+  return value.replace(DIGITS_ONLY, "").slice(0, registrationType === "FOP" ? 10 : 8);
 }

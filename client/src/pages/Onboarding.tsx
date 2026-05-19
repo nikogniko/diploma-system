@@ -1,16 +1,28 @@
 import { useAuth, useClerk, useUser } from "@clerk/react";
+import { Button, Group, Modal, NumberInput, Select, Stack, Text, TextInput, Title } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "../api/apiClient";
-import { formatUkrainianPhone } from "../utils/formMasks";
+import { messages, interpolate } from "../locales/localizedMessages";
+import {
+  formatUkrainianPhone,
+  isValidEmail,
+  isValidUkrainianPhone,
+  sanitizeDomainInput,
+  sanitizeEmailInput,
+  sanitizeNameInput,
+  sanitizePositionInput,
+  sanitizeRegistrationNumber,
+} from "../utils/formMasks";
 import classes from "./Onboarding.module.scss";
 
 type AppRole = "STUDENT" | "HR";
+type RegistrationType = "COMPANY" | "FOP";
 
 interface CompanyPayload {
-  registrationType: "COMPANY" | "FOP";
+  registrationType: RegistrationType;
   registrationNumber: string;
   legalName: string;
   publicName: string;
@@ -26,8 +38,7 @@ interface CompanyOption {
   id: string;
   publicName: string;
   legalName: string;
-  corporateDomain: string | null;
-  verificationStatus: string;
+  registrationType: RegistrationType;
 }
 
 interface OnboardingPayload {
@@ -46,45 +57,82 @@ interface OnboardingPayload {
   company?: CompanyPayload;
 }
 
+type CompanyStepProps = {
+  companyData: CompanyPayload;
+  setCompanyData: (companyData: CompanyPayload) => void;
+  error: string | null;
+  saveCompanyDraft: () => void;
+  cancelCompanyDraft: () => void;
+  clearError: () => void;
+};
+
+const ui = messages.onboarding;
 const academicDomains = ["edu.ua", "kpi.ua", "knu.ua"];
+const currentYear = new Date().getFullYear();
+
+const registrationTypes = [
+  { value: "COMPANY", label: ui.company.companyType },
+  { value: "FOP", label: ui.company.fopType },
+];
+
+const employeeCountOptions = [
+  { value: "SIZE_1_10", label: "1-10" },
+  { value: "SIZE_11_20", label: "11-20" },
+  { value: "SIZE_21_50", label: "21-50" },
+  { value: "SIZE_51_100", label: "51-100" },
+  { value: "SIZE_101_200", label: "101-200" },
+  { value: "SIZE_201_500", label: "201-500" },
+  { value: "SIZE_501_1000", label: "501-1000" },
+  { value: "SIZE_1000_PLUS", label: "1000+" },
+];
+
+/** Повертає порожню форму компанії з дефолтним описом для onboarding роботодавця. */
+const createEmptyCompanyData = (): CompanyPayload => ({
+  registrationType: "COMPANY",
+  registrationNumber: "",
+  legalName: "",
+  publicName: "",
+  corporateDomain: "",
+  foundationYear: currentYear,
+  employeeCount: "",
+  publicEmail: "",
+  publicPhone: "",
+  about: ui.company.defaultAbout,
+});
+
+/** Дозволяє вводити тільки чотири цифри року. */
+const sanitizeYearInput = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 
 /** Перевіряє email кандидата за академічними доменами, які дублюють backend-правило. */
 const isAcademicEmail = (email: string) => {
   const domain = email.trim().toLowerCase().split("@")[1] ?? "";
-  return academicDomains.some(
-    (academicDomain) =>
-      domain === academicDomain || domain.endsWith(`.${academicDomain}`),
-  );
+  return academicDomains.some((academicDomain) => domain === academicDomain || domain.endsWith(`.${academicDomain}`));
 };
 
-/** Дістає зрозуміле повідомлення про помилку з відповіді API. */
+/** Дістає зрозуміле повідомлення про помилку з відповіді backend API. */
 const readApiError = async (response: Response) => {
   try {
     const data = await response.json();
-    return data?.error?.message ?? data?.error ?? "Не вдалося завершити реєстрацію";
+    return data?.error?.message ?? data?.error ?? ui.common.unknownError;
   } catch {
-    return "Не вдалося завершити реєстрацію";
+    return ui.common.unknownError;
   }
 };
 
+/** Сторінка завершення реєстрації кандидата або роботодавця після Clerk signup. */
 export default function Onboarding() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const { signOut } = useClerk();
   const navigate = useNavigate();
 
-  const intendedRole =
-    typeof window !== "undefined"
-      ? (localStorage.getItem("intendedRole") as AppRole | null)
-      : null;
-
-  const [step, setStep] = useState<"MAIN_FORM" | "HR_COMPANY_FORM">(
-    "MAIN_FORM",
-  );
+  const intendedRole = typeof window !== "undefined" ? (localStorage.getItem("intendedRole") as AppRole | null) : null;
+  const [step, setStep] = useState<"MAIN_FORM" | "HR_COMPANY_FORM">("MAIN_FORM");
   const [error, setError] = useState<string | null>(null);
   const [companiesError, setCompaniesError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCompaniesLoading, setIsCompaniesLoading] = useState(false);
+  const [isHrSubmittedOpen, setIsHrSubmittedOpen] = useState(false);
 
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
   const [lastName, setLastName] = useState(user?.lastName ?? "");
@@ -97,31 +145,50 @@ export default function Onboarding() {
 
   const [hrPosition, setHrPosition] = useState("");
   const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
+  const [companyTypeFilter, setCompanyTypeFilter] = useState<RegistrationType>("COMPANY");
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [companySearch, setCompanySearch] = useState("");
-
-  const [companyData, setCompanyData] = useState<CompanyPayload>({
-    registrationType: "COMPANY",
-    registrationNumber: "",
-    legalName: "",
-    publicName: "",
-    corporateDomain: "",
-    foundationYear: new Date().getFullYear(),
-    employeeCount: "",
-    publicEmail: "",
-    publicPhone: "",
-    about: "",
-  });
+  const [companyData, setCompanyData] = useState<CompanyPayload>(createEmptyCompanyData);
   const [hasNewCompanyData, setHasNewCompanyData] = useState(false);
 
-  const isInvalidStudent =
-    intendedRole === "STUDENT" && authEmail !== "" && !isAcademicEmail(authEmail);
-  const isStudentBaseValid =
-    firstName.trim() && lastName.trim() && birthDate && primaryPhone.trim() && about.trim();
+  const isInvalidStudent = intendedRole === "STUDENT" && authEmail !== "" && !isAcademicEmail(authEmail);
+  const isStudentBaseValid = firstName.trim() && lastName.trim() && birthDate && primaryPhone.trim() && about.trim();
   const isHrBaseValid = firstName.trim() && lastName.trim() && hrPosition.trim();
   const isCompanyReady = selectedCompanyId !== "" || hasNewCompanyData;
 
-  /** Завантажує компанії з backend для реального вибору під час onboarding роботодавця. */
+  /** Прибирає активну помилку, коли користувач виправляє поля форми. */
+  const clearError = () => setError(null);
+
+  /** Відкриває форму нової компанії тільки після заповнення базових даних рекрутера. */
+  const openCompanyRegistration = () => {
+    if (!isHrBaseValid) {
+      setError(ui.hr.fillHrBeforeCompany);
+      return;
+    }
+
+    clearError();
+    setCompanyData({ ...createEmptyCompanyData(), registrationType: companyTypeFilter });
+    setStep("HR_COMPANY_FORM");
+  };
+
+  /** Скасовує реєстрацію нової компанії та очищує всі пов'язані з нею поля. */
+  const cancelCompanyDraft = () => {
+    clearError();
+    setCompanyData(createEmptyCompanyData());
+    setHasNewCompanyData(false);
+    setSelectedCompanyId("");
+    setCompanySearch("");
+    setStep("MAIN_FORM");
+  };
+
+  const companySelectData = useMemo(() => companyOptions
+    .filter((company) => company.registrationType === companyTypeFilter)
+    .map((company) => ({
+      value: company.id,
+      label: `${company.publicName} (${company.legalName})`,
+    })), [companyOptions, companyTypeFilter]);
+
+  /** Завантажує компанії з backend для вибору під час onboarding роботодавця. */
   useEffect(() => {
     if (intendedRole !== "HR" || hasNewCompanyData) return;
 
@@ -129,29 +196,15 @@ export default function Onboarding() {
     const loadCompanies = async () => {
       setIsCompaniesLoading(true);
       setCompaniesError(null);
-
       try {
         const query = companySearch.trim();
-        const response = await fetch(
-          `${API_URL}/companies${query ? `?q=${encodeURIComponent(query)}` : ""}`,
-          { signal: controller.signal },
-        );
-
-        if (!response.ok) {
-          throw new Error(await readApiError(response));
-        }
-
+        const response = await fetch(`${API_URL}/companies${query ? `?q=${encodeURIComponent(query)}` : ""}`, { signal: controller.signal });
+        if (!response.ok) throw new Error(await readApiError(response));
         const data = await response.json();
         setCompanyOptions(data.data ?? []);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setCompaniesError(
-          err instanceof TypeError
-            ? "Не вдалося підвантажити компанії. Перевірте, чи запущений backend."
-            : err instanceof Error
-              ? err.message
-              : "Не вдалося підвантажити компанії.",
-        );
+        setCompaniesError(err instanceof TypeError ? ui.hr.loadCompaniesError : err instanceof Error ? err.message : ui.hr.loadCompaniesFallback);
       } finally {
         setIsCompaniesLoading(false);
       }
@@ -173,22 +226,17 @@ export default function Onboarding() {
     return (
       <div className={classes.container}>
         <div className={classes.warningBlock}>
-          <h2>Доступ обмежено</h2>
-          <p>
-            Пошта <b>{authEmail}</b> не схожа на академічну. Для кабінету
-            кандидата використайте корпоративну пошту навчального закладу.
-          </p>
+          <Title order={2}>{ui.accessDenied.title}</Title>
+          <Text>{interpolate(ui.accessDenied.text, { email: authEmail })}</Text>
         </div>
-        <button className={classes.btnDanger} onClick={() => signOut()}>
-          Вийти та спробувати іншу пошту
-        </button>
+        <Button className={classes.btnDanger} onClick={() => signOut()}>{ui.accessDenied.button}</Button>
       </div>
     );
   }
 
-  /** Завершує onboarding і відправляє на backend payload відповідно до ролі. */
+  /** Завершує onboarding і відправляє payload на backend відповідно до ролі. */
   const handleFinalSubmit = async () => {
-    setError(null);
+    clearError();
     setIsLoading(true);
 
     try {
@@ -202,10 +250,7 @@ export default function Onboarding() {
       };
 
       if (intendedRole === "STUDENT") {
-        if (!isStudentBaseValid) {
-          throw new Error("Заповніть ім'я, прізвище, дату народження, телефон і блок «Про себе».");
-        }
-
+        if (!isStudentBaseValid || !isValidUkrainianPhone(primaryPhone)) throw new Error(ui.student.validation);
         payload.birthDate = birthDate;
         payload.contactEmail = authEmail;
         payload.primaryPhone = primaryPhone.trim();
@@ -213,12 +258,8 @@ export default function Onboarding() {
       }
 
       if (intendedRole === "HR") {
-        if (!isHrBaseValid || !isCompanyReady) {
-          throw new Error("Заповніть власні дані та оберіть або зареєструйте компанію.");
-        }
-
+        if (!isHrBaseValid || !isCompanyReady) throw new Error(ui.hr.validation);
         payload.position = hrPosition.trim();
-
         if (hasNewCompanyData) {
           payload.company = {
             ...companyData,
@@ -229,7 +270,7 @@ export default function Onboarding() {
             employeeCount: companyData.employeeCount || null,
             publicEmail: companyData.publicEmail.trim(),
             publicPhone: companyData.publicPhone?.trim() || null,
-            about: companyData.about.trim(),
+            about: ui.company.defaultAbout,
           };
         } else {
           payload.companyId = selectedCompanyId;
@@ -239,472 +280,229 @@ export default function Onboarding() {
       const token = await getToken();
       const response = await fetch(`${API_URL}/users/onboarding`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        throw new Error(await readApiError(response));
-      }
+      if (!response.ok) throw new Error(await readApiError(response));
 
       localStorage.removeItem("intendedRole");
       if (user?.id) localStorage.setItem(`currentRole:${user.id}`, intendedRole);
       await user?.reload();
+
+      if (intendedRole === "HR") {
+        setIsHrSubmittedOpen(true);
+        return;
+      }
+
       navigate("/auth/redirect", { replace: true });
     } catch (err: unknown) {
-      if (err instanceof TypeError) {
-        setError("Сервер тимчасово недоступний. Запустіть backend і повторіть спробу.");
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Сталася невідома помилка");
-      }
+      setError(err instanceof TypeError ? ui.common.serverUnavailable : err instanceof Error ? err.message : ui.common.unknownError);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (step === "HR_COMPANY_FORM") {
-    const isFop = companyData.registrationType === "FOP";
-    const regNumLabel = isFop ? "ІПН (10 цифр)" : "ЄДРПОУ (8 цифр)";
-    const regNumPlaceholder = isFop ? "1234567890" : "12345678";
+  /** Перевіряє форму нової компанії перед поверненням до основного кроку. */
+  const saveCompanyDraft = () => {
+    const cleanNum = companyData.registrationNumber.trim();
+    if (!companyData.registrationNumber.trim() || !companyData.legalName.trim() || !companyData.publicName.trim() || !companyData.publicEmail.trim()) return setError(ui.company.requiredError);
+    if (!/^\d+$/.test(cleanNum)) return setError(ui.company.numberDigitsError);
+    if (companyData.registrationType === "COMPANY" && cleanNum.length !== 8) return setError(ui.company.edrpouError);
+    if (companyData.registrationType === "FOP" && cleanNum.length !== 10) return setError(ui.company.ipnError);
+    if (!isValidEmail(companyData.publicEmail)) return setError(ui.company.emailError);
+    if (companyData.publicPhone && !isValidUkrainianPhone(companyData.publicPhone)) return setError(ui.common.required);
+    if (!/^\d{4}$/.test(String(companyData.foundationYear)) || companyData.foundationYear > currentYear) return setError(ui.company.yearError);
 
-    /** Перевіряє форму нової компанії перед поверненням до основного кроку. */
-    const saveCompanyDraft = () => {
-      const cleanNum = companyData.registrationNumber.trim();
-      const isNumOnly = /^\d+$/.test(cleanNum);
-
-      if (
-        !companyData.legalName.trim() ||
-        !companyData.publicName.trim() ||
-        !companyData.about.trim() ||
-        !companyData.publicEmail.trim()
-      ) {
-        setError("Заповніть усі обов'язкові поля компанії.");
-        return;
-      }
-
-      if (!isNumOnly) {
-        setError("Реєстраційний номер має містити тільки цифри.");
-        return;
-      }
-
-      if (companyData.registrationType === "COMPANY" && cleanNum.length !== 8) {
-        setError("ЄДРПОУ юридичної особи має містити рівно 8 цифр.");
-        return;
-      }
-
-      if (companyData.registrationType === "FOP" && cleanNum.length !== 10) {
-        setError("ІПН ФОП має містити рівно 10 цифр.");
-        return;
-      }
-
-      if (!companyData.publicEmail.includes("@")) {
-        setError("Введіть коректний email компанії.");
-        return;
-      }
-
-      setError(null);
-      setHasNewCompanyData(true);
-      setSelectedCompanyId("");
-      setStep("MAIN_FORM");
-    };
-
-    return (
-      <div className={classes.container}>
-        <h2 className={classes.title}>Реєстрація компанії</h2>
-        <p className={classes.subtitle}>
-          Внесіть юридичні та публічні дані організації. Компанія потрапить на
-          модерацію системного адміністратора.
-        </p>
-
-        <div className={`${classes.formSection} ${classes.gridForm}`}>
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>
-              Тип реєстрації <span className={classes.requiredStar}>*</span>
-            </label>
-            <select
-              className={classes.selectField}
-              value={companyData.registrationType}
-              onChange={(e) =>
-                setCompanyData({
-                  ...companyData,
-                  registrationType: e.target.value as "COMPANY" | "FOP",
-                  registrationNumber: "",
-                })
-              }
-            >
-              <option value="COMPANY">Юридична особа</option>
-              <option value="FOP">Фізична особа-підприємець</option>
-            </select>
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>
-              {regNumLabel} <span className={classes.requiredStar}>*</span>
-            </label>
-            <input
-              className={classes.inputField}
-              value={companyData.registrationNumber}
-              onChange={(e) =>
-                setCompanyData({
-                  ...companyData,
-                  registrationNumber: e.target.value,
-                })
-              }
-              placeholder={regNumPlaceholder}
-            />
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>
-              Юридична назва <span className={classes.requiredStar}>*</span>
-            </label>
-            <input
-              className={classes.inputField}
-              value={companyData.legalName}
-              onChange={(e) =>
-                setCompanyData({ ...companyData, legalName: e.target.value })
-              }
-              placeholder={isFop ? "ФОП Шевченко Т. Г." : "ТОВ «Приклад Компанії»"}
-            />
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>
-              Публічна назва <span className={classes.requiredStar}>*</span>
-            </label>
-            <input
-              className={classes.inputField}
-              value={companyData.publicName}
-              onChange={(e) =>
-                setCompanyData({ ...companyData, publicName: e.target.value })
-              }
-              placeholder="Назва, яку побачать кандидати"
-            />
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>
-              Публічний email <span className={classes.requiredStar}>*</span>
-            </label>
-            <input
-              type="email"
-              className={classes.inputField}
-              value={companyData.publicEmail}
-              onChange={(e) =>
-                setCompanyData({ ...companyData, publicEmail: e.target.value })
-              }
-              placeholder="hello@company.com"
-            />
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>
-              Опис компанії <span className={classes.requiredStar}>*</span>
-            </label>
-            <textarea
-              className={classes.inputField}
-              rows={3}
-              value={companyData.about}
-              onChange={(e) =>
-                setCompanyData({ ...companyData, about: e.target.value })
-              }
-              placeholder="Коротко опишіть компанію, напрям і команду."
-            />
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>Телефон компанії</label>
-            <input
-              type="tel"
-              className={classes.inputField}
-              value={companyData.publicPhone ?? ""}
-              onChange={(e) =>
-                setCompanyData({ ...companyData, publicPhone: e.target.value })
-              }
-              placeholder="+380..."
-            />
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>Корпоративний домен</label>
-            <input
-              className={classes.inputField}
-              value={companyData.corporateDomain ?? ""}
-              onChange={(e) =>
-                setCompanyData({
-                  ...companyData,
-                  corporateDomain: e.target.value,
-                })
-              }
-              placeholder="company.com"
-            />
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>
-              Рік заснування <span className={classes.requiredStar}>*</span>
-            </label>
-            <input
-              type="number"
-              className={classes.inputField}
-              value={companyData.foundationYear}
-              onChange={(e) =>
-                setCompanyData({
-                  ...companyData,
-                  foundationYear: Number(e.target.value),
-                })
-              }
-            />
-          </div>
-
-          <div className={classes.inputGroup}>
-            <label className={classes.label}>Кількість працівників</label>
-            <select
-              className={classes.selectField}
-              value={companyData.employeeCount ?? ""}
-              onChange={(e) =>
-                setCompanyData({
-                  ...companyData,
-                  employeeCount: e.target.value,
-                })
-              }
-            >
-              <option value="">Не вказано</option>
-              <option value="SIZE_1_10">1-10</option>
-              <option value="SIZE_11_20">11-20</option>
-              <option value="SIZE_21_50">21-50</option>
-              <option value="SIZE_51_100">51-100</option>
-              <option value="SIZE_101_200">101-200</option>
-              <option value="SIZE_201_500">201-500</option>
-              <option value="SIZE_501_1000">501-1000</option>
-              <option value="SIZE_1000_PLUS">1000+</option>
-            </select>
-          </div>
-
-          {error && <div className={classes.error}>{error}</div>}
-
-          <div className={classes.buttonGroupRow}>
-            <button className={classes.btnPrimary} onClick={saveCompanyDraft}>
-              Зберегти дані компанії
-            </button>
-            <button
-              className={classes.btnSecondary}
-              onClick={() => {
-                setError(null);
-                setStep("MAIN_FORM");
-              }}
-            >
-              Скасувати
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    setError(null);
+    setHasNewCompanyData(true);
+    setSelectedCompanyId("");
+    setStep("MAIN_FORM");
+  };
 
   return (
+    <>
+      <Modal opened={isHrSubmittedOpen} onClose={() => navigate("/auth/redirect", { replace: true })} title={ui.hr.submittedTitle} centered>
+        <Stack>
+          <Text>{ui.hr.submittedText}</Text>
+          <Button onClick={() => navigate("/auth/redirect", { replace: true })}>{ui.hr.submittedButton}</Button>
+        </Stack>
+      </Modal>
+
+      {step === "HR_COMPANY_FORM" ? (
+        <CompanyStep
+          companyData={companyData}
+          setCompanyData={setCompanyData}
+          error={error}
+          saveCompanyDraft={saveCompanyDraft}
+          cancelCompanyDraft={cancelCompanyDraft}
+          clearError={clearError}
+        />
+      ) : (
+        <div className={classes.container}>
+          <Title order={1} className={classes.title}>{ui.common.personalTitle}</Title>
+          <Text className={classes.subtitle}>
+            {interpolate(ui.common.personalSubtitle, { role: intendedRole === "STUDENT" ? ui.common.candidateRole : ui.common.employerRole })}
+          </Text>
+
+          <Stack className={classes.formSection} gap="md">
+            <div className={intendedRole === "HR" ? classes.twoGrid : classes.formGrid}>
+              <TextInput required label={ui.common.firstName} value={firstName} onChange={(e) => { setFirstName(sanitizeNameInput(e.currentTarget.value)); clearError(); }} />
+              {intendedRole === "HR" && <TextInput label={ui.common.middleName} value={middleName} onChange={(e) => { setMiddleName(sanitizeNameInput(e.currentTarget.value)); clearError(); }} />}
+              <TextInput required label={ui.common.lastName} value={lastName} onChange={(e) => { setLastName(sanitizeNameInput(e.currentTarget.value)); clearError(); }} />
+              {intendedRole === "HR" && <TextInput required label={ui.hr.position} placeholder={ui.hr.positionPlaceholder} maxLength={150} value={hrPosition} onChange={(e) => { setHrPosition(sanitizePositionInput(e.currentTarget.value)); clearError(); }} />}
+            </div>
+
+            {intendedRole === "STUDENT" && (
+              <>
+                <TextInput label={ui.common.middleName} value={middleName} onChange={(e) => { setMiddleName(sanitizeNameInput(e.currentTarget.value)); clearError(); }} />
+                <DateInput required label={ui.student.birthDate} value={birthDate ? new Date(birthDate) : null} onChange={(value) => { setBirthDate(value ? dayjs(value).format("YYYY-MM-DD") : ""); clearError(); }} valueFormat="DD.MM.YYYY" locale="uk" placeholder={ui.student.birthPlaceholder} maxDate={new Date()} clearable popoverProps={{ position: "bottom-end", withinPortal: true }} firstDayOfWeek={1} />
+                <TextInput required label={ui.student.phone} type="tel" value={primaryPhone} onChange={(e) => { setPrimaryPhone(formatUkrainianPhone(e.currentTarget.value)); clearError(); }} placeholder="+380 XX XXX XX XX" />
+                <TextInput required label={ui.student.about} value={about} onChange={(e) => { setAbout(e.currentTarget.value); clearError(); }} placeholder={ui.student.aboutPlaceholder} />
+              </>
+            )}
+
+            {intendedRole === "HR" && (
+              <div className={classes.fullRow}>
+                <Text className={classes.label}>{ui.hr.company} <span className={classes.requiredStar}>*</span></Text>
+                {hasNewCompanyData ? (
+                  <div className={classes.selectedCompanyBlock}>
+                    <div>
+                      <Text>{ui.hr.selectedNew} <b>{companyData.publicName}</b></Text>
+                      <Text className={classes.selectedCompanyMeta}>{ui.hr.registrationNumber} {companyData.registrationNumber}</Text>
+                    </div>
+                    <Group gap="sm">
+                      <button className={classes.btnLink} onClick={() => setStep("HR_COMPANY_FORM")}>{ui.hr.edit}</button>
+                      <button className={classes.btnLink} onClick={cancelCompanyDraft}>{ui.hr.cancel}</button>
+                    </Group>
+                  </div>
+                ) : (
+                  <Stack gap="sm">
+                    <div className={classes.companySearchGrid}>
+                      <Select
+                        required
+                        label={ui.company.registrationType}
+                        data={registrationTypes}
+                        value={companyTypeFilter}
+                        onChange={(value) => {
+                          setCompanyTypeFilter((value ?? "COMPANY") as RegistrationType);
+                          setSelectedCompanyId("");
+                          clearError();
+                        }}
+                        allowDeselect={false}
+                      />
+                      <Select
+                        label={ui.hr.companySearch}
+                        data={companySelectData}
+                        value={selectedCompanyId || null}
+                        searchValue={companySearch}
+                        onSearchChange={(value) => { setCompanySearch(value); clearError(); }}
+                        onChange={(value) => { setSelectedCompanyId(value ?? ""); clearError(); }}
+                        placeholder={isCompaniesLoading ? ui.hr.loadingCompanies : companySelectData.length ? ui.hr.selectCompany : ui.hr.emptyCompanies}
+                        nothingFoundMessage={ui.hr.emptyCompanies}
+                        searchable
+                        clearable
+                      />
+                    </div>
+                    {companiesError && <div className={classes.error}>{companiesError}</div>}
+                    <Text className={classes.helperText}>{ui.hr.registerCompanyPrefix} <button className={classes.btnLink} onClick={openCompanyRegistration}>{ui.hr.registerCompanyAction}</button>.</Text>
+                  </Stack>
+                )}
+              </div>
+            )}
+
+            {error && <div className={classes.error}>{error}</div>}
+            <Button className={classes.btnSubmit} loading={isLoading} onClick={handleFinalSubmit} disabled={(intendedRole === "STUDENT" && !isStudentBaseValid) || (intendedRole === "HR" && (!isHrBaseValid || !isCompanyReady))}>
+              {isLoading ? ui.common.wait : ui.common.finish}
+            </Button>
+          </Stack>
+        </div>
+      )}
+    </>
+  );
+}
+
+function CompanyStep({ companyData, setCompanyData, error, saveCompanyDraft, cancelCompanyDraft, clearError }: CompanyStepProps) {
+  const isFop = companyData.registrationType === "FOP";
+  const registrationNumberLimit = isFop ? 10 : 8;
+  return (
     <div className={classes.container}>
-      <h1 className={classes.title}>Особисті дані</h1>
-      <p className={classes.subtitle}>
-        Перевірте інформацію для профілю{" "}
-        {intendedRole === "STUDENT" ? "кандидата" : "роботодавця"}.
-      </p>
+      <Title order={2} className={classes.title}>{ui.company.title}</Title>
+      <Text className={classes.subtitle}>{ui.company.subtitle}</Text>
 
-      <div className={classes.formSection}>
-        <div className={classes.inputGroup}>
-          <label className={classes.label}>
-            Ім'я <span className={classes.requiredStar}>*</span>
-          </label>
-          <input
-            className={classes.inputField}
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+      <Stack className={classes.formSection} gap="md">
+        <div className={classes.companyTopRow}>
+          <Select
+            required
+            label={ui.company.registrationType}
+            data={registrationTypes}
+            value={companyData.registrationType}
+            onChange={(value) => {
+              setCompanyData({ ...companyData, registrationType: (value ?? "COMPANY") as RegistrationType, registrationNumber: "" });
+              clearError();
+            }}
+            allowDeselect={false}
+          />
+          <TextInput
+            required
+            label={isFop ? ui.company.ipn : ui.company.edrpou}
+            placeholder={isFop ? "1234567890" : "12345678"}
+            maxLength={registrationNumberLimit}
+            value={companyData.registrationNumber}
+            onChange={(e) => {
+              setCompanyData({ ...companyData, registrationNumber: sanitizeRegistrationNumber(e.currentTarget.value, companyData.registrationType) });
+              clearError();
+            }}
           />
         </div>
 
-        <div className={classes.inputGroup}>
-          <label className={classes.label}>
-            Прізвище <span className={classes.requiredStar}>*</span>
-          </label>
-          <input
-            className={classes.inputField}
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-          />
-        </div>
+        <TextInput
+          required
+          label={ui.company.legalName}
+          placeholder={isFop ? ui.company.legalNameFopPlaceholder : ui.company.legalNameCompanyPlaceholder}
+          maxLength={200}
+          value={companyData.legalName}
+          onChange={(e) => {
+            setCompanyData({ ...companyData, legalName: e.currentTarget.value.slice(0, 200) });
+            clearError();
+          }}
+        />
 
-        <div className={classes.inputGroup}>
-          <label className={classes.label}>По батькові</label>
-          <input
-            className={classes.inputField}
-            value={middleName}
-            onChange={(e) => setMiddleName(e.target.value)}
-          />
-        </div>
+        <div className={classes.companyColumns}>
+          <Stack gap="md">
+            <TextInput required label={ui.company.publicName} placeholder={ui.company.publicNamePlaceholder} maxLength={100} value={companyData.publicName} onChange={(e) => { setCompanyData({ ...companyData, publicName: e.currentTarget.value.slice(0, 100) }); clearError(); }} />
+            <TextInput required label={ui.company.publicEmail} type="email" placeholder="hello@company.com" value={companyData.publicEmail} onChange={(e) => { setCompanyData({ ...companyData, publicEmail: sanitizeEmailInput(e.currentTarget.value) }); clearError(); }} />
+            <TextInput label={ui.company.publicPhone} type="tel" placeholder="+380 XX XXX XX XX" value={companyData.publicPhone ?? ""} onChange={(e) => { setCompanyData({ ...companyData, publicPhone: formatUkrainianPhone(e.currentTarget.value) }); clearError(); }} />
+          </Stack>
 
-        {intendedRole === "STUDENT" && (
-          <>
-            <DateInput
-              classNames={{
-                root: classes.inputGroup,
-                label: classes.label,
-                input: classes.inputField,
+          <Stack gap="md">
+            <NumberInput
+              required
+              label={ui.company.foundationYear}
+              min={1800}
+              max={currentYear}
+              step={1}
+              allowDecimal={false}
+              allowNegative={false}
+              clampBehavior="strict"
+              placeholder={String(currentYear)}
+              value={companyData.foundationYear ? String(companyData.foundationYear) : ""}
+              onChange={(value) => {
+                const year = sanitizeYearInput(String(value));
+                setCompanyData({ ...companyData, foundationYear: year ? Number(year) : 0 });
+                clearError();
               }}
-              label={
-                <>
-                  Дата народження <span className={classes.requiredStar}>*</span>
-                </>
-              }
-              value={birthDate ? new Date(birthDate) : null}
-              onChange={(value) =>
-                setBirthDate(value ? dayjs(value).format("YYYY-MM-DD") : "")
-              }
-              valueFormat="DD.MM.YYYY"
-              locale="uk"
-              placeholder="Оберіть дату"
-              maxDate={new Date()}
-              clearable
-              popoverProps={{ position: "bottom-end", withinPortal: true }}
-              firstDayOfWeek={1}
             />
-
-            <div className={classes.inputGroup}>
-              <label className={classes.label}>
-                Контактний телефон <span className={classes.requiredStar}>*</span>
-              </label>
-              <input
-                type="tel"
-                className={classes.inputField}
-                value={primaryPhone}
-                onChange={(e) => setPrimaryPhone(formatUkrainianPhone(e.target.value))}
-                placeholder="+380..."
-              />
-            </div>
-
-            <div className={classes.inputGroup}>
-              <label className={classes.label}>
-                Про себе <span className={classes.requiredStar}>*</span>
-              </label>
-              <textarea
-                className={classes.inputField}
-                value={about}
-                onChange={(e) => setAbout(e.target.value)}
-                placeholder="Коротко опишіть свій досвід, інтереси та ціль."
-              />
-            </div>
-          </>
-        )}
-
-        {intendedRole === "HR" && (
-          <>
-            <div className={classes.inputGroup}>
-              <label className={classes.label}>
-                Ваша посада <span className={classes.requiredStar}>*</span>
-              </label>
-              <input
-                className={classes.inputField}
-                value={hrPosition}
-                onChange={(e) => setHrPosition(e.target.value)}
-                placeholder="Recruiter, HR manager, CEO..."
-              />
-            </div>
-
-            <div className={classes.companySelectWrapper}>
-              <label className={classes.label}>
-                Компанія <span className={classes.requiredStar}>*</span>
-              </label>
-
-              {hasNewCompanyData ? (
-                <div className={classes.selectedCompanyBlock}>
-                  <div>
-                    <p>
-                      Додано нову: <b>{companyData.publicName}</b>
-                    </p>
-                    <p className={classes.selectedCompanyMeta}>
-                      Реєстр. номер: {companyData.registrationNumber}
-                    </p>
-                  </div>
-                  <div className={classes.actions}>
-                    <button
-                      className={classes.btnLink}
-                      onClick={() => setStep("HR_COMPANY_FORM")}
-                    >
-                      Редагувати
-                    </button>
-                    <button
-                      className={classes.btnLink}
-                      onClick={() => setHasNewCompanyData(false)}
-                    >
-                      Скасувати
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <input
-                    className={classes.inputField}
-                    placeholder="Почніть вводити назву компанії..."
-                    value={companySearch}
-                    onChange={(e) => {
-                      setCompanySearch(e.target.value);
-                      setSelectedCompanyId("");
-                    }}
-                  />
-                  <select
-                    className={classes.selectField}
-                    value={selectedCompanyId}
-                    onChange={(e) => setSelectedCompanyId(e.target.value)}
-                  >
-                    <option value="">
-                      {isCompaniesLoading ? "Завантаження компаній..." : "Оберіть компанію зі списку"}
-                    </option>
-                    {companyOptions.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.publicName} ({company.legalName})
-                      </option>
-                    ))}
-                  </select>
-
-                  {companiesError && <div className={classes.error}>{companiesError}</div>}
-
-                  <p className={classes.helperText}>
-                    Якщо вашої компанії немає у списку, можна{" "}
-                    <button
-                      className={classes.btnLink}
-                      onClick={() => {
-                        setError(null);
-                        setStep("HR_COMPANY_FORM");
-                      }}
-                    >
-                      зареєструвати її
-                    </button>
-                    .
-                  </p>
-                </>
-              )}
-            </div>
-          </>
-        )}
+            <TextInput label={ui.company.corporateDomain} placeholder="company.com" maxLength={100} value={companyData.corporateDomain ?? ""} onChange={(e) => { setCompanyData({ ...companyData, corporateDomain: sanitizeDomainInput(e.currentTarget.value) }); clearError(); }} />
+            <Select label={ui.company.employeeCount} placeholder={ui.company.notSpecified} data={employeeCountOptions} value={companyData.employeeCount || null} onChange={(value) => { setCompanyData({ ...companyData, employeeCount: value ?? "" }); clearError(); }} />
+          </Stack>
+        </div>
 
         {error && <div className={classes.error}>{error}</div>}
-
-        <button
-          className={classes.btnSubmit}
-          onClick={handleFinalSubmit}
-          disabled={
-            isLoading ||
-            (intendedRole === "STUDENT" && !isStudentBaseValid) ||
-            (intendedRole === "HR" && (!isHrBaseValid || !isCompanyReady))
-          }
-        >
-          {isLoading ? "Зачекайте..." : "Завершити реєстрацію"}
-        </button>
-      </div>
+        <div className={classes.buttonGroupRow}>
+          <Button className={classes.btnPrimary} onClick={saveCompanyDraft}>{ui.company.save}</Button>
+          <Button className={classes.btnSecondary} variant="light" onClick={cancelCompanyDraft}>{ui.company.cancel}</Button>
+        </div>
+      </Stack>
     </div>
   );
 }

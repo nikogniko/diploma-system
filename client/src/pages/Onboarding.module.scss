@@ -23,7 +23,7 @@
 }
 
 .error {
-  margin: 1rem 0;
+  margin: 0;
   padding: 0.9rem 1rem;
   color: var(--color-danger);
   background-color: var(--color-danger-soft);
@@ -54,6 +54,33 @@
 
 .formSection {
   text-align: left;
+}
+
+.formGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.twoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.companySearchGrid,
+.companyTopRow,
+.companyColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.companyColumns {
+  align-items: start;
+}
+
+.fullRow {
+  grid-column: 1 / -1;
 }
 
 .gridForm {
@@ -116,11 +143,14 @@ textarea.inputField {
 .btnSubmit,
 .btnStudent,
 .btnHr {
+  min-height: 2.9rem;
   border-radius: var(--radius-md);
   border: 0;
   cursor: pointer;
   font: inherit;
   font-weight: 800;
+  line-height: 1.2;
+  white-space: normal;
   box-shadow: var(--shadow-sm);
   transition:
     transform 0.14s ease,
@@ -140,6 +170,15 @@ textarea.inputField {
     cursor: not-allowed;
     opacity: 0.7;
     box-shadow: none;
+  }
+
+  :global(.mantine-Button-label) {
+    display: inline-flex;
+    min-height: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    white-space: normal;
   }
 }
 
@@ -194,6 +233,7 @@ textarea.inputField {
 
 .btnSubmit {
   width: 100%;
+  min-height: 3.1rem;
   margin-top: 1.25rem;
   padding: 1rem;
   font-size: 1rem;
@@ -255,5 +295,15 @@ textarea.inputField {
   .selectedCompanyBlock {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .twoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .companySearchGrid,
+  .companyTopRow,
+  .companyColumns {
+    grid-template-columns: 1fr;
   }
 }

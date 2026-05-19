@@ -38,7 +38,11 @@ export class CompanyRepository {
   async findCompanyById(companyId: string) {
     return this.db.company.findUnique({
       where: { id: companyId },
-      include: { spheres: true, locations: true, links: true },
+      include: {
+        spheres: { include: { sphere: true } },
+        locations: { include: { location: true } },
+        links: true,
+      },
     });
   }
 
@@ -46,7 +50,11 @@ export class CompanyRepository {
   async findCompanyByHrClerkId(clerkUserId: string) {
     return this.db.company.findFirst({
       where: { hrProfiles: { some: { user: { clerkUserId } } } },
-      include: { spheres: true, locations: true, links: true },
+      include: {
+        spheres: { include: { sphere: true } },
+        locations: { include: { location: true } },
+        links: true,
+      },
     });
   }
 
@@ -63,6 +71,7 @@ export class CompanyRepository {
         : undefined,
       select: {
         id: true,
+        registrationType: true,
         publicName: true,
         legalName: true,
         corporateDomain: true,

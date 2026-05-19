@@ -279,7 +279,7 @@ function InfoLine({ label, value, copyable }: { label: string; value?: string | 
 function ContactLine({ label, value, openable, normalizeCopy }: { label: string; value?: string | null; openable?: boolean; normalizeCopy?: (value: string) => string }) {
   if (!value) return null;
   const copyValue = normalizeCopy ? normalizeCopy(value) : value;
-  return <div className={styles.contactLine}><span>{label}</span><AppTooltip label={value}><strong>{value}</strong></AppTooltip>{openable && <AppTooltip label={ui.open}><a href={normalizeHref(value)} target="_blank" rel="noreferrer"><OpenIcon /></a></AppTooltip>}<AppTooltip label={ui.copy}><button type="button" onClick={() => copyToClipboard(copyValue)}><CopyIcon /></button></AppTooltip></div>;
+  return <div className={styles.contactLine}><span>{label}</span><strong>{value}</strong>{openable && <AppTooltip label={ui.open}><a href={normalizeHref(value)} target="_blank" rel="noreferrer"><OpenIcon /></a></AppTooltip>}<AppTooltip label={ui.copy}><button type="button" onClick={() => copyToClipboard(copyValue)}><CopyIcon /></button></AppTooltip></div>;
 }
 
 function ContactAccessNotice({ visibility }: { visibility?: string | null }) {
