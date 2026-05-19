@@ -12,6 +12,9 @@
 }
 
 .toolbar {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 5;
   display: flex;
   flex-wrap: wrap;
   gap: 0.2rem;

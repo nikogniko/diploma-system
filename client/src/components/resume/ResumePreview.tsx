@@ -351,7 +351,7 @@ function pluralUk(value: number, forms: string[]) {
 }
 
 function isQuickContact(name: string) {
-  return ["telegram", "viber", "linkedin", "instagram", "twitter / x", "facebook", "youtube", "tiktok"].includes(name.toLowerCase());
+  return ["telegram", "viber", "linkedin", "instagram", "facebook", "youtube", "tiktok"].includes(name.toLowerCase());
 }
 
 function categoryLabel(category: string) {

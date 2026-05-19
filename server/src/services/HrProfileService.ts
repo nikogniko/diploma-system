@@ -66,6 +66,9 @@ export type NewCompanyHrOnboardingRequest = {
 };
 
 export type UpdateHrProfileRequest = {
+  firstName?: string;
+  lastName?: string;
+  middleName?: string | null;
   position?: string;
   links?: LinkInput[];
 };
@@ -180,7 +183,18 @@ export class HrProfileService {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
 
     return this.txManager.run(async (tx) => {
+      const txUsers = new UserRepository(tx);
       const txHrs = new HrProfileRepository(tx);
+
+      if (body.firstName || body.lastName || body.middleName !== undefined) {
+        await txUsers.updateUserIdentity(hrProfile.userId, {
+          firstName: body.firstName ? this.requiredString(body.firstName, "firstName") : hrProfile.user.firstName,
+          lastName: body.lastName ? this.requiredString(body.lastName, "lastName") : hrProfile.user.lastName,
+          middleName: body.middleName ?? null,
+          photoUrl: hrProfile.user.photoUrl,
+        });
+      }
+
       const updatedHrProfile = await txHrs.updateHrProfile(hrProfile.id, {
         position: body.position ? this.requiredString(body.position, "position") : undefined,
       });

@@ -10,13 +10,16 @@ type AppTooltipProps = {
 /** Єдиний м'яко стилізований tooltip для іконкових дій інтерфейсу. */
 export function AppTooltip({ label, children }: AppTooltipProps) {
   return (
-    <Tooltip.Floating
+    <Tooltip
       label={label}
       position="bottom"
-      offset={12}
+      offset={8}
+      withArrow
+      openDelay={250}
+      closeDelay={80}
       classNames={{ tooltip: classes.tooltip, arrow: classes.arrow }}
     >
       {children}
-    </Tooltip.Floating>
+    </Tooltip>
   );
 }

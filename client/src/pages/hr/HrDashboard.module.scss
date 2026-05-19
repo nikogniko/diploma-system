@@ -36,6 +36,24 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
+  align-items: center;
+}
+
+.previewOutlineButton {
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+
+  &:hover {
+    color: var(--color-primary-hover);
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
+  }
+}
+
+.profileHeaderRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
   align-items: start;
 }
 
@@ -50,6 +68,199 @@
 
 .profileTop {
   margin-bottom: 1rem;
+}
+
+.tipBlock {
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+  color: var(--color-info);
+  background: var(--color-info-soft);
+  border: 1px solid color-mix(in srgb, var(--color-info) 30%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.tipTitle {
+  margin-bottom: 0.25rem;
+  color: var(--color-info);
+  font-weight: 900;
+}
+
+.recruiterCard {
+  display: inline-flex;
+  gap: 0.8rem;
+  align-items: center;
+  width: fit-content;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+  }
+
+  span {
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  strong {
+    color: var(--color-dark-main);
+  }
+
+  small {
+    color: var(--color-dark-muted);
+    font-weight: 700;
+  }
+}
+
+.recruiterPreview {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.previewHeader {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.previewProgress {
+  height: 0.35rem;
+  overflow: hidden;
+  background: var(--color-primary-soft);
+  border-radius: 999px;
+
+  &::before {
+    display: block;
+    width: 62%;
+    height: 100%;
+    content: "";
+    background: var(--color-primary);
+    border-radius: inherit;
+  }
+}
+
+.readonlyGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.profileMetaLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.companyText {
+  margin: 0.45rem 0 0;
+  color: var(--color-dark-main);
+  font-weight: 800;
+
+  button {
+    padding: 0;
+    color: var(--color-primary);
+    font: inherit;
+    font-weight: 900;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 0.18rem;
+    }
+  }
+}
+
+.infoRow {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  span {
+    color: var(--color-dark-muted);
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
+  strong,
+  button {
+    color: var(--color-dark-main);
+    font: inherit;
+    font-weight: 900;
+  }
+
+  button {
+    width: fit-content;
+    padding: 0;
+    color: var(--color-primary);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 0.18rem;
+    }
+  }
+}
+
+.moderationBadge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.28rem 0.58rem;
+  color: var(--color-info);
+  font-size: 0.78rem;
+  font-weight: 900;
+  background: var(--color-info-soft);
+  border: 1px solid color-mix(in srgb, var(--color-info) 45%, transparent);
+  border-radius: 999px;
+
+  &[data-status="APPROVED"] {
+    color: var(--color-success);
+    background: var(--color-success-soft);
+    border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+  }
+
+  &[data-status="REJECTED"] {
+    color: var(--color-danger);
+    background: var(--color-danger-soft);
+    border-color: color-mix(in srgb, var(--color-danger) 45%, transparent);
+  }
+}
+
+.vacancyDetails {
+  padding: 0.8rem;
+  background: var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  summary {
+    color: var(--color-dark-main);
+    font-weight: 900;
+    cursor: pointer;
+  }
 }
 
 .avatarRing {
@@ -92,6 +303,21 @@
   }
 }
 
+.editorActions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.28fr) minmax(0, 1fr);
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+
+  button:last-child {
+    background: var(--color-primary);
+
+    &:hover {
+      background: var(--color-primary-hover);
+    }
+  }
+}
+
 .inlineError,
 .notice {
   padding: 0.75rem 0.9rem;
@@ -118,13 +344,188 @@
 }
 
 .locationChip {
-  padding: 0.3rem 0.55rem;
+  padding: 0.24rem 0.5rem;
   color: var(--color-info);
+  font-size: 0.82rem;
   font-weight: 800;
   background: var(--color-info-soft);
   border: 1px solid currentColor;
   border-radius: 999px;
   cursor: pointer;
+}
+
+.spherePill,
+.sphereChip {
+  color: var(--color-primary);
+  font-weight: 900;
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+}
+
+.sphereChip {
+  display: inline-flex;
+  padding: 0.24rem 0.55rem;
+  border-radius: 999px;
+}
+
+.companyPreviewPage {
+  display: grid;
+  gap: 1rem;
+}
+
+.previewShellLabel {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  color: var(--color-primary);
+  font-weight: 900;
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 32%, transparent);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(16px);
+}
+
+.companyPreviewHero {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+
+  h1 {
+    margin: 0.2rem 0 0.45rem;
+    color: var(--color-dark-main);
+  }
+}
+
+.previewEyebrow {
+  color: var(--color-primary);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.companyPreviewGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.38fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.companyPreviewMain,
+.companyPreviewAside {
+  display: grid;
+  gap: 1rem;
+}
+
+.richPreview {
+  color: var(--color-dark-main);
+  line-height: 1.6;
+}
+
+.publicVacancyList {
+  display: grid;
+  gap: 0.6rem;
+
+  button {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0.9rem;
+    color: var(--color-dark-main);
+    font: inherit;
+    font-weight: 900;
+    background: var(--color-bg-main);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+}
+
+.publicChipBlock {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.publicContactsNote {
+  color: var(--color-dark-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.publicLinks {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.publicLinkRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.7rem 0.8rem;
+  background: var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  > a,
+  > span:not(.publicLinkActions) {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-dark-main);
+    font-size: 0.9rem;
+    font-weight: 850;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  a {
+    text-decoration: none;
+
+    &:hover {
+      color: var(--color-primary);
+      text-decoration: underline;
+      text-underline-offset: 0.16rem;
+    }
+  }
+}
+
+.publicLinkActions {
+  display: inline-flex;
+  gap: 0.3rem;
+
+  button {
+    display: inline-grid;
+    width: 1.85rem;
+    height: 1.85rem;
+    color: var(--color-primary);
+    place-items: center;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease,
+      transform 0.18s ease;
+
+    &:hover {
+      background: var(--color-primary-soft);
+      border-color: var(--color-primary);
+      transform: translateY(-1px);
+    }
+  }
+
+  svg {
+    width: 0.92rem;
+    height: 0.92rem;
+    fill: currentColor;
+  }
 }
 
 .hrCards {
@@ -140,6 +541,43 @@
   border-radius: var(--radius-md);
 }
 
+.publicRecruiterCard {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem;
+  text-align: left;
+  background: var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+  }
+
+  span {
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  strong {
+    color: var(--color-dark-main);
+  }
+
+  small {
+    color: var(--color-dark-muted);
+    font-weight: 750;
+  }
+}
+
 .table {
   overflow: hidden;
   border: 1px solid var(--color-border);
@@ -153,9 +591,21 @@
   width: fit-content;
   color: var(--color-primary);
   font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
   background: transparent;
   border: 0;
   cursor: pointer;
+  transition:
+    color 0.18s ease,
+    transform 0.18s ease,
+    text-underline-offset 0.18s ease;
+
+  &:hover {
+    color: var(--color-primary-hover);
+    text-underline-offset: 0.32rem;
+    transform: translateX(-2px);
+  }
 
   svg {
     width: 1rem;
@@ -208,7 +658,14 @@
   .grid,
   .threeGrid,
   .linkGrid,
+  .readonlyGrid,
+  .profileHeaderRow,
+  .companyPreviewGrid,
   .headerRow {
+    grid-template-columns: 1fr;
+  }
+
+  .editorActions {
     grid-template-columns: 1fr;
   }
 }

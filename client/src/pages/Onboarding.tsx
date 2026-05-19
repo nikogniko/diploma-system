@@ -321,10 +321,10 @@ export default function Onboarding() {
 
   return (
     <>
-      <Modal opened={isHrSubmittedOpen} onClose={() => navigate("/auth/redirect", { replace: true })} title={ui.hr.submittedTitle} centered>
+      <Modal opened={isHrSubmittedOpen} onClose={() => navigate("/hr?tab=profile", { replace: true })} title={ui.hr.submittedTitle} centered>
         <Stack>
           <Text>{ui.hr.submittedText}</Text>
-          <Button onClick={() => navigate("/auth/redirect", { replace: true })}>{ui.hr.submittedButton}</Button>
+          <Button onClick={() => navigate("/hr?tab=profile", { replace: true })}>{ui.hr.submittedButton}</Button>
         </Stack>
       </Modal>
 
@@ -391,6 +391,7 @@ export default function Onboarding() {
                         allowDeselect={false}
                       />
                       <Select
+                        required
                         label={ui.hr.companySearch}
                         data={companySelectData}
                         value={selectedCompanyId || null}

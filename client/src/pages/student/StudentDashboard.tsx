@@ -145,7 +145,6 @@ const linkResources: LinkResource[] = [
   { name: "Google Drive", types: ["PORTFOLIO", "OTHER"], domains: ["drive.google.com"] },
   { name: "OneDrive", types: ["PORTFOLIO", "OTHER"], domains: ["onedrive.live.com", "1drv.ms"] },
   { name: "Instagram", types: ["SOCIAL", "PORTFOLIO"], domains: ["instagram.com"] },
-  { name: "Twitter / X", types: ["SOCIAL"], domains: ["x.com", "twitter.com"] },
   { name: "Facebook", types: ["SOCIAL"], domains: ["facebook.com"] },
   { name: "YouTube", types: ["SOCIAL", "PORTFOLIO"], domains: ["youtube.com", "youtu.be"] },
   { name: "TikTok", types: ["SOCIAL", "PORTFOLIO"], domains: ["tiktok.com"] },
