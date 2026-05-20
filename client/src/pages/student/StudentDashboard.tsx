@@ -134,7 +134,15 @@ const navItems = [
   { key: "search", label: ui.nav.search, icon: <SearchIcon /> },
 ];
 
-const cefrLevels = ["A1", "A2", "B1", "B2", "C1", "C2", "NATIVE"];
+const cefrLevels = [
+  { value: "A1", label: "A1" },
+  { value: "A2", label: "A2" },
+  { value: "B1", label: "B1" },
+  { value: "B2", label: "B2" },
+  { value: "C1", label: "C1" },
+  { value: "C2", label: "C2" },
+  { value: "NATIVE", label: "На рівні носія" },
+];
 const currentYear = new Date().getFullYear();
 const resourcePlaceholder = ui.resourcePlaceholder;
 const maxProfileLinks = 6;
@@ -699,7 +707,7 @@ function ResumeTab(props: any) {
         <InlineError message={errors.education} /><ActionButtons saving={saving.education} isEditing={Boolean(editIds.educationEditId)} onSave={actions.saveEducation} onCancel={() => { setEducationForm({ universityId: "", customUniversityName: "", degree: "BACHELOR", specialty: "", startYear: "", endYear: "", diplomaUrl: "" }); edits.setEducationEditId(null); setUniversityQuery(""); clearError("education"); }} />
       </FormSection>
       <FormSection title={ui.resume.languagesTitle} description={ui.resume.languagesDescription}>
-        <RecordList items={profile?.languages ?? []} title={(i: any) => `${i.language?.name ?? ""} - ${i.level}`} links={(i: any) => i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []} onEdit={(i: any) => { edits.setLanguageEditId(i.id); setLanguageForm({ languageId: String(i.languageId), level: i.level, certificateUrl: i.certificateUrl ?? "" }); }} onDelete={(i: any) => actions.deleteResumeItem("languages", i.id)} />
+        <RecordList items={profile?.languages ?? []} title={(i: any) => `${i.language?.name ?? ""} - ${languageLevelLabel(i.level)}`} links={(i: any) => i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []} onEdit={(i: any) => { edits.setLanguageEditId(i.id); setLanguageForm({ languageId: String(i.languageId), level: i.level, certificateUrl: i.certificateUrl ?? "" }); }} onDelete={(i: any) => actions.deleteResumeItem("languages", i.id)} />
         <div className={classes.grid}>
           <Select label={ui.resume.language} required searchable placeholder={ui.resume.languagePlaceholder} data={options.languages} value={languageForm.languageId || null} onChange={(value) => setLanguageForm({ ...languageForm, languageId: value ?? "" })} />
           <Select label={ui.resume.level} required placeholder={ui.resume.levelPlaceholder} data={cefrLevels} value={languageForm.level || null} onChange={(value) => setLanguageForm({ ...languageForm, level: value ?? "" })} />
@@ -880,6 +888,7 @@ const pluralUk = (value: number, forms: string[]) => {
   return forms[2];
 };
 const degreeLabel = (degree: string) => ({ JUNIOR_BACHELOR: ui.degreeLabels.juniorBachelor, BACHELOR: ui.degreeLabels.bachelor, MASTER: ui.degreeLabels.master, PHD: ui.degreeLabels.phd, OTHER: ui.degreeLabels.other }[degree] ?? degree);
+const languageLevelLabel = (level: string) => cefrLevels.find((item) => item.value === level)?.label ?? level;
 const skillClass = (category: string) => category.toLowerCase().includes("soft") ? classes.soft : category.toLowerCase().includes("tool") ? classes.tools : classes.hard;
 function formatLocation(item: LocationJoin, catalogs: StudentCatalogs) {
   const label = [

@@ -1,0 +1,59 @@
+@mixin chip-base {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.84rem;
+  font-weight: 800;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+@mixin chip-close {
+  display: inline-grid;
+  align-items: center;
+  min-width: 1.12rem;
+  min-height: 1.12rem;
+  font-size: 1.16rem;
+  line-height: 1;
+  place-items: center;
+}
+
+@mixin skill-hard {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+@mixin skill-soft {
+  color: color-mix(in srgb, var(--color-secondary) 62%, var(--color-dark-main));
+  background: color-mix(in srgb, var(--color-secondary) 18%, var(--color-surface));
+}
+
+@mixin skill-tools {
+  color: color-mix(in srgb, var(--color-accent) 58%, var(--color-dark-main));
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+}
+
+@mixin skill-critical {
+  color: color-mix(in srgb, var(--color-danger) 82%, var(--color-dark-main));
+  background: color-mix(in srgb, var(--color-danger) 13%, var(--color-surface));
+}
+
+@mixin skill-important {
+  @include skill-soft;
+}
+
+@mixin skill-plus {
+  color: color-mix(in srgb, var(--color-info) 72%, var(--color-dark-main));
+  background: color-mix(in srgb, var(--color-info) 15%, var(--color-surface));
+}
+
+@mixin location {
+  color: var(--color-info);
+  background: var(--color-info-soft);
+}
+
+@mixin language {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}

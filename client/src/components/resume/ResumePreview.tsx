@@ -70,6 +70,9 @@ type ResumeProfile = {
 const ui = messages.studentDashboard.resumePreview;
 const commonUi = messages.common;
 const degreeLabels = messages.studentDashboard.degreeLabels;
+const languageLevelLabels: Record<string, string> = {
+  NATIVE: "На рівні носія",
+};
 
 type ResumePreviewProps = {
   profile: ResumeProfile | null;
@@ -177,7 +180,7 @@ export function ResumePreview({ profile }: ResumePreviewProps) {
             <CardList items={profile.languages ?? []} render={(item) => (
               <ResumeCard
                 key={item.id}
-                title={`${item.language?.name ?? ui.emptySection} - ${item.level}`}
+                title={`${item.language?.name ?? ui.emptySection} - ${languageLevelLabel(item.level)}`}
                 links={item.certificateUrl ? [{ label: ui.certificate, value: item.certificateUrl }] : []}
               />
             )} />
@@ -381,6 +384,9 @@ function isWebLink(value: string) {
 
 function degreeLabel(degree: string) {
   return ({ JUNIOR_BACHELOR: degreeLabels.juniorBachelor, BACHELOR: degreeLabels.bachelor, MASTER: degreeLabels.master, PHD: degreeLabels.phd, OTHER: degreeLabels.other }[degree] ?? degree);
+}
+function languageLevelLabel(level: string) {
+  return languageLevelLabels[level] ?? level;
 }
 
 const dateShort = (value: string) => dayjs(value).format("DD.MM.YYYY");

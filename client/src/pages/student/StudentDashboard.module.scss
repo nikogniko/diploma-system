@@ -1,4 +1,5 @@
 @use "../../styles/variables" as *;
+@use "../../styles/chips" as chips;
 
 .tabHeader {
   margin-bottom: 1rem;
@@ -259,40 +260,28 @@
 
 .skillChip,
 .locationChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.55rem;
-  border-radius: 999px;
-  font-size: 0.84rem;
-  font-weight: 800;
-  border: 1px solid currentColor;
+  @include chips.chip-base;
   cursor: pointer;
 
   span {
-    font-size: 1rem;
-    line-height: 1;
+    @include chips.chip-close;
   }
 }
 
 .hard {
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
+  @include chips.skill-hard;
 }
 
 .soft {
-  color: color-mix(in srgb, var(--color-secondary) 62%, var(--color-dark-main));
-  background: color-mix(in srgb, var(--color-secondary) 18%, var(--color-surface));
+  @include chips.skill-soft;
 }
 
 .tools {
-  color: color-mix(in srgb, var(--color-accent) 58%, var(--color-dark-main));
-  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+  @include chips.skill-tools;
 }
 
 .locationChip {
-  color: var(--color-info);
-  background: var(--color-info-soft);
+  @include chips.location;
 }
 
 .salaryGrid {

@@ -5,6 +5,7 @@ import {
   Avatar,
   Badge,
   Button,
+  Checkbox,
   Drawer,
   Group,
   MultiSelect,
@@ -16,6 +17,8 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
+import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ApiError, apiRequest } from "../../api/apiClient";
@@ -40,10 +43,15 @@ import {
 import classes from "./HrDashboard.module.scss";
 
 type CatalogItem = { id: number; name: string };
+type SkillOption = CatalogItem & { category: "HARD_SKILL" | "SOFT_SKILL" | "TOOL" };
 type LinkType = "WEBSITE" | "MESSENGER" | "SOCIAL" | "PORTFOLIO" | "OTHER";
 type LinkItem = { id?: string; linkType: LinkType; linkName: string; value: string };
 type LinkResource = { name: string; types: LinkType[]; domains?: string[]; allowAnyUrl?: boolean };
 type LocationFormItem = { countryId: number; regionId?: number | null; cityId?: number | null; label: string };
+type VacancyStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "CLOSED" | "ARCHIVED";
+type SkillWeight = "CRITICAL" | "IMPORTANT" | "NICE_TO_HAVE";
+type LanguageLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | "NATIVE";
+type SalaryPeriod = "PER_MONTH" | "PER_HOUR";
 
 type HrProfile = {
   id: string;
@@ -86,17 +94,77 @@ type CompanyHr = {
 };
 
 type Catalogs = {
+  languages: CatalogItem[];
+  employmentTypes: CatalogItem[];
+  workSchedules: CatalogItem[];
+  workFormats: CatalogItem[];
+  professions: CatalogItem[];
   spheres: CatalogItem[];
   countries: CatalogItem[];
   regions: Array<CatalogItem & { countryId: number }>;
   cities: Array<CatalogItem & { regionId: number }>;
+  skillsByCategory: Record<string, SkillOption[]>;
+  officeLocations: Array<{
+    locationId: string;
+    location: {
+      countryId: number;
+      regionId?: number | null;
+      cityId?: number | null;
+    };
+  }>;
 };
 
 type VacancyRow = {
   id: string;
   title: string;
-  status: "DRAFT" | "PUBLISHED" | "PAUSED" | "CLOSED";
-  responses: number;
+  status: VacancyStatus;
+  description: string;
+  professionId: number;
+  profession?: CatalogItem;
+  isLocationCritical: boolean;
+  minSalary?: number | null;
+  maxSalary?: number | null;
+  salaryPeriod?: SalaryPeriod | null;
+  closingDate: string;
+  spheres: Array<{ sphereId: number; sphere?: CatalogItem }>;
+  employmentTypes: Array<{ employmentTypeId: number; employmentType?: CatalogItem }>;
+  workSchedules: Array<{ workScheduleId: number; workSchedule?: CatalogItem }>;
+  workFormats: Array<{ workFormatId: number; workFormat?: CatalogItem }>;
+  locations: Array<{ locationId: string; location?: { countryId: number; regionId?: number | null; cityId?: number | null } }>;
+  skills: Array<{ skillId: number; weight: SkillWeight; skill?: SkillOption }>;
+  languages: Array<{ languageId: number; level: LanguageLevel; language?: CatalogItem }>;
+};
+
+type VacancyFormState = {
+  title: string;
+  professionId: string;
+  sphereIds: string[];
+  description: string;
+  skills: Array<{ skillId: string; weight: SkillWeight }>;
+  languages: Array<{ languageId: string; level: LanguageLevel }>;
+  officeLocationIds: string[];
+  isLocationStrict: boolean;
+  workFormatIds: string[];
+  employmentTypeIds: string[];
+  workScheduleIds: string[];
+  salaryFrom: number | null;
+  salaryTo: number | null;
+  salaryPeriod: SalaryPeriod;
+  closingDate: string;
+};
+
+type VacancyOptions = {
+  languages: Array<{ value: string; label: string }>;
+  employmentTypes: Array<{ value: string; label: string }>;
+  workSchedules: Array<{ value: string; label: string }>;
+  workFormats: Array<{ value: string; label: string }>;
+  professions: Array<{ value: string; label: string }>;
+  spheres: Array<{ value: string; label: string }>;
+  countries: Array<{ value: string; label: string }>;
+  regions: Array<{ value: string; label: string }>;
+  cities: Array<{ value: string; label: string }>;
+  skills: Array<{ value: string; label: string; category: string }>;
+  officeLocations: Array<{ value: string; label: string }>;
 };
 
 type RecruiterView = {
@@ -106,7 +174,7 @@ type RecruiterView = {
   status?: string | null;
   companyName?: string | null;
   email?: string | null;
-  contacts?: string | null;
+  contacts?: LinkItem[];
   createdAt?: string | null;
   vacanciesCount?: number;
 };
@@ -114,9 +182,15 @@ type RecruiterView = {
 const ui = messages.hrDashboard;
 const commonUi = messages.common;
 const currentYear = new Date().getFullYear();
+const maxSalaryInput = 9_999_999;
+const skillWeightRank: Record<SkillWeight, number> = {
+  CRITICAL: 3,
+  IMPORTANT: 2,
+  NICE_TO_HAVE: 1,
+};
 
 const navItems = [
-  { key: "open-vacancy", label: ui.nav.openVacancy, icon: <PlusIcon />, underline: true },
+  { key: "create-vacancy", label: ui.nav.createVacancy, icon: <PlusIcon />, underline: true },
   { key: "vacancies", label: ui.nav.vacancies, icon: <BriefcaseIcon />, underline: true },
   { key: "profile", label: ui.nav.profile, icon: <UserIcon /> },
   { key: "company", label: ui.nav.company, icon: <CompanyIcon /> },
@@ -137,6 +211,51 @@ const companySizes = [
   { value: "SIZE_501_1000", label: "501-1000" },
   { value: "SIZE_1000_PLUS", label: "1000+" },
 ];
+
+const vacancyStatuses = [
+  { value: "DRAFT", label: "Чернетка" },
+  { value: "ACTIVE", label: "Активна" },
+  { value: "ARCHIVED", label: "Архів" },
+];
+
+const skillWeights: Array<{ value: SkillWeight; label: string }> = [
+  { value: "CRITICAL", label: "Критично" },
+  { value: "IMPORTANT", label: "Важливо" },
+  { value: "NICE_TO_HAVE", label: "Буде плюсом" },
+];
+
+const cefrLevels: Array<{ value: LanguageLevel; label: string }> = [
+  { value: "A1", label: "A1" },
+  { value: "A2", label: "A2" },
+  { value: "B1", label: "B1" },
+  { value: "B2", label: "B2" },
+  { value: "C1", label: "C1" },
+  { value: "C2", label: "C2" },
+  { value: "NATIVE", label: "На рівні носія" },
+];
+
+const salaryPeriods: Array<{ value: SalaryPeriod; label: string }> = [
+  { value: "PER_MONTH", label: "За місяць" },
+  { value: "PER_HOUR", label: "За годину" },
+];
+
+const emptyVacancyForm = (): VacancyFormState => ({
+  title: "",
+  professionId: "",
+  sphereIds: [],
+  description: "",
+  skills: [],
+  languages: [],
+  officeLocationIds: [],
+  isLocationStrict: false,
+  workFormatIds: [],
+  employmentTypeIds: [],
+  workScheduleIds: [],
+  salaryFrom: null,
+  salaryTo: null,
+  salaryPeriod: "PER_MONTH",
+  closingDate: "",
+});
 
 const hrLinkResources: LinkResource[] = [
   { name: "Telegram", types: ["MESSENGER"], allowAnyUrl: true },
@@ -175,6 +294,10 @@ export default function HrDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [vacancies, setVacancies] = useState<VacancyRow[]>([]);
   const [isCompanyPreviewOpen, setIsCompanyPreviewOpen] = useState(false);
+  const [editingVacancyId, setEditingVacancyId] = useState<string | null>(null);
+  const [vacancyForm, setVacancyForm] = useState<VacancyFormState>(() => emptyVacancyForm());
+  const [selectedSkillDraft, setSelectedSkillDraft] = useState({ skillId: "", weight: "IMPORTANT" as SkillWeight });
+  const [selectedLanguageDraft, setSelectedLanguageDraft] = useState<{ languageId: string; level: LanguageLevel | "" }>({ languageId: "", level: "" });
 
   const [hrForm, setHrForm] = useState({ firstName: "", lastName: "", middleName: "", position: "", links: [] as LinkItem[] });
   const [companyForm, setCompanyForm] = useState({
@@ -197,10 +320,28 @@ export default function HrDashboard() {
   const [newLocation, setNewLocation] = useState({ countryId: 0, regionId: 0, cityId: 0 });
 
   const options = useMemo(() => ({
+    languages: catalogs?.languages.map(asOption) ?? [],
+    employmentTypes: catalogs?.employmentTypes.map(asOption) ?? [],
+    workSchedules: catalogs?.workSchedules.map(asOption) ?? [],
+    workFormats: catalogs?.workFormats.map(asOption) ?? [],
+    professions: catalogs?.professions.map(asOption) ?? [],
     spheres: catalogs?.spheres.map(asOption) ?? [],
     countries: catalogs?.countries.map(asOption) ?? [],
     regions: catalogs?.regions.filter((region) => region.countryId === newLocation.countryId).map(asOption) ?? [],
     cities: catalogs?.cities.filter((city) => city.regionId === newLocation.regionId).map(asOption) ?? [],
+    skills: flattenSkills(catalogs?.skillsByCategory).map((skill) => ({
+      value: String(skill.id),
+      label: skill.name,
+      category: skill.category,
+    })),
+    officeLocations: catalogs?.officeLocations.map((item) => ({
+      value: item.locationId,
+      label: formatLocationByIds({
+        countryId: item.location.countryId,
+        regionId: item.location.regionId ?? 0,
+        cityId: item.location.cityId ?? 0,
+      }, catalogs),
+    })) ?? [],
   }), [catalogs, newLocation.countryId, newLocation.regionId]);
 
   /** Завантажує профіль рекрутера, компанію, команду та довідники. */
@@ -209,11 +350,12 @@ export default function HrDashboard() {
     setIsLoading(true);
     try {
       const token = await getToken();
-      const [hrData, companyData, hrsData, catalogData] = await Promise.all([
+      const [hrData, companyData, hrsData, catalogData, vacancyData] = await Promise.all([
         apiRequest<HrProfile>("/hr-profiles/my-cabinet", token),
         apiRequest<CompanyProfile>("/companies/my-cabinet", token),
         apiRequest<CompanyHr[]>("/companies/my-cabinet/hr-profiles", token),
-        apiRequest<Catalogs>("/catalogs/student-cabinet", token),
+        apiRequest<Catalogs>("/vacancies/catalogs", token),
+        apiRequest<VacancyRow[]>("/vacancies/my-cabinet", token),
       ]);
       setHrProfile(hrData);
       setCompany(companyData);
@@ -252,7 +394,7 @@ export default function HrDashboard() {
         })),
         links: companyData.links ?? [],
       });
-      setVacancies([]);
+      setVacancies(vacancyData.filter(Boolean));
     } catch (error) {
       setPageError(getErrorMessage(error));
     } finally {
@@ -356,18 +498,151 @@ export default function HrDashboard() {
     setNewLocation((current) => ({ countryId: current.countryId, regionId: 0, cityId: 0 }));
   };
 
+  /** Додає або оновлює навичку у формі вакансії. */
+  const upsertVacancySkill = () => {
+    if (!selectedSkillDraft.skillId) return;
+    setVacancyForm((current) => {
+      const exists = current.skills.some((item) => item.skillId === selectedSkillDraft.skillId);
+      return {
+        ...current,
+        skills: exists
+          ? current.skills.map((item) => item.skillId === selectedSkillDraft.skillId ? { ...item, weight: selectedSkillDraft.weight } : item)
+          : [...current.skills, { ...selectedSkillDraft }],
+      };
+    });
+    setSelectedSkillDraft((current) => ({ skillId: "", weight: current.weight }));
+    setBlockErrors((current) => ({ ...current, vacancy: null }));
+  };
+
+  /** Додає або оновлює мовну вимогу у формі вакансії. */
+  const upsertVacancyLanguage = () => {
+    if (!selectedLanguageDraft.languageId || !selectedLanguageDraft.level) return;
+    const languageDraft = {
+      languageId: selectedLanguageDraft.languageId,
+      level: selectedLanguageDraft.level as LanguageLevel,
+    };
+    setVacancyForm((current) => {
+      const exists = current.languages.some((item) => item.languageId === languageDraft.languageId);
+      return {
+        ...current,
+        languages: exists
+          ? current.languages.map((item) => item.languageId === languageDraft.languageId ? { ...item, level: languageDraft.level } : item)
+          : [...current.languages, languageDraft],
+      };
+    });
+    setSelectedLanguageDraft({ languageId: "", level: "" });
+    setBlockErrors((current) => ({ ...current, vacancy: null }));
+  };
+
+  /** Заповнює форму даними вакансії для редагування. */
+  const startVacancyEdit = (vacancy: VacancyRow) => {
+    setEditingVacancyId(vacancy.id);
+    setVacancyForm(vacancyToForm(vacancy));
+    setSelectedVacancy(null);
+    setIsCompanyPreviewOpen(false);
+    setActive("vacancies");
+    setSearchParams({});
+    setBlockErrors((current) => ({ ...current, vacancy: null }));
+  };
+
+  /** Очищає форму вакансії та повертає її в режим створення. */
+  const clearVacancyForm = () => {
+    setEditingVacancyId(null);
+    setVacancyForm(emptyVacancyForm());
+    setSelectedSkillDraft({ skillId: "", weight: "IMPORTANT" });
+    setSelectedLanguageDraft({ languageId: "", level: "" });
+    setBlockErrors((current) => ({ ...current, vacancy: null }));
+  };
+
+  /** Створює або оновлює вакансію через backend API. */
+  const saveVacancy = (status: "DRAFT" | "ACTIVE") => runBlock("vacancy", async () => {
+    validateVacancyForm(vacancyForm, options.officeLocations.length);
+    const token = await getToken();
+    const path = editingVacancyId ? `/vacancies/my-cabinet/${editingVacancyId}` : "/vacancies/my-cabinet";
+    await apiRequest(path, token, {
+      method: editingVacancyId ? "PATCH" : "POST",
+      body: JSON.stringify(vacancyFormToPayload({ ...vacancyForm, status })),
+    });
+    clearVacancyForm();
+    setActive("vacancies");
+    setSearchParams({});
+  });
+
+  /** Змінює статус вакансії з таблиці управління. */
+  const changeVacancyStatus = (vacancyId: string, status: VacancyStatus) => runBlock("vacancyBoard", async () => {
+    const token = await getToken();
+    await apiRequest(`/vacancies/my-cabinet/${vacancyId}/status`, token, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  });
+
+  /** Архівує вакансію з таблиці управління. */
+  const archiveVacancy = (vacancyId: string) => runBlock("vacancyBoard", async () => {
+    const token = await getToken();
+    await apiRequest(`/vacancies/my-cabinet/${vacancyId}/archive`, token, { method: "POST" });
+  });
+
   if (isLoading) return <AppLoader text={ui.loading} />;
 
   return (
-    <CabinetLayout navItems={navItems} activeKey={active} onSelect={(key) => { setSelectedVacancy(null); setIsCompanyPreviewOpen(false); setActive(key); setSearchParams(key === "vacancies" ? {} : { tab: key }); }}>
+    <CabinetLayout navItems={navItems} activeKey={active} onSelect={(key) => {
+      setSelectedVacancy(null);
+      setIsCompanyPreviewOpen(false);
+      if (key === "create-vacancy") clearVacancyForm();
+      if (key !== "vacancies") setEditingVacancyId(null);
+      setActive(key);
+      setSearchParams(key === "vacancies" ? {} : { tab: key });
+    }}>
       <Stack gap="md">
         <ErrorBanner message={pageError} />
         {isCompanyPreviewOpen ? (
           <CompanyPublicPage company={company} companyHrs={companyHrs} vacancies={vacancies} onBack={() => setIsCompanyPreviewOpen(false)} />
         ) : (
           <>
-            {active === "open-vacancy" && <OpenVacancyTab />}
-            {active === "vacancies" && (selectedVacancy ? <VacancyDetail vacancy={selectedVacancy} onBack={() => setSelectedVacancy(null)} /> : <VacancyBoard vacancies={vacancies} onSelect={setSelectedVacancy} />)}
+            {active === "create-vacancy" && (
+              <CreateVacancyTab
+                form={vacancyForm}
+                setForm={setVacancyForm}
+                editingVacancy={null}
+                options={options}
+                skillsByCategory={catalogs?.skillsByCategory ?? {}}
+                selectedSkillDraft={selectedSkillDraft}
+                setSelectedSkillDraft={setSelectedSkillDraft}
+                selectedLanguageDraft={selectedLanguageDraft}
+                setSelectedLanguageDraft={setSelectedLanguageDraft}
+                error={blockErrors.vacancy}
+                saving={saving.vacancy}
+                onAddSkill={upsertVacancySkill}
+                onAddLanguage={upsertVacancyLanguage}
+                onClear={clearVacancyForm}
+                onSave={saveVacancy}
+              />
+            )}
+            {active === "vacancies" && (
+              editingVacancyId
+                ? <VacancyEditPage
+                    vacancy={vacancies.find((vacancy) => vacancy.id === editingVacancyId) ?? null}
+                    form={vacancyForm}
+                    setForm={setVacancyForm}
+                    options={options}
+                    skillsByCategory={catalogs?.skillsByCategory ?? {}}
+                    selectedSkillDraft={selectedSkillDraft}
+                    setSelectedSkillDraft={setSelectedSkillDraft}
+                    selectedLanguageDraft={selectedLanguageDraft}
+                    setSelectedLanguageDraft={setSelectedLanguageDraft}
+                    error={blockErrors.vacancy}
+                    saving={saving.vacancy}
+                    onAddSkill={upsertVacancySkill}
+                    onAddLanguage={upsertVacancyLanguage}
+                    onClear={clearVacancyForm}
+                    onSave={saveVacancy}
+                    onBack={clearVacancyForm}
+                  />
+                : selectedVacancy
+                  ? <VacancyDetail vacancy={selectedVacancy} onBack={() => setSelectedVacancy(null)} />
+                  : <VacancyBoard vacancies={vacancies} onSelect={setSelectedVacancy} onEdit={startVacancyEdit} onStatusChange={changeVacancyStatus} onArchive={archiveVacancy} />
+            )}
             {active === "profile" && <HrProfileTab profile={hrProfile} form={hrForm} setForm={setHrForm} error={blockErrors.hr} saving={saving.hr} vacanciesCount={vacancies.length} onCompanyOpen={() => setIsCompanyPreviewOpen(true)} onClearError={() => setBlockErrors((current) => ({ ...current, hr: null }))} onSave={saveHrProfile} />}
             {active === "company" && (
               <CompanyProfileTab
@@ -393,9 +668,9 @@ export default function HrDashboard() {
   );
 }
 
-function VacancyBoard({ vacancies, onSelect }: { vacancies: VacancyRow[]; onSelect: (vacancy: VacancyRow) => void }) {
+function VacancyBoard({ vacancies, onSelect, onEdit, onStatusChange, onArchive }: { vacancies: VacancyRow[]; onSelect: (vacancy: VacancyRow) => void; onEdit: (vacancy: VacancyRow) => void; onStatusChange: (vacancyId: string, status: VacancyStatus) => void; onArchive: (vacancyId: string) => void }) {
   return <><TabHeader title={ui.vacancies.title} description={ui.vacancies.description} /><FormSection title={ui.vacancies.title}>
-    {vacancies.length ? <Table highlightOnHover className={classes.table}><Table.Thead><Table.Tr><Table.Th>{ui.vacancies.position}</Table.Th><Table.Th>{ui.vacancies.responses}</Table.Th><Table.Th>{ui.vacancies.status}</Table.Th><Table.Th>{ui.vacancies.actions}</Table.Th></Table.Tr></Table.Thead><Table.Tbody>{vacancies.map((vacancy) => <Table.Tr key={vacancy.id} onDoubleClick={() => onSelect(vacancy)}><Table.Td>{vacancy.title}</Table.Td><Table.Td>{vacancy.responses}</Table.Td><Table.Td><Badge>{statusLabel(vacancy.status)}</Badge></Table.Td><Table.Td><Group gap="xs"><Button size="xs" variant="light">{ui.vacancies.edit}</Button><Button size="xs" color="red" variant="light">{ui.vacancies.close}</Button></Group></Table.Td></Table.Tr>)}</Table.Tbody></Table> : <Text className={classes.muted}>{ui.vacancies.empty}</Text>}
+    {vacancies.length ? <Table highlightOnHover className={classes.table}><Table.Thead><Table.Tr><Table.Th>{ui.vacancies.position}</Table.Th><Table.Th>{ui.vacancies.responses}</Table.Th><Table.Th>{ui.vacancies.status}</Table.Th><Table.Th>{ui.vacancies.actions}</Table.Th></Table.Tr></Table.Thead><Table.Tbody>{vacancies.map((vacancy) => <Table.Tr key={vacancy.id} onDoubleClick={() => onSelect(vacancy)}><Table.Td><Text fw={900}>{vacancy.title}</Text><Text className={classes.muted}>{vacancy.profession?.name}</Text></Table.Td><Table.Td>0</Table.Td><Table.Td><Select size="xs" data={vacancyStatuses} value={vacancy.status} onChange={(status) => status && onStatusChange(vacancy.id, status as VacancyStatus)} /></Table.Td><Table.Td><Group gap="xs"><AppTooltip label={ui.vacancies.edit}><button type="button" className={classes.actionIconButton} onClick={() => onEdit(vacancy)}><EditIcon /></button></AppTooltip><AppTooltip label={ui.vacancies.close}><button type="button" className={classes.actionIconButton} data-danger="true" onClick={() => onArchive(vacancy.id)}><ArchiveIcon /></button></AppTooltip></Group></Table.Td></Table.Tr>)}</Table.Tbody></Table> : <Text className={classes.muted}>{ui.vacancies.empty}</Text>}
   </FormSection></>;
 }
 
@@ -404,8 +679,87 @@ function VacancyDetail({ vacancy, onBack }: { vacancy: VacancyRow; onBack: () =>
   return <><button type="button" className={classes.backButton} onClick={onBack}><ArrowIcon /> {ui.vacancies.back}</button><TabHeader title={vacancy.title} description={ui.vacancies.pipelineDescription} /><FormSection title={ui.vacancies.pipelineTitle}><div className={classes.pipelineTabs}>{stages.map((stage, index) => <button key={stage} className={index === 0 ? classes.pipelineTabActive : classes.pipelineTab}>{stage}<span>0</span></button>)}</div></FormSection></>;
 }
 
-function OpenVacancyTab() {
-  return <><TabHeader title={ui.openVacancy.title} description={ui.openVacancy.description} /><FormSection title={ui.openVacancy.title}><Text className={classes.notice}>{ui.openVacancy.notice}</Text><div className={classes.grid}><TextInput label={ui.openVacancy.titleField} placeholder={ui.openVacancy.titlePlaceholder} disabled /><Select label={ui.openVacancy.profession} placeholder={ui.openVacancy.professionPlaceholder} disabled /><TextInput label={ui.openVacancy.minSalary} placeholder="від" disabled /><TextInput label={ui.openVacancy.maxSalary} placeholder="до" disabled /></div><Button className={classes.fullButton} disabled>{ui.nav.openVacancy}</Button></FormSection></>;
+function VacancyEditPage(props: Omit<Parameters<typeof CreateVacancyTab>[0], "editingVacancy"> & { vacancy: VacancyRow | null; onBack: () => void }) {
+  const { vacancy, onBack, ...formProps } = props;
+  return <>
+    <button type="button" className={classes.backButton} onClick={onBack}><ArrowIcon /> {ui.vacancies.back}</button>
+    <CreateVacancyTab {...formProps} editingVacancy={vacancy} />
+  </>;
+}
+
+function CreateVacancyTab(props: {
+  form: VacancyFormState;
+  setForm: (form: VacancyFormState) => void;
+  editingVacancy: VacancyRow | null;
+  options: VacancyOptions;
+  skillsByCategory: Record<string, SkillOption[]>;
+  selectedSkillDraft: { skillId: string; weight: SkillWeight };
+  setSelectedSkillDraft: (value: { skillId: string; weight: SkillWeight }) => void;
+  selectedLanguageDraft: { languageId: string; level: LanguageLevel | "" };
+  setSelectedLanguageDraft: (value: { languageId: string; level: LanguageLevel | "" }) => void;
+  error?: string | null;
+  saving?: boolean;
+  onAddSkill: () => void;
+  onAddLanguage: () => void;
+  onClear: () => void;
+  onSave: (status: "DRAFT" | "ACTIVE") => void;
+}) {
+  const { form, setForm, editingVacancy, options, skillsByCategory, selectedSkillDraft, setSelectedSkillDraft, selectedLanguageDraft, setSelectedLanguageDraft, error, saving, onAddSkill, onAddLanguage, onClear, onSave } = props;
+  const isEditingActiveVacancy = editingVacancy?.status === "ACTIVE";
+  return <>
+    <TabHeader title={editingVacancy ? ui.createVacancy.editTitle : ui.createVacancy.title} description={ui.createVacancy.description} />
+    <FormSection title={ui.createVacancy.basicTitle} description={ui.createVacancy.basicDescription}>
+      <div className={classes.grid}>
+        <TextInput className={classes.fullRow} required label={ui.createVacancy.titleField} placeholder={ui.createVacancy.titlePlaceholder} maxLength={200} value={form.title} onChange={(event) => setForm({ ...form, title: event.currentTarget.value })} />
+        <Select required searchable label={ui.createVacancy.profession} placeholder={ui.createVacancy.professionPlaceholder} data={options.professions} value={form.professionId || null} onChange={(value) => setForm({ ...form, professionId: value ?? "" })} />
+        <MultiSelect classNames={{ pill: classes.spherePill }} required searchable maxValues={3} label={ui.createVacancy.spheres} placeholder={ui.createVacancy.spheresPlaceholder} data={options.spheres} value={form.sphereIds} onChange={(sphereIds) => setForm({ ...form, sphereIds })} />
+      </div>
+    </FormSection>
+    <FormSection title={ui.createVacancy.descriptionTitle} description={ui.createVacancy.descriptionBlockDescription}>
+      <RichTextEditor value={form.description} onChange={(description) => setForm({ ...form, description })} placeholder={ui.createVacancy.descriptionPlaceholder} />
+    </FormSection>
+    <FormSection title={ui.createVacancy.requirementsTitle} description={ui.createVacancy.requirementsDescription}>
+      <div className={`${classes.skillInputRow} ${classes.languageInputRow}`}>
+        <Select label={ui.createVacancy.skillWeight} data={skillWeights} value={selectedSkillDraft.weight} onChange={(weight) => setSelectedSkillDraft({ ...selectedSkillDraft, weight: (weight ?? "IMPORTANT") as SkillWeight })} />
+        <Select searchable clearable label={ui.createVacancy.skill} placeholder={ui.createVacancy.skillPlaceholder} data={options.skills} value={selectedSkillDraft.skillId || null} onChange={(skillId) => setSelectedSkillDraft({ ...selectedSkillDraft, skillId: skillId ?? "" })} />
+        <Button variant="light" onClick={onAddSkill} disabled={!selectedSkillDraft.skillId}>{ui.createVacancy.addSkill}</Button>
+      </div>
+      <VacancySkillGroups form={form} setForm={setForm} skillsByCategory={skillsByCategory} onSelectSkill={(skill) => setSelectedSkillDraft(skill)} />
+      <div className={classes.skillInputRow}>
+        <Select searchable clearable label={ui.createVacancy.language} placeholder={ui.createVacancy.languagePlaceholder} data={options.languages} value={selectedLanguageDraft.languageId || null} onChange={(languageId) => setSelectedLanguageDraft({ ...selectedLanguageDraft, languageId: languageId ?? "" })} />
+        <Select clearable label={ui.createVacancy.languageLevel} placeholder={ui.createVacancy.languageLevelPlaceholder} data={cefrLevels} value={selectedLanguageDraft.level || null} onChange={(level) => setSelectedLanguageDraft({ ...selectedLanguageDraft, level: (level ?? "") as LanguageLevel | "" })} />
+        <Button variant="light" onClick={onAddLanguage} disabled={!selectedLanguageDraft.languageId || !selectedLanguageDraft.level}>{ui.createVacancy.addLanguage}</Button>
+      </div>
+      <div className={classes.languageChips}>{form.languages.map((item) => <button type="button" className={classes.languageChip} key={item.languageId} onClick={() => setSelectedLanguageDraft(item)}>{findLabel(options.languages, item.languageId)} - {languageLevelLabel(item.level)}<span onClick={(event) => { event.stopPropagation(); setForm({ ...form, languages: form.languages.filter((language) => language.languageId !== item.languageId) }); }}>×</span></button>)}</div>
+    </FormSection>
+    <FormSection title={ui.createVacancy.conditionsTitle} description={ui.createVacancy.conditionsDescription}>
+      <div className={classes.locationStrictRow}>
+        <MultiSelect classNames={{ pill: classes.locationPill }} required label={ui.createVacancy.officeLocations} data={options.officeLocations} value={form.officeLocationIds} onChange={(officeLocationIds) => setForm({ ...form, officeLocationIds })} />
+        <Checkbox className={`${classes.inlineCheckbox} ${classes.locationStrictCheckbox}`} label={ui.createVacancy.locationStrict} checked={form.isLocationStrict} onChange={(event) => setForm({ ...form, isLocationStrict: event.currentTarget.checked })} />
+      </div>
+      <div className={classes.conditionsGrid}>
+        <Checkbox.Group className={classes.checkboxGroup} label={ui.createVacancy.workFormats} value={form.workFormatIds} onChange={(workFormatIds) => setForm({ ...form, workFormatIds })}>{options.workFormats.map((item) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
+        <Checkbox.Group className={classes.checkboxGroup} label={ui.createVacancy.employmentTypes} value={form.employmentTypeIds} onChange={(employmentTypeIds) => setForm({ ...form, employmentTypeIds })}>{options.employmentTypes.map((item) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
+        <Checkbox.Group className={classes.checkboxGroup} label={ui.createVacancy.workSchedules} value={form.workScheduleIds} onChange={(workScheduleIds) => setForm({ ...form, workScheduleIds })}>{options.workSchedules.map((item) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
+      </div>
+      <Text className={classes.subsectionTitle}>{ui.createVacancy.salaryRange}</Text>
+      <Text className={classes.subsectionDescription}>{ui.createVacancy.salaryRangeDescription}</Text>
+      <div className={classes.salaryFields}>
+        <Select label={ui.createVacancy.salaryPeriod} data={salaryPeriods} value={form.salaryPeriod} onChange={(salaryPeriod) => setForm({ ...form, salaryPeriod: (salaryPeriod ?? "PER_MONTH") as SalaryPeriod })} />
+        <NumberInput label={ui.createVacancy.minSalary} min={0} max={maxSalaryInput} step={1000} allowNegative={false} allowDecimal={false} value={form.salaryFrom ?? ""} onChange={(value) => setForm({ ...form, salaryFrom: normalizeSalaryInput(value, form.salaryFrom), salaryTo: value === "" ? null : form.salaryTo })} />
+        <NumberInput label={ui.createVacancy.maxSalary} min={form.salaryFrom ?? 0} max={maxSalaryInput} step={1000} allowNegative={false} allowDecimal={false} disabled={form.salaryFrom === null} value={form.salaryTo ?? ""} onChange={(value) => setForm({ ...form, salaryTo: normalizeSalaryInput(value, form.salaryTo) })} />
+      </div>
+    </FormSection>
+    <FormSection title={ui.createVacancy.publishTitle} description={ui.createVacancy.publishDescription}>
+      <DateInput required label={ui.createVacancy.closingDate} placeholder={ui.createVacancy.closingDatePlaceholder} value={form.closingDate ? new Date(form.closingDate) : null} onChange={(value) => setForm({ ...form, closingDate: value ? dayjs(value).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" minDate={dayjs().add(1, "day").toDate()} clearable popoverProps={{ position: "bottom-end", withinPortal: true }} />
+      <InlineError message={error} />
+      <div className={classes.vacancyActions}>
+        <Button variant="light" onClick={onClear}>{commonUi.actions.clear}</Button>
+        <Button variant="light" className={classes.outlineActionButton} leftSection={<SaveIcon />} loading={saving} onClick={() => onSave("DRAFT")}>{ui.createVacancy.saveDraft}</Button>
+        <Button leftSection={<PublishIcon />} loading={saving} onClick={() => onSave("ACTIVE")}>{isEditingActiveVacancy ? ui.createVacancy.updatePublished : ui.createVacancy.publishNow}</Button>
+      </div>
+    </FormSection>
+  </>;
 }
 
 function HrProfileTab({ profile, form, setForm, error, saving, vacanciesCount, onCompanyOpen, onClearError, onSave }: any) {
@@ -418,7 +772,7 @@ function HrProfileTab({ profile, form, setForm, error, saving, vacanciesCount, o
     status: profile?.user.status,
     companyName: profile?.company.publicName,
     email: profile?.user.email,
-    contacts: profile?.links?.map((link: LinkItem) => `${link.linkName}: ${link.value}`).join("; ") || ui.profile.noContacts,
+    contacts: profile?.links ?? [],
     createdAt: profile?.user.createdAt,
     vacanciesCount,
   };
@@ -468,27 +822,31 @@ function RecruiterCard({ data, onClick }: { data: RecruiterView; onClick: () => 
 
 /** Єдина бічна панель перегляду публічної інформації рекрутера. */
 function RecruiterPreviewDrawer({ opened, data, onClose, onCompanyOpen }: { opened: boolean; data: RecruiterView | null; onClose: () => void; onCompanyOpen?: () => void }) {
+  const progress = getRecruiterProgress(data);
   return <Drawer opened={opened} onClose={onClose} position="right" size="sm" title={ui.profile.previewTitle}>
     <div className={classes.recruiterPreview}>
-      <div className={classes.previewHeader}>
-        <Avatar src={data?.photoUrl} size={82} radius="xl" className={classes.avatarRing} />
-        <div>
-          <Text fw={950}>{data?.fullName}</Text>
-          <Text className={classes.muted}>{data?.position}</Text>
+      <div className={classes.recruiterStickyHeader}>
+        <div className={classes.previewHeader}>
+          <Avatar src={data?.photoUrl} size={82} radius="xl" className={classes.avatarRing} />
+          <div>
+            <Text fw={950}>{data?.fullName}</Text>
+            <Text className={classes.muted}>{data?.position}</Text>
+          </div>
         </div>
+        <div className={classes.previewProgress}><span style={{ width: `${progress}%` }} /></div>
       </div>
-      <div className={classes.previewProgress} />
-      <InfoRow label={ui.profile.company} value={data?.companyName} actionLabel={ui.profile.openCompany} onClick={onCompanyOpen} />
-      <InfoRow label={ui.profile.position} value={data?.position} />
-      {data?.email && <InfoRow label={ui.profile.email} value={data.email} />}
-      {data?.contacts && <InfoRow label={ui.profile.contacts} value={data.contacts} />}
-      {data?.createdAt && <InfoRow label={ui.profile.createdAt} value={dateShort(data.createdAt)} />}
-      {data?.status && <InfoRow label={ui.profile.status} value={userStatusLabel(data.status)} />}
-      {typeof data?.vacanciesCount === "number" && <InfoRow label={ui.profile.activeVacancies} value={String(data.vacanciesCount)} />}
-      {typeof data?.vacanciesCount === "number" && <details className={classes.vacancyDetails}>
-        <summary>{ui.profile.vacanciesList}</summary>
-        <Text className={classes.muted}>{ui.vacancies.empty}</Text>
-      </details>}
+      <div className={classes.recruiterPreviewBody}>
+        <InfoRow label={ui.profile.company} value={data?.companyName} actionLabel={ui.profile.openCompany} onClick={onCompanyOpen} />
+        <InfoRow label={ui.profile.position} value={data?.position} />
+        {data?.email && <ContactCopyRow label={ui.profile.email} value={data.email} />}
+        {data?.contacts?.map((contact) => <ContactCopyRow key={`${contact.linkName}-${contact.value}`} label={contact.linkName} value={contact.value} />)}
+        {data?.createdAt && <InfoRow label={ui.profile.createdAt} value={dateShort(data.createdAt)} />}
+        {typeof data?.vacanciesCount === "number" && <InfoRow label={ui.profile.activeVacancies} value={String(data.vacanciesCount)} />}
+        {typeof data?.vacanciesCount === "number" && <details className={classes.vacancyDetails}>
+          <summary>{ui.profile.vacanciesList}</summary>
+          <Text className={classes.muted}>{ui.vacancies.empty}</Text>
+        </details>}
+      </div>
     </div>
   </Drawer>;
 }
@@ -563,19 +921,19 @@ function CompanyPublicPage({ company, companyHrs, vacancies, onBack }: { company
         </FormSection>
       </section>
       <aside className={classes.companyPreviewAside}>
-        <InfoRow label={ui.company.foundationYear} value={company?.foundationYear ? String(company.foundationYear) : null} />
-        <InfoRow label={ui.company.employeeCount} value={company?.employeeCount ? companySizeLabel(company.employeeCount) : null} />
-        <div className={classes.publicChipBlock}>
-          <Text fw={900}>{ui.company.contactsTitle}</Text>
-          <Text className={classes.publicContactsNote}>{ui.company.contactsDescription}</Text>
-          <InfoRow value={company?.publicEmail} />
-          <InfoRow value={company?.publicPhone} />
-          <CompanyPublicLinks links={getCompanyPublicLinks(company)} />
-        </div>
         <div className={classes.publicChipBlock}>
           <Text fw={900}>{ui.company.spheresTitle}</Text>
           <div className={classes.chips}>{company?.spheres?.map((item) => <span className={classes.sphereChip} key={item.sphereId}>{item.sphere?.name ?? item.sphereId}</span>)}</div>
         </div>
+        <div className={classes.publicChipBlock}>
+          <Text fw={900}>{ui.company.contactsTitle}</Text>
+          <Text className={classes.publicContactsNote}>{ui.company.contactsDescription}</Text>
+          <ContactCopyRow value={company?.publicEmail} />
+          <ContactCopyRow value={company?.publicPhone} normalizeCopy={normalizePhone} />
+          <CompanyPublicLinks links={getCompanyPublicLinks(company)} />
+        </div>
+        <InfoRow label={ui.company.foundationYear} value={company?.foundationYear ? String(company.foundationYear) : null} />
+        <InfoRow label={ui.company.employeeCount} value={company?.employeeCount ? companySizeLabel(company.employeeCount) : null} />
         <div className={classes.publicChipBlock}>
           <Text fw={900}>{ui.company.teamTitle}</Text>
           <div className={classes.hrCards}>{companyHrs.map((hr) => <RecruiterCard key={hr.id} data={{ fullName: formatHrName(hr), position: hr.position, photoUrl: hr.user.photoUrl }} onClick={() => setSelectedHr(hr)} />)}</div>
@@ -607,6 +965,26 @@ function CompanyPublicLinks({ links }: { links: LinkItem[] }) {
       </span>
     </div>;
   })}</div>;
+}
+
+/** Групує обрані навички вакансії за категоріями та показує вагу як колір плашки. */
+function VacancySkillGroups({ form, setForm, skillsByCategory, onSelectSkill }: { form: VacancyFormState; setForm: (form: VacancyFormState) => void; skillsByCategory: Record<string, SkillOption[]>; onSelectSkill: (skill: { skillId: string; weight: SkillWeight }) => void }) {
+  const categories = Object.entries(skillsByCategory)
+    .map(([category, skills]) => ({
+      category,
+      skills: form.skills
+        .map((item) => ({ ...item, skill: skills.find((skill) => String(skill.id) === item.skillId) }))
+        .filter((item) => Boolean(item.skill))
+        .sort((first, second) => skillWeightRank[second.weight] - skillWeightRank[first.weight]),
+    }))
+    .filter((group) => group.skills.length > 0);
+
+  if (categories.length === 0) return <Text className={classes.muted}>{ui.createVacancy.emptySkills}</Text>;
+
+  return <div className={classes.skillGroups}>{categories.map((group) => <div key={group.category}>
+    <Text fw={900}>{skillCategoryLabel(group.category)}</Text>
+    <div className={classes.skillChips}>{group.skills.map((item) => <button type="button" data-weight={item.weight} key={item.skillId} onClick={() => onSelectSkill({ skillId: item.skillId, weight: item.weight })}>{item.skill?.name}<span onClick={(event) => { event.stopPropagation(); setForm({ ...form, skills: form.skills.filter((skill) => skill.skillId !== item.skillId) }); }}>×</span></button>)}</div>
+  </div>)}</div>;
 }
 
 function LinkEditor({ links, setLinks, mode }: { links: LinkItem[]; setLinks: (links: LinkItem[]) => void; mode: "hr" | "company" }) {
@@ -643,6 +1021,12 @@ function InfoRow({ label, value, actionLabel, onClick }: { label?: string; value
   return <div className={classes.infoRow}>{label && <span>{label}</span>}{onClick ? <button type="button" onClick={onClick}>{value || actionLabel}</button> : <strong>{value || "—"}</strong>}</div>;
 }
 
+function ContactCopyRow({ label, value, normalizeCopy }: { label?: string; value?: string | null; normalizeCopy?: (value: string) => string }) {
+  if (!value) return null;
+  const copyValue = normalizeCopy ? normalizeCopy(value) : value;
+  return <div className={classes.contactCopyRow}>{label && <span>{label}</span>}<strong>{value}</strong><AppTooltip label={messages.studentDashboard.resumePreview.copy}><button type="button" onClick={() => copyToClipboard(copyValue)}><CopyIcon /></button></AppTooltip></div>;
+}
+
 function ModerationBadge({ status }: { status?: string | null }) {
   return <span className={classes.moderationBadge} data-status={status ?? "PENDING"}>{moderationLabel(status)}</span>;
 }
@@ -652,6 +1036,9 @@ const clean = (value: string) => value.trim();
 const nullable = (value?: string | null) => value?.trim() || null;
 const dateShort = (value: string) => new Date(value).toLocaleDateString("uk-UA");
 const isValidUrlLike = (value: string) => /^(https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,})/i.test(value.trim());
+const flattenSkills = (skillsByCategory?: Record<string, SkillOption[]>) => Object.values(skillsByCategory ?? {}).flat();
+const findLabel = (options: Array<{ value: string; label: string }>, value: string) => options.find((item) => item.value === value)?.label ?? value;
+const languageLevelLabel = (level: LanguageLevel | string) => cefrLevels.find((item) => item.value === level)?.label ?? level;
 const formatHrName = (hr?: CompanyHr | null) => [hr?.user.firstName, hr?.user.middleName, hr?.user.lastName].filter(Boolean).join(" ");
 const normalizeHref = (value?: string | null) => {
   const trimmed = value?.trim();
@@ -661,6 +1048,76 @@ const normalizeHref = (value?: string | null) => {
 const copyToClipboard = (value: string) => {
   void navigator.clipboard?.writeText(value);
 };
+const normalizePhone = (value: string) => value.replace(/\s/g, "");
+const normalizeSalaryInput = (value: string | number, previous: number | null) => {
+  if (value === "") return null;
+  if (typeof value !== "number" || value > maxSalaryInput) return previous;
+  return value;
+};
+function getRecruiterProgress(data: RecruiterView | null) {
+  if (!data) return 0;
+  const checks = [
+    Boolean(data.fullName?.trim()),
+    Boolean(data.position?.trim()),
+    Boolean(data.companyName?.trim()),
+    Boolean(data.email?.trim()),
+    Boolean(data.contacts?.length),
+  ];
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+}
+function vacancyToForm(vacancy: VacancyRow): VacancyFormState {
+  return {
+    title: vacancy.title,
+    professionId: String(vacancy.professionId),
+    sphereIds: vacancy.spheres.map((item) => String(item.sphereId)),
+    description: vacancy.description,
+    skills: vacancy.skills.map((item) => ({ skillId: String(item.skillId), weight: item.weight })),
+    languages: vacancy.languages.map((item) => ({ languageId: String(item.languageId), level: item.level })),
+    officeLocationIds: vacancy.locations.map((item) => item.locationId),
+    isLocationStrict: vacancy.isLocationCritical,
+    workFormatIds: vacancy.workFormats.map((item) => String(item.workFormatId)),
+    employmentTypeIds: vacancy.employmentTypes.map((item) => String(item.employmentTypeId)),
+    workScheduleIds: vacancy.workSchedules.map((item) => String(item.workScheduleId)),
+    salaryFrom: vacancy.minSalary ?? null,
+    salaryTo: vacancy.maxSalary ?? null,
+    salaryPeriod: vacancy.salaryPeriod ?? "PER_MONTH",
+    closingDate: dayjs(vacancy.closingDate).format("YYYY-MM-DD"),
+  };
+}
+function vacancyFormToPayload(form: VacancyFormState & { status: "DRAFT" | "ACTIVE" }) {
+  return {
+    title: form.title.trim(),
+    professionId: Number(form.professionId),
+    sphereIds: form.sphereIds.map(Number),
+    description: form.description,
+    skills: form.skills.map((skill) => ({ skillId: Number(skill.skillId), weight: skill.weight })),
+    languages: form.languages.map((language) => ({ languageId: Number(language.languageId), level: language.level })),
+    officeLocationIds: form.officeLocationIds,
+    isLocationStrict: form.isLocationStrict,
+    workFormatIds: form.workFormatIds.map(Number),
+    employmentTypeIds: form.employmentTypeIds.map(Number),
+    workScheduleIds: form.workScheduleIds.map(Number),
+    salaryFrom: form.salaryFrom,
+    salaryTo: form.salaryTo,
+    salaryPeriod: form.salaryPeriod,
+    closingDate: form.closingDate,
+    status: form.status,
+  };
+}
+function validateVacancyForm(form: VacancyFormState, companyLocationCount: number) {
+  if (!form.title.trim() || !form.professionId || !form.description.trim()) throw new Error(ui.createVacancy.errors.required);
+  if (form.sphereIds.length < 1 || form.sphereIds.length > 3) throw new Error(ui.createVacancy.errors.spheres);
+  if (form.skills.length < 1) throw new Error(ui.createVacancy.errors.skills);
+  if (companyLocationCount === 0) throw new Error(ui.createVacancy.errors.companyLocations);
+  if (form.officeLocationIds.length < 1) throw new Error(ui.createVacancy.errors.locations);
+  if (form.workFormatIds.length < 1 || form.employmentTypeIds.length < 1 || form.workScheduleIds.length < 1) throw new Error(ui.createVacancy.errors.conditions);
+  if (!form.closingDate || dayjs(form.closingDate).isBefore(dayjs().add(1, "day"), "day")) throw new Error(ui.createVacancy.errors.closingDate);
+  if (form.salaryTo !== null && form.salaryFrom === null) throw new Error(ui.createVacancy.errors.salaryToWithoutFrom);
+  if (form.salaryFrom !== null && form.salaryTo !== null && form.salaryTo < form.salaryFrom) throw new Error(ui.createVacancy.errors.salaryRange);
+}
+function skillCategoryLabel(category: string) {
+  return ({ HARD_SKILL: "Hard Skills", SOFT_SKILL: "Soft Skills", TOOL: "Tools" }[category] ?? category);
+}
 function validateLinks(links: LinkItem[], mode: "hr" | "company") {
   const resources = mode === "hr" ? hrLinkResources : companyLinkResources;
   const allowedTypes = mode === "hr" ? ["MESSENGER", "SOCIAL"] : ["WEBSITE", "MESSENGER", "SOCIAL", "OTHER"];
@@ -695,9 +1152,8 @@ function formatLocationByIds(location: { countryId: number; regionId: number; ci
   ].filter(Boolean).join(", ");
 }
 function getErrorMessage(error: unknown) { return error instanceof ApiError || error instanceof Error ? error.message : commonUi.messages.unknownError; }
-function statusLabel(status: VacancyRow["status"]) { return ({ DRAFT: "Чернетка", PUBLISHED: "Опублікована", PAUSED: "Призупинена", CLOSED: "Закрита" }[status]); }
+function statusLabel(status: VacancyStatus) { return ({ DRAFT: "Чернетка", ACTIVE: "Активна", PAUSED: "Призупинена", CLOSED: "Закрита", ARCHIVED: "Архів" }[status]); }
 function moderationLabel(status?: string | null) { return ({ PENDING: "На перевірці", APPROVED: "Підтверджено", REJECTED: "Відхилено" }[status ?? "PENDING"] ?? status ?? "На перевірці"); }
-function userStatusLabel(status?: string | null) { return ({ PENDING: "На перевірці", ACTIVE: "Активний", BLOCKED: "Заблокований" }[status ?? "PENDING"] ?? status ?? "На перевірці"); }
 function companySizeLabel(value: string) { return companySizes.find((item) => item.value === value)?.label ?? value; }
 function isValidResourceValue(name: string, value: string) {
   const cleanValue = value.trim();
@@ -722,3 +1178,7 @@ function ArrowIcon() { return <svg viewBox="0 0 24 24"><path d="m10 6 1.4 1.4L8.
 function OpenIcon() { return <svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14V3ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>; }
 function CopyIcon() { return <svg viewBox="0 0 24 24"><path d="M8 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V7Zm2 0v12h9V7h-9ZM3 17V3a2 2 0 0 1 2-2h10v2H5v14H3Z" /></svg>; }
 function TrashIcon() { return <svg viewBox="0 0 24 24"><path d="M7 21a2 2 0 0 1-2-2V7h14v12a2 2 0 0 1-2 2H7ZM9 4h6l1 1h4v2H4V5h4l1-1Z" /></svg>; }
+function EditIcon() { return <svg viewBox="0 0 24 24"><path d="M4 17.25V20h2.75L17.8 8.95 15.05 6.2 4 17.25ZM19.7 7.05a1 1 0 0 0 0-1.4l-1.35-1.35a1 1 0 0 0-1.4 0l-1.05 1.05 2.75 2.75 1.05-1.05Z" /></svg>; }
+function ArchiveIcon() { return <svg viewBox="0 0 24 24"><path d="M20 6h-3.2l-1.1-2H8.3L7.2 6H4v14h16V6ZM9.5 6l.35-.65h4.3L14.5 6h-5ZM6 8h12v10H6V8Zm3 2h6v2H9v-2Zm0 3h6v2H9v-2Z" /></svg>; }
+function SaveIcon() { return <svg viewBox="0 0 24 24"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4ZM5 5h10.2L19 8.8V19H5V5Zm2 1h8v5H7V6Zm1 9h8v3H8v-3Z" /></svg>; }
+function PublishIcon() { return <svg viewBox="0 0 24 24"><path d="M12 3 4 11h5v10h6V11h5l-8-8Zm0 2.8 3.2 3.2H13v10h-2V9H8.8L12 5.8Z" /></svg>; }

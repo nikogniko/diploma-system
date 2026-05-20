@@ -7,6 +7,7 @@ import studentProfileRoutes from "./routes/studentProfileRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import hrProfileRoutes from "./routes/hrProfileRoutes.js";
 import catalogRoutes from "./routes/catalogRoutes.js";
+import vacancyRoutes from "./routes/vacancyRoutes.js";
 import { BusinessLogicError, HttpStatus } from "./errors/BusinessLogicError.js";
 import { Prisma } from "../prisma/generated/client/index.js";
 
@@ -34,6 +35,7 @@ app.use("/api/students", studentProfileRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/hr-profiles", hrProfileRoutes);
 app.use("/api/catalogs", catalogRoutes);
+app.use("/api/vacancies", vacancyRoutes);
 
 app.use(
   (

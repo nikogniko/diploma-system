@@ -1,7 +1,8 @@
 @use "../../styles/variables" as *;
+@use "../../styles/chips" as chips;
 
 .tabHeader {
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   padding-inline: 1.25rem;
 }
 
@@ -39,9 +40,11 @@
   align-items: center;
 }
 
-.previewOutlineButton {
+.previewOutlineButton,
+.outlineActionButton {
   color: var(--color-primary);
   border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  white-space: normal;
 
   &:hover {
     color: var(--color-primary-hover);
@@ -54,7 +57,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
-  align-items: start;
+  align-items: center;
 }
 
 .profileHeader,
@@ -90,6 +93,7 @@
   gap: 0.8rem;
   align-items: center;
   width: fit-content;
+  align-self: center;
   padding: 0.65rem 0.85rem;
   text-align: left;
   background: var(--color-surface);
@@ -124,7 +128,31 @@
 
 .recruiterPreview {
   display: grid;
-  gap: 0.8rem;
+  min-height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--color-primary) 15%, transparent) 0 16rem, transparent 16.5rem),
+    radial-gradient(circle at 84% 26%, color-mix(in srgb, var(--color-info) 14%, transparent) 0 13rem, transparent 13.5rem),
+    radial-gradient(circle at 34% 86%, color-mix(in srgb, var(--color-secondary) 12%, transparent) 0 12rem, transparent 12.5rem),
+    var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.recruiterStickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.recruiterPreviewBody {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem;
 }
 
 .previewHeader {
@@ -132,24 +160,24 @@
   gap: 0.9rem;
   align-items: center;
   padding: 1rem;
-  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
-  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
   border-radius: var(--radius-lg);
 }
 
 .previewProgress {
+  margin-top: 0.65rem;
   height: 0.35rem;
   overflow: hidden;
   background: var(--color-primary-soft);
   border-radius: 999px;
 
-  &::before {
+  span {
     display: block;
-    width: 62%;
     height: 100%;
-    content: "";
     background: var(--color-primary);
     border-radius: inherit;
+    transition: width 0.25s ease;
   }
 }
 
@@ -226,6 +254,61 @@
   }
 }
 
+.contactCopyRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  background: var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  span {
+    grid-column: 1 / -1;
+    color: var(--color-dark-muted);
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
+  strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-dark-main);
+    font-weight: 900;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button {
+    display: inline-grid;
+    width: 1.65rem;
+    height: 1.65rem;
+    color: var(--color-primary);
+    place-items: center;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease,
+      transform 0.18s ease;
+
+    &:hover {
+      background: var(--color-primary-soft);
+      border-color: var(--color-primary);
+      transform: translateY(-1px);
+    }
+  }
+
+  svg {
+    width: 0.92rem;
+    height: 0.92rem;
+    fill: currentColor;
+  }
+}
+
 .moderationBadge {
   display: inline-flex;
   width: fit-content;
@@ -238,9 +321,9 @@
   border-radius: 999px;
 
   &[data-status="APPROVED"] {
-    color: var(--color-success);
-    background: var(--color-success-soft);
-    border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+    color: color-mix(in srgb, var(--color-secondary) 62%, var(--color-dark-main));
+    background: var(--color-secondary-soft);
+    border-color: color-mix(in srgb, var(--color-secondary) 45%, transparent);
   }
 
   &[data-status="REJECTED"] {
@@ -270,6 +353,119 @@
 .linkGrid {
   display: grid;
   grid-template-columns: minmax(130px, 0.8fr) minmax(150px, 1fr) minmax(220px, 1.4fr) auto;
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.skillInputRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.45fr) minmax(220px, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 0;
+}
+
+.languageInputRow {
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.45fr) auto;
+
+  button {
+    min-width: 9.5rem;
+  }
+}
+
+.skillGroups {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.skillChips,
+.languageChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.skillChips button,
+.languageChips button {
+  @include chips.chip-base;
+  color: var(--color-dark-main);
+  background: var(--color-info-soft);
+  cursor: pointer;
+}
+
+.skillChips button[data-weight="CRITICAL"] {
+  @include chips.skill-critical;
+}
+
+.skillChips button[data-weight="IMPORTANT"] {
+  @include chips.skill-important;
+}
+
+.skillChips button[data-weight="NICE_TO_HAVE"] {
+  @include chips.skill-plus;
+}
+
+.skillChips span,
+.languageChips span {
+  @include chips.chip-close;
+}
+
+.inlineCheckbox {
+  width: fit-content;
+  margin: 0;
+}
+
+.locationStrictRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, auto);
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.locationStrictCheckbox {
+  align-self: end;
+  margin-bottom: 0.35rem;
+}
+
+.conditionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
+  border-radius: var(--radius-lg);
+}
+
+.checkboxGroup {
+  padding: 0.85rem;
+  background: var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  :global(.mantine-Checkbox-root) {
+    margin-top: 0.4rem;
+  }
+}
+
+.subsectionTitle {
+  margin: 0.2rem 0 0;
+  color: var(--color-dark-main);
+  font-weight: 950;
+}
+
+.subsectionDescription {
+  margin: -0.25rem 0 0;
+  color: var(--color-dark-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.salaryFields {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.75fr) repeat(2, minmax(180px, 1fr));
   gap: 0.9rem;
   align-items: end;
 }
@@ -318,6 +514,26 @@
   }
 }
 
+.vacancyActions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.35fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+
+  button:last-child {
+    background: var(--color-primary);
+
+    &:hover {
+      background: var(--color-primary-hover);
+    }
+  }
+
+  button:nth-child(2) {
+    color: var(--color-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  }
+}
+
 .inlineError,
 .notice {
   padding: 0.75rem 0.9rem;
@@ -352,6 +568,56 @@
   border: 1px solid currentColor;
   border-radius: 999px;
   cursor: pointer;
+}
+
+.locationPill {
+  @include chips.location;
+  font-size: 0.82rem;
+  font-weight: 850;
+  border: 1px solid currentColor;
+}
+
+.languageChip {
+  @include chips.language;
+  border-color: currentColor !important;
+}
+
+.actionIconButton {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  color: var(--color-primary);
+  place-items: center;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 42%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+  }
+
+  &[data-danger="true"] {
+    color: var(--color-danger);
+    border-color: color-mix(in srgb, var(--color-danger) 42%, transparent);
+
+    &:hover {
+      background: var(--color-danger-soft);
+      border-color: var(--color-danger);
+    }
+  }
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+    fill: currentColor;
+  }
 }
 
 .spherePill,
@@ -501,8 +767,8 @@
 
   button {
     display: inline-grid;
-    width: 1.85rem;
-    height: 1.85rem;
+    width: 1.65rem;
+    height: 1.65rem;
     color: var(--color-primary);
     place-items: center;
     background: transparent;
@@ -657,7 +923,11 @@
 @media (max-width: $breakpoint-mobile) {
   .grid,
   .threeGrid,
+  .conditionsGrid,
+  .locationStrictRow,
+  .salaryFields,
   .linkGrid,
+  .skillInputRow,
   .readonlyGrid,
   .profileHeaderRow,
   .companyPreviewGrid,
@@ -666,6 +936,10 @@
   }
 
   .editorActions {
+    grid-template-columns: 1fr;
+  }
+
+  .vacancyActions {
     grid-template-columns: 1fr;
   }
 }
