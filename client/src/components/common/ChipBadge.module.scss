@@ -1,0 +1,52 @@
+@use "../../styles/chips" as chips;
+
+.chip {
+  @include chips.chip-base;
+  width: fit-content;
+  color: var(--color-dark-main);
+  background: var(--color-info-soft);
+}
+
+.button {
+  cursor: pointer;
+}
+
+.close {
+  @include chips.chip-close;
+  padding: 0;
+  color: currentColor;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.hard,
+.primary {
+  @include chips.skill-hard;
+}
+
+.soft,
+.important {
+  @include chips.skill-soft;
+}
+
+.tools {
+  @include chips.skill-tools;
+}
+
+.critical {
+  @include chips.skill-critical;
+}
+
+.plus {
+  @include chips.skill-plus;
+}
+
+.language,
+.sphere {
+  @include chips.language;
+}
+
+.location {
+  @include chips.location;
+}

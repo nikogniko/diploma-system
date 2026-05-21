@@ -14,6 +14,8 @@ import {
   VacancyRepository,
   vacancyRepository,
   type VacancyCreateData,
+  type VacancyListParams,
+  type VacancyListSortBy,
   type VacancyUpdateData,
 } from "../repositories/VacancyRepository.js";
 import { normalizeVacancyRequirements } from "./VacancyMatchingService.js";
@@ -45,6 +47,15 @@ export type VacancyUpsertRequest = {
   salaryPeriod?: SalaryPeriod | null;
   closingDate?: string;
   status?: ListingStatus;
+};
+
+export type VacancyListRequest = {
+  page?: unknown;
+  pageSize?: unknown;
+  search?: unknown;
+  status?: unknown;
+  sortBy?: unknown;
+  sortDirection?: unknown;
 };
 
 export class VacancyService {
@@ -89,11 +100,15 @@ export class VacancyService {
   }
 
   /** Повертає вакансії компанії поточного рекрутера з урахуванням автоархівації. */
-  async listMyVacancies(clerkUserId: string) {
+  async listMyVacancies(clerkUserId: string, query: VacancyListRequest = {}) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
     await this.archiveExpiredVacancies(hrProfile.companyId);
-    const vacancies = await this.vacancies.listCompanyVacancies(hrProfile.companyId);
-    return vacancies.map((vacancy) => this.mapVacancy(vacancy));
+    const params = this.normalizeListQuery(query);
+    const result = await this.vacancies.listCompanyVacancies(hrProfile.companyId, params);
+    return {
+      ...result,
+      items: result.items.map((vacancy) => this.mapVacancy(vacancy)).filter(Boolean),
+    };
   }
 
   /** Повертає одну вакансію компанії поточного рекрутера. */
@@ -153,6 +168,30 @@ export class VacancyService {
   /** Архівує прострочені активні вакансії компанії. */
   private async archiveExpiredVacancies(companyId: string) {
     await this.vacancies.archiveExpiredActiveVacancies(companyId, this.todayDateOnly());
+  }
+
+  /** Нормалізує query-параметри списку вакансій для репозиторію. */
+  private normalizeListQuery(query: VacancyListRequest): VacancyListParams {
+    const allowedSortFields: VacancyListSortBy[] = ["title", "status", "closingDate", "updatedAt", "createdAt"];
+    const page = this.clampPositiveInt(query.page, 1, 1, 10_000);
+    const pageSize = this.clampPositiveInt(query.pageSize, 10, 5, 20);
+    const search = typeof query.search === "string" && query.search.trim() ? query.search.trim() : null;
+    const status = typeof query.status === "string" && Object.values(ListingStatus).includes(query.status as ListingStatus)
+      ? query.status as ListingStatus
+      : null;
+    const sortBy = typeof query.sortBy === "string" && allowedSortFields.includes(query.sortBy as VacancyListSortBy)
+      ? query.sortBy as VacancyListSortBy
+      : "updatedAt";
+    const sortDirection = query.sortDirection === "asc" ? "asc" : "desc";
+
+    return { page, pageSize, search, status, sortBy, sortDirection };
+  }
+
+  /** Повертає ціле число в дозволених межах або значення за замовчуванням. */
+  private clampPositiveInt(value: unknown, fallback: number, min: number, max: number) {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed)) return fallback;
+    return Math.min(Math.max(parsed, min), max);
   }
 
   /** Перевіряє DTO вакансії та нормалізує масиви. */
@@ -331,6 +370,8 @@ export class VacancyService {
     const allowedStatuses: ListingStatus[] = [
       ListingStatus.DRAFT,
       ListingStatus.ACTIVE,
+      ListingStatus.PAUSED,
+      ListingStatus.CLOSED,
       ListingStatus.ARCHIVED,
     ];
     if (!allowedStatuses.includes(status)) {

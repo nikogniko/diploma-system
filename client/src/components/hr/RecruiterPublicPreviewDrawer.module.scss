@@ -1,0 +1,142 @@
+.drawerOverlay {
+  backdrop-filter: blur(10px);
+}
+
+.drawerContent {
+  background: transparent;
+  backdrop-filter: blur(14px);
+}
+
+.preview {
+  display: grid;
+  min-height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 8% 12%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 30%),
+    radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--color-info) 12%, transparent), transparent 28%),
+    radial-gradient(circle at 78% 74%, color-mix(in srgb, var(--color-secondary) 10%, transparent), transparent 30%),
+    radial-gradient(circle at 18% 88%, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 28%),
+    var(--color-bg-main);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.stickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.header {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  border-radius: var(--radius-lg);
+}
+
+.avatarRing {
+  border: 3px solid var(--color-primary-soft);
+}
+
+.muted {
+  color: var(--color-dark-muted);
+  font-weight: 750;
+}
+
+.progress {
+  height: 0.35rem;
+  margin-top: 0.65rem;
+  overflow: hidden;
+  background: var(--color-primary-soft);
+  border-radius: 999px;
+
+  span {
+    display: block;
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: inherit;
+    transition: width 0.25s ease;
+  }
+}
+
+.body {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem;
+}
+
+.infoRow,
+.contactRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.2rem 0.55rem;
+  align-items: start;
+  padding: 0.65rem 0.75rem;
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  span {
+    grid-column: 1 / -1;
+    color: var(--color-dark-muted);
+    font-size: 0.86rem;
+    font-weight: 800;
+  }
+
+  strong,
+  button {
+    min-width: 0;
+    color: var(--color-dark-main);
+    font-weight: 900;
+    text-align: left;
+  }
+
+  > button {
+    grid-column: 1;
+    padding: 0;
+    color: var(--color-primary);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+}
+
+.contactRow {
+  strong {
+    grid-column: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button {
+    display: inline-grid;
+    grid-column: 2;
+    grid-row: 2;
+    width: 1.65rem;
+    height: 1.65rem;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+    border-radius: var(--radius-sm);
+  }
+
+  svg {
+    width: 0.9rem;
+    height: 0.9rem;
+    fill: var(--color-primary);
+  }
+}
+
+.details {
+  padding: 0.8rem;
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}

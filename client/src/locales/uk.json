@@ -387,12 +387,30 @@
       "title": "Управління вакансіями",
       "description": "Тут буде робоча дошка вакансій рекрутера: статуси, відгуки та швидкі дії.",
       "empty": "Поки немає відкритих вакансій.",
+      "emptyFiltered": "За поточними фільтрами вакансій не знайдено.",
       "position": "Вакансія",
       "status": "Статус",
       "responses": "Відгуки",
+      "conditions": "Умови",
+      "deadline": "Дедлайн",
+      "updatedAt": "Оновлено",
+      "aboutVacancy": "Про вакансію",
       "actions": "Дії",
+      "view": "Переглянути",
+      "moreActions": "Інші дії",
       "edit": "Редагувати",
+      "publish": "Опублікувати",
+      "pause": "Призупинити набір",
+      "resume": "Відновити набір",
       "close": "Закрити",
+      "archive": "Архівувати",
+      "searchPlaceholder": "Пошук за назвою вакансії",
+      "allStatuses": "Усі статуси",
+      "sortAsc": "За зростанням",
+      "sortDesc": "За спаданням",
+      "pagination": {
+        "total": "Усього"
+      },
       "back": "Повернутися на дошку",
       "pipelineTitle": "Шлях кандидата",
       "pipelineDescription": "Кандидати будуть згруповані за етапами розгляду після підключення відгуків.",
@@ -402,6 +420,11 @@
         "interview": "Співбесіда",
         "offer": "Фінал",
         "archive": "Архів"
+      },
+      "managementTabs": {
+        "applications": "Робота з відгуками",
+        "preview": "Передперегляд вакансії",
+        "edit": "Редагування"
       }
     },
     "createVacancy": {
@@ -436,6 +459,7 @@
       "languageLevel": "Мінімальний рівень",
       "languageLevelPlaceholder": "Оберіть рівень",
       "addLanguage": "Додати мову",
+      "languagesTitle": "Мови",
       "officeLocations": "Місце роботи",
       "locationStrict": "Кандидати тільки з цих регіонів",
       "workFormats": "Формат роботи *",
@@ -487,6 +511,7 @@
       "createdAt": "Акаунт створено",
       "unknownDate": "невідомо",
       "activeVacancies": "Активні оголошення",
+      "totalVacancies": "Усього створено оголошень",
       "vacanciesList": "Вакансії рекрутера",
       "status": "Статус",
       "linksTitle": "Контакти та професійні посилання",

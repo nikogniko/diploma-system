@@ -6,11 +6,14 @@ import {
   Badge,
   Button,
   Checkbox,
-  Drawer,
   Group,
+  Menu,
   MultiSelect,
   NumberInput,
+  Pagination,
+  Paper,
   Select,
+  Skeleton,
   Stack,
   Table,
   Text,
@@ -24,10 +27,14 @@ import { useSearchParams } from "react-router-dom";
 import { ApiError, apiRequest } from "../../api/apiClient";
 import { AppLoader } from "../../components/common/AppLoader";
 import { AppTooltip } from "../../components/common/AppTooltip";
+import { ChipBadge } from "../../components/common/ChipBadge";
 import { ErrorBanner } from "../../components/common/ErrorBanner";
 import { FormSection } from "../../components/common/FormSection";
 import { RichTextEditor } from "../../components/common/RichTextEditor";
 import { StatusBadge } from "../../components/common/StatusBadge";
+import { RecruiterPublicCard as RecruiterCard } from "../../components/hr/RecruiterPublicCard";
+import { RecruiterPublicPreviewDrawer as RecruiterPreviewDrawer } from "../../components/hr/RecruiterPublicPreviewDrawer";
+import type { RecruiterPublicPreviewData } from "../../components/hr/RecruiterPublicPreviewDrawer";
 import { CabinetLayout } from "../../layouts/CabinetLayout";
 import { messages } from "../../locales/localizedMessages";
 import {
@@ -52,6 +59,9 @@ type VacancyStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "CLOSED" | "ARCHIVED";
 type SkillWeight = "CRITICAL" | "IMPORTANT" | "NICE_TO_HAVE";
 type LanguageLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | "NATIVE";
 type SalaryPeriod = "PER_MONTH" | "PER_HOUR";
+type VacancyManagementTab = "applications" | "preview" | "edit";
+type VacancySortBy = "title" | "status" | "closingDate" | "updatedAt";
+type SortDirection = "asc" | "desc";
 
 type HrProfile = {
   id: string;
@@ -90,7 +100,8 @@ type CompanyProfile = {
 type CompanyHr = {
   id: string;
   position: string;
-  user: { firstName: string; lastName: string; middleName?: string | null; photoUrl?: string | null; status: string };
+  links?: LinkItem[];
+  user: { firstName: string; lastName: string; middleName?: string | null; photoUrl?: string | null; status: string; email?: string | null; createdAt?: string | null };
 };
 
 type Catalogs = {
@@ -126,6 +137,19 @@ type VacancyRow = {
   maxSalary?: number | null;
   salaryPeriod?: SalaryPeriod | null;
   closingDate: string;
+  createdAt: string;
+  updatedAt: string;
+  hrProfile?: {
+    id: string;
+    position: string;
+    links?: LinkItem[];
+    user: { firstName: string; lastName: string; middleName?: string | null; photoUrl?: string | null; status?: string | null; email?: string | null; createdAt?: string | null };
+  };
+  company?: {
+    id: string;
+    publicName: string;
+    logoUrl?: string | null;
+  };
   spheres: Array<{ sphereId: number; sphere?: CatalogItem }>;
   employmentTypes: Array<{ employmentTypeId: number; employmentType?: CatalogItem }>;
   workSchedules: Array<{ workScheduleId: number; workSchedule?: CatalogItem }>;
@@ -134,6 +158,16 @@ type VacancyRow = {
   skills: Array<{ skillId: number; weight: SkillWeight; skill?: SkillOption }>;
   languages: Array<{ languageId: number; level: LanguageLevel; language?: CatalogItem }>;
 };
+
+type PaginatedResponse<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+type VacancyListMeta = Omit<PaginatedResponse<VacancyRow>, "items">;
 
 type VacancyFormState = {
   title: string;
@@ -165,18 +199,6 @@ type VacancyOptions = {
   cities: Array<{ value: string; label: string }>;
   skills: Array<{ value: string; label: string; category: string }>;
   officeLocations: Array<{ value: string; label: string }>;
-};
-
-type RecruiterView = {
-  fullName: string;
-  position?: string | null;
-  photoUrl?: string | null;
-  status?: string | null;
-  companyName?: string | null;
-  email?: string | null;
-  contacts?: LinkItem[];
-  createdAt?: string | null;
-  vacanciesCount?: number;
 };
 
 const ui = messages.hrDashboard;
@@ -215,6 +237,8 @@ const companySizes = [
 const vacancyStatuses = [
   { value: "DRAFT", label: "Чернетка" },
   { value: "ACTIVE", label: "Активна" },
+  { value: "PAUSED", label: "Призупинена" },
+  { value: "CLOSED", label: "Закрита" },
   { value: "ARCHIVED", label: "Архів" },
 ];
 
@@ -293,8 +317,18 @@ export default function HrDashboard() {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [vacancies, setVacancies] = useState<VacancyRow[]>([]);
+  const [vacancyMeta, setVacancyMeta] = useState<VacancyListMeta>({ page: 1, pageSize: 10, totalItems: 0, totalPages: 1 });
+  const [vacancySearch, setVacancySearch] = useState("");
+  const [vacancyStatusFilter, setVacancyStatusFilter] = useState<VacancyStatus | "ALL">("ALL");
+  const [vacancyPage, setVacancyPage] = useState(1);
+  const [vacancyPageSize, setVacancyPageSize] = useState(10);
+  const [vacancySortBy, setVacancySortBy] = useState<VacancySortBy>("updatedAt");
+  const [vacancySortDirection, setVacancySortDirection] = useState<SortDirection>("desc");
+  const [isVacancyTableLoading, setIsVacancyTableLoading] = useState(false);
+  const [vacancyListError, setVacancyListError] = useState<string | null>(null);
   const [isCompanyPreviewOpen, setIsCompanyPreviewOpen] = useState(false);
   const [editingVacancyId, setEditingVacancyId] = useState<string | null>(null);
+  const [vacancyManagementTab, setVacancyManagementTab] = useState<VacancyManagementTab>("applications");
   const [vacancyForm, setVacancyForm] = useState<VacancyFormState>(() => emptyVacancyForm());
   const [selectedSkillDraft, setSelectedSkillDraft] = useState({ skillId: "", weight: "IMPORTANT" as SkillWeight });
   const [selectedLanguageDraft, setSelectedLanguageDraft] = useState<{ languageId: string; level: LanguageLevel | "" }>({ languageId: "", level: "" });
@@ -344,6 +378,21 @@ export default function HrDashboard() {
     })) ?? [],
   }), [catalogs, newLocation.countryId, newLocation.regionId]);
 
+  /** Формує query-рядок для серверної пагінації вакансій. */
+  const buildVacancyListPath = (overrides: Partial<{ page: number; pageSize: number; search: string; status: VacancyStatus | "ALL"; sortBy: VacancySortBy; sortDirection: SortDirection }> = {}) => {
+    const params = new URLSearchParams({
+      page: String(overrides.page ?? vacancyPage),
+      pageSize: String(overrides.pageSize ?? vacancyPageSize),
+      sortBy: overrides.sortBy ?? vacancySortBy,
+      sortDirection: overrides.sortDirection ?? vacancySortDirection,
+    });
+    const search = overrides.search ?? vacancySearch;
+    const status = overrides.status ?? vacancyStatusFilter;
+    if (search.trim()) params.set("search", search.trim());
+    if (status !== "ALL") params.set("status", status);
+    return `/vacancies/my-cabinet?${params.toString()}`;
+  };
+
   /** Завантажує профіль рекрутера, компанію, команду та довідники. */
   const loadDashboard = async () => {
     setPageError(null);
@@ -355,7 +404,7 @@ export default function HrDashboard() {
         apiRequest<CompanyProfile>("/companies/my-cabinet", token),
         apiRequest<CompanyHr[]>("/companies/my-cabinet/hr-profiles", token),
         apiRequest<Catalogs>("/vacancies/catalogs", token),
-        apiRequest<VacancyRow[]>("/vacancies/my-cabinet", token),
+        apiRequest<PaginatedResponse<VacancyRow>>(buildVacancyListPath(), token),
       ]);
       setHrProfile(hrData);
       setCompany(companyData);
@@ -394,11 +443,38 @@ export default function HrDashboard() {
         })),
         links: companyData.links ?? [],
       });
-      setVacancies(vacancyData.filter(Boolean));
+      setVacancies(vacancyData.items.filter(Boolean));
+      setVacancyMeta({
+        page: vacancyData.page,
+        pageSize: vacancyData.pageSize,
+        totalItems: vacancyData.totalItems,
+        totalPages: vacancyData.totalPages,
+      });
     } catch (error) {
       setPageError(getErrorMessage(error));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /** Перезавантажує тільки таблицю вакансій, не чіпаючи форми профілю та компанії. */
+  const loadVacancies = async (overrides: Partial<{ page: number; pageSize: number; search: string; status: VacancyStatus | "ALL"; sortBy: VacancySortBy; sortDirection: SortDirection }> = {}) => {
+    setVacancyListError(null);
+    setIsVacancyTableLoading(true);
+    try {
+      const token = await getToken();
+      const result = await apiRequest<PaginatedResponse<VacancyRow>>(buildVacancyListPath(overrides), token);
+      setVacancies(result.items.filter(Boolean));
+      setVacancyMeta({
+        page: result.page,
+        pageSize: result.pageSize,
+        totalItems: result.totalItems,
+        totalPages: result.totalPages,
+      });
+    } catch (error) {
+      setVacancyListError(getErrorMessage(error));
+    } finally {
+      setIsVacancyTableLoading(false);
     }
   };
 
@@ -539,6 +615,7 @@ export default function HrDashboard() {
     setEditingVacancyId(vacancy.id);
     setVacancyForm(vacancyToForm(vacancy));
     setSelectedVacancy(null);
+    setVacancyManagementTab("edit");
     setIsCompanyPreviewOpen(false);
     setActive("vacancies");
     setSearchParams({});
@@ -552,6 +629,13 @@ export default function HrDashboard() {
     setSelectedSkillDraft({ skillId: "", weight: "IMPORTANT" });
     setSelectedLanguageDraft({ languageId: "", level: "" });
     setBlockErrors((current) => ({ ...current, vacancy: null }));
+  };
+
+  /** Повертає управління вакансіями до таблиці без редагування чи перегляду конкретної вакансії. */
+  const closeVacancyManagement = () => {
+    clearVacancyForm();
+    setSelectedVacancy(null);
+    setVacancyManagementTab("applications");
   };
 
   /** Створює або оновлює вакансію через backend API. */
@@ -571,22 +655,24 @@ export default function HrDashboard() {
   /** Змінює статус вакансії з таблиці управління. */
   const changeVacancyStatus = (vacancyId: string, status: VacancyStatus) => runBlock("vacancyBoard", async () => {
     const token = await getToken();
-    await apiRequest(`/vacancies/my-cabinet/${vacancyId}/status`, token, {
+    const updated = await apiRequest<VacancyRow>(`/vacancies/my-cabinet/${vacancyId}/status`, token, {
       method: "PATCH",
       body: JSON.stringify({ status }),
     });
+    setSelectedVacancy((current) => current?.id === vacancyId ? updated : current);
   });
 
   /** Архівує вакансію з таблиці управління. */
   const archiveVacancy = (vacancyId: string) => runBlock("vacancyBoard", async () => {
     const token = await getToken();
-    await apiRequest(`/vacancies/my-cabinet/${vacancyId}/archive`, token, { method: "POST" });
+    const updated = await apiRequest<VacancyRow>(`/vacancies/my-cabinet/${vacancyId}/archive`, token, { method: "POST" });
+    setSelectedVacancy((current) => current?.id === vacancyId ? updated : current);
   });
 
   if (isLoading) return <AppLoader text={ui.loading} />;
 
   return (
-    <CabinetLayout navItems={navItems} activeKey={active} onSelect={(key) => {
+    <CabinetLayout key={active === "vacancies" ? "vacancies-layout" : "default-layout"} navItems={navItems} activeKey={active} defaultCollapsed={active === "vacancies"} onSelect={(key) => {
       setSelectedVacancy(null);
       setIsCompanyPreviewOpen(false);
       if (key === "create-vacancy") clearVacancyForm();
@@ -597,7 +683,7 @@ export default function HrDashboard() {
       <Stack gap="md">
         <ErrorBanner message={pageError} />
         {isCompanyPreviewOpen ? (
-          <CompanyPublicPage company={company} companyHrs={companyHrs} vacancies={vacancies} onBack={() => setIsCompanyPreviewOpen(false)} />
+          <CompanyPublicPage company={company} companyHrs={companyHrs} vacancies={vacancies} onBack={() => setIsCompanyPreviewOpen(false)} onVacancyOpen={(vacancy) => { setIsCompanyPreviewOpen(false); setSelectedVacancy(vacancy); setVacancyManagementTab("preview"); setActive("vacancies"); }} />
         ) : (
           <>
             {active === "create-vacancy" && (
@@ -621,8 +707,10 @@ export default function HrDashboard() {
             )}
             {active === "vacancies" && (
               editingVacancyId
-                ? <VacancyEditPage
+                ? <VacancyManagementPage
                     vacancy={vacancies.find((vacancy) => vacancy.id === editingVacancyId) ?? null}
+                    activeTab={vacancyManagementTab}
+                    setActiveTab={setVacancyManagementTab}
                     form={vacancyForm}
                     setForm={setVacancyForm}
                     options={options}
@@ -637,13 +725,83 @@ export default function HrDashboard() {
                     onAddLanguage={upsertVacancyLanguage}
                     onClear={clearVacancyForm}
                     onSave={saveVacancy}
-                    onBack={clearVacancyForm}
+                    onStatusChange={changeVacancyStatus}
+                    onArchive={archiveVacancy}
+                    onBack={closeVacancyManagement}
                   />
                 : selectedVacancy
-                  ? <VacancyDetail vacancy={selectedVacancy} onBack={() => setSelectedVacancy(null)} />
-                  : <VacancyBoard vacancies={vacancies} onSelect={setSelectedVacancy} onEdit={startVacancyEdit} onStatusChange={changeVacancyStatus} onArchive={archiveVacancy} />
+                  ? <VacancyManagementPage
+                      vacancy={selectedVacancy}
+                      activeTab={vacancyManagementTab}
+                      setActiveTab={setVacancyManagementTab}
+                      form={vacancyForm}
+                      setForm={setVacancyForm}
+                      options={options}
+                      skillsByCategory={catalogs?.skillsByCategory ?? {}}
+                      selectedSkillDraft={selectedSkillDraft}
+                      setSelectedSkillDraft={setSelectedSkillDraft}
+                      selectedLanguageDraft={selectedLanguageDraft}
+                      setSelectedLanguageDraft={setSelectedLanguageDraft}
+                      error={blockErrors.vacancy}
+                      saving={saving.vacancy}
+                      onAddSkill={upsertVacancySkill}
+                      onAddLanguage={upsertVacancyLanguage}
+                      onClear={clearVacancyForm}
+                      onSave={saveVacancy}
+                      onEdit={() => startVacancyEdit(selectedVacancy)}
+                      onStatusChange={changeVacancyStatus}
+                      onArchive={archiveVacancy}
+                      onBack={closeVacancyManagement}
+                    />
+                  : <VacancyBoard
+                      vacancies={vacancies}
+                      meta={vacancyMeta}
+                      search={vacancySearch}
+                      statusFilter={vacancyStatusFilter}
+                      page={vacancyPage}
+                      pageSize={vacancyPageSize}
+                      sortBy={vacancySortBy}
+                      sortDirection={vacancySortDirection}
+                      loading={isVacancyTableLoading}
+                      error={vacancyListError}
+                      onSearchChange={(search) => {
+                        setVacancySearch(search);
+                        setVacancyPage(1);
+                        void loadVacancies({ search, page: 1 });
+                      }}
+                      onStatusFilterChange={(status) => {
+                        setVacancyStatusFilter(status);
+                        setVacancyPage(1);
+                        void loadVacancies({ status, page: 1 });
+                      }}
+                      onPageChange={(page) => {
+                        setVacancyPage(page);
+                        void loadVacancies({ page });
+                      }}
+                      onPageSizeChange={(pageSize) => {
+                        setVacancyPageSize(pageSize);
+                        setVacancyPage(1);
+                        void loadVacancies({ pageSize, page: 1 });
+                      }}
+                      onSortChange={(sortBy) => {
+                        const sortDirection = vacancySortBy === sortBy && vacancySortDirection === "asc" ? "desc" : "asc";
+                        setVacancySortBy(sortBy);
+                        setVacancySortDirection(sortDirection);
+                        setVacancyPage(1);
+                        void loadVacancies({ sortBy, sortDirection, page: 1 });
+                      }}
+                      onCreate={() => {
+                        clearVacancyForm();
+                        setActive("create-vacancy");
+                        setSearchParams({ tab: "create-vacancy" });
+                      }}
+                      onSelect={(vacancy) => { setSelectedVacancy(vacancy); setVacancyManagementTab("preview"); }}
+                      onEdit={startVacancyEdit}
+                      onStatusChange={changeVacancyStatus}
+                      onArchive={archiveVacancy}
+                    />
             )}
-            {active === "profile" && <HrProfileTab profile={hrProfile} form={hrForm} setForm={setHrForm} error={blockErrors.hr} saving={saving.hr} vacanciesCount={vacancies.length} onCompanyOpen={() => setIsCompanyPreviewOpen(true)} onClearError={() => setBlockErrors((current) => ({ ...current, hr: null }))} onSave={saveHrProfile} />}
+            {active === "profile" && <HrProfileTab profile={hrProfile} form={hrForm} setForm={setHrForm} error={blockErrors.hr} saving={saving.hr} activeVacanciesCount={vacancies.filter((vacancy) => vacancy.status === "ACTIVE").length} totalVacanciesCount={vacancies.length} onCompanyOpen={() => setIsCompanyPreviewOpen(true)} onClearError={() => setBlockErrors((current) => ({ ...current, hr: null }))} onSave={saveHrProfile} />}
             {active === "company" && (
               <CompanyProfileTab
                 company={company}
@@ -668,23 +826,238 @@ export default function HrDashboard() {
   );
 }
 
-function VacancyBoard({ vacancies, onSelect, onEdit, onStatusChange, onArchive }: { vacancies: VacancyRow[]; onSelect: (vacancy: VacancyRow) => void; onEdit: (vacancy: VacancyRow) => void; onStatusChange: (vacancyId: string, status: VacancyStatus) => void; onArchive: (vacancyId: string) => void }) {
-  return <><TabHeader title={ui.vacancies.title} description={ui.vacancies.description} /><FormSection title={ui.vacancies.title}>
-    {vacancies.length ? <Table highlightOnHover className={classes.table}><Table.Thead><Table.Tr><Table.Th>{ui.vacancies.position}</Table.Th><Table.Th>{ui.vacancies.responses}</Table.Th><Table.Th>{ui.vacancies.status}</Table.Th><Table.Th>{ui.vacancies.actions}</Table.Th></Table.Tr></Table.Thead><Table.Tbody>{vacancies.map((vacancy) => <Table.Tr key={vacancy.id} onDoubleClick={() => onSelect(vacancy)}><Table.Td><Text fw={900}>{vacancy.title}</Text><Text className={classes.muted}>{vacancy.profession?.name}</Text></Table.Td><Table.Td>0</Table.Td><Table.Td><Select size="xs" data={vacancyStatuses} value={vacancy.status} onChange={(status) => status && onStatusChange(vacancy.id, status as VacancyStatus)} /></Table.Td><Table.Td><Group gap="xs"><AppTooltip label={ui.vacancies.edit}><button type="button" className={classes.actionIconButton} onClick={() => onEdit(vacancy)}><EditIcon /></button></AppTooltip><AppTooltip label={ui.vacancies.close}><button type="button" className={classes.actionIconButton} data-danger="true" onClick={() => onArchive(vacancy.id)}><ArchiveIcon /></button></AppTooltip></Group></Table.Td></Table.Tr>)}</Table.Tbody></Table> : <Text className={classes.muted}>{ui.vacancies.empty}</Text>}
-  </FormSection></>;
+function VacancyBoard(props: {
+  vacancies: VacancyRow[];
+  meta: VacancyListMeta;
+  search: string;
+  statusFilter: VacancyStatus | "ALL";
+  page: number;
+  pageSize: number;
+  sortBy: VacancySortBy;
+  sortDirection: SortDirection;
+  loading: boolean;
+  error?: string | null;
+  onSearchChange: (search: string) => void;
+  onStatusFilterChange: (status: VacancyStatus | "ALL") => void;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  onSortChange: (sortBy: VacancySortBy) => void;
+  onCreate: () => void;
+  onSelect: (vacancy: VacancyRow) => void;
+  onEdit: (vacancy: VacancyRow) => void;
+  onStatusChange: (vacancyId: string, status: VacancyStatus) => void;
+  onArchive: (vacancyId: string) => void;
+}) {
+  const {
+    vacancies,
+    meta,
+    search,
+    statusFilter,
+    page,
+    pageSize,
+    sortBy,
+    sortDirection,
+    loading,
+    error,
+    onSearchChange,
+    onStatusFilterChange,
+    onPageChange,
+    onPageSizeChange,
+    onSortChange,
+    onCreate,
+    onSelect,
+    onEdit,
+    onStatusChange,
+    onArchive,
+  } = props;
+  const hasFilters = Boolean(search.trim()) || statusFilter !== "ALL";
+
+  return <>
+    <TabHeader title={ui.vacancies.title} description={ui.vacancies.description} />
+    <Paper className={classes.vacancyTableCard}>
+      <div className={classes.vacancyToolbar}>
+        <TextInput value={search} onChange={(event) => onSearchChange(event.currentTarget.value)} placeholder={ui.vacancies.searchPlaceholder} />
+        <Select data={[{ value: "ALL", label: ui.vacancies.allStatuses }, ...vacancyStatuses]} value={statusFilter} onChange={(value) => onStatusFilterChange((value ?? "ALL") as VacancyStatus | "ALL")} />
+        <Select data={[{ value: "5", label: "5" }, { value: "10", label: "10" }, { value: "20", label: "20" }]} value={String(pageSize)} onChange={(value) => onPageSizeChange(Number(value ?? 10))} />
+      </div>
+      <InlineError message={error} />
+      {loading ? <VacancyTableSkeleton /> : vacancies.length ? (
+        <>
+          <Table highlightOnHover className={classes.table}>
+            <Table.Thead>
+              <Table.Tr>
+                <SortableHeader label={ui.vacancies.position} sortKey="title" sortBy={sortBy} direction={sortDirection} onSort={onSortChange} />
+                <SortableHeader label={ui.vacancies.status} sortKey="status" sortBy={sortBy} direction={sortDirection} onSort={onSortChange} />
+                <SortableHeader label={ui.vacancies.responses} sortKey="updatedAt" sortBy={sortBy} direction={sortDirection} onSort={onSortChange} />
+                <SortableHeader label={ui.vacancies.updatedAt} sortKey="updatedAt" sortBy={sortBy} direction={sortDirection} onSort={onSortChange} />
+                <SortableHeader label={ui.vacancies.deadline} sortKey="closingDate" sortBy={sortBy} direction={sortDirection} onSort={onSortChange} />
+                <Table.Th>{ui.vacancies.conditions}</Table.Th>
+                <Table.Th>{ui.vacancies.actions}</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>{vacancies.map((vacancy) => <Table.Tr key={vacancy.id} className={classes.vacancyRow} onDoubleClick={() => onSelect(vacancy)}>
+              <Table.Td><AppTooltip label={vacancy.title}><Text fw={900} className={classes.vacancyTitleCell}>{vacancy.title}</Text></AppTooltip><Text className={classes.muted}>{vacancy.profession?.name}</Text></Table.Td>
+              <Table.Td><VacancyStatusBadge status={vacancy.status} /></Table.Td>
+              <Table.Td><span className={classes.muted}>—</span></Table.Td>
+              <Table.Td>{dateShort(vacancy.updatedAt)}</Table.Td>
+              <Table.Td>{dateShort(vacancy.closingDate)}</Table.Td>
+              <Table.Td><ConditionBadges vacancy={vacancy} /></Table.Td>
+              <Table.Td><VacancyRowActions vacancy={vacancy} onSelect={onSelect} onEdit={onEdit} onStatusChange={onStatusChange} onArchive={onArchive} /></Table.Td>
+            </Table.Tr>)}</Table.Tbody>
+          </Table>
+          <TablePagination page={page} pageSize={pageSize} totalItems={meta.totalItems} totalPages={meta.totalPages} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
+        </>
+      ) : <VacancyEmptyState hasFilters={hasFilters} onCreate={onCreate} />}
+    </Paper>
+  </>;
 }
 
-function VacancyDetail({ vacancy, onBack }: { vacancy: VacancyRow; onBack: () => void }) {
+function VacancyTableSkeleton() {
+  return <Stack gap="xs">{Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} height={48} radius="md" />)}</Stack>;
+}
+
+function SortableHeader({ label, sortKey, sortBy, direction, onSort }: { label: string; sortKey: VacancySortBy; sortBy: VacancySortBy; direction: SortDirection; onSort: (sortBy: VacancySortBy) => void }) {
+  const isActive = sortBy === sortKey;
+  return <Table.Th><button type="button" className={classes.sortButton} onClick={() => onSort(sortKey)}>{label}<span>{isActive ? (direction === "asc" ? "↑" : "↓") : "↕"}</span></button></Table.Th>;
+}
+
+function VacancyStatusBadge({ status }: { status: VacancyStatus }) {
+  return <Badge className={classes.vacancyStatusBadge} data-status={status}>{statusLabel(status)}</Badge>;
+}
+
+function ConditionBadges({ vacancy }: { vacancy: VacancyRow }) {
+  const values = [
+    ...vacancy.workFormats.map((item) => item.workFormat?.name),
+    ...vacancy.employmentTypes.map((item) => item.employmentType?.name),
+    ...vacancy.workSchedules.map((item) => item.workSchedule?.name),
+  ].filter(Boolean) as string[];
+  const visible = values.slice(0, 1);
+  const rest = values.length - visible.length;
+  return <div className={classes.conditionBadges}>{visible.map((value) => <ChipBadge tone="primary" key={value}>{value}</ChipBadge>)}{rest > 0 && <ChipBadge tone="primary">+{rest}</ChipBadge>}</div>;
+}
+
+function VacancyRowActions({ vacancy, onSelect, onEdit, onStatusChange, onArchive }: { vacancy: VacancyRow; onSelect: (vacancy: VacancyRow) => void; onEdit: (vacancy: VacancyRow) => void; onStatusChange: (vacancyId: string, status: VacancyStatus) => void; onArchive: (vacancyId: string) => void }) {
+  const actions = getVacancyStatusActions(vacancy.status);
+  return <Group gap="xs" wrap="nowrap">
+    <AppTooltip label={ui.vacancies.view}>
+      <button type="button" className={classes.actionIconButton} onClick={() => onSelect(vacancy)}><EyeIcon /></button>
+    </AppTooltip>
+    {actions.length > 0 && <Menu shadow="md" width={220} position="bottom-end">
+      <Menu.Target>
+        <button type="button" className={classes.actionIconButton} aria-label={ui.vacancies.moreActions}><MoreIcon /></button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {actions.map((action) => <Menu.Item key={action.key} leftSection={action.icon} color={action.danger ? "red" : undefined} onClick={() => {
+          if (action.type === "edit") onEdit(vacancy);
+          if (action.type === "status") onStatusChange(vacancy.id, action.status);
+          if (action.type === "archive") onArchive(vacancy.id);
+        }}>{action.label}</Menu.Item>)}
+      </Menu.Dropdown>
+    </Menu>}
+  </Group>;
+}
+
+function TablePagination({ page, pageSize, totalItems, totalPages, onPageChange, onPageSizeChange }: { page: number; pageSize: number; totalItems: number; totalPages: number; onPageChange: (page: number) => void; onPageSizeChange: (pageSize: number) => void }) {
+  return <div className={classes.tablePagination}>
+    <Text className={classes.muted}>{ui.vacancies.pagination.total}: {totalItems}</Text>
+    <Pagination total={totalPages} value={page} onChange={onPageChange} size="sm" radius="xl" />
+    <Select className={classes.pageSizeSelect} data={[{ value: "5", label: "5" }, { value: "10", label: "10" }, { value: "20", label: "20" }]} value={String(pageSize)} onChange={(value) => onPageSizeChange(Number(value ?? 10))} />
+  </div>;
+}
+
+function VacancyEmptyState({ hasFilters, onCreate }: { hasFilters: boolean; onCreate: () => void }) {
+  return <div className={classes.emptyState}>
+    <Text fw={900}>{hasFilters ? ui.vacancies.emptyFiltered : ui.vacancies.empty}</Text>
+    {!hasFilters && <Button variant="light" leftSection={<PlusIcon />} onClick={onCreate}>{ui.nav.createVacancy}</Button>}
+  </div>;
+}
+
+function VacancyManagementPage(props: Omit<Parameters<typeof CreateVacancyTab>[0], "editingVacancy" | "mode"> & { vacancy: VacancyRow | null; activeTab: VacancyManagementTab; setActiveTab: (tab: VacancyManagementTab) => void; onEdit?: () => void; onStatusChange: (vacancyId: string, status: VacancyStatus) => void; onArchive: (vacancyId: string) => void; onBack: () => void }) {
+  const { vacancy, activeTab, setActiveTab, onEdit, onStatusChange, onArchive, onBack, options, ...formProps } = props;
   const stages = Object.values(ui.vacancies.tabs);
-  return <><button type="button" className={classes.backButton} onClick={onBack}><ArrowIcon /> {ui.vacancies.back}</button><TabHeader title={vacancy.title} description={ui.vacancies.pipelineDescription} /><FormSection title={ui.vacancies.pipelineTitle}><div className={classes.pipelineTabs}>{stages.map((stage, index) => <button key={stage} className={index === 0 ? classes.pipelineTabActive : classes.pipelineTab}>{stage}<span>0</span></button>)}</div></FormSection></>;
-}
-
-function VacancyEditPage(props: Omit<Parameters<typeof CreateVacancyTab>[0], "editingVacancy"> & { vacancy: VacancyRow | null; onBack: () => void }) {
-  const { vacancy, onBack, ...formProps } = props;
+  const primaryAction = vacancy ? getVacancyPrimaryAction(vacancy.status) : null;
   return <>
     <button type="button" className={classes.backButton} onClick={onBack}><ArrowIcon /> {ui.vacancies.back}</button>
-    <CreateVacancyTab {...formProps} editingVacancy={vacancy} />
+    <TabHeader title={vacancy?.title ?? ui.createVacancy.editTitle} description={ui.vacancies.pipelineDescription} />
+    {vacancy && <div className={classes.vacancyQuickActions}>
+      {primaryAction && <Button onClick={() => primaryAction.type === "archive" ? onArchive(vacancy.id) : onStatusChange(vacancy.id, primaryAction.status)}>{primaryAction.label}</Button>}
+      <Menu shadow="md" width={220} position="bottom-end">
+        <Menu.Target><Button variant="subtle" rightSection={<MoreIcon />}>{ui.vacancies.moreActions}</Button></Menu.Target>
+        <Menu.Dropdown>
+          {getVacancyStatusActions(vacancy.status).filter((action) => action.key !== primaryAction?.key && action.key !== "edit").map((action) => <Menu.Item key={action.key} leftSection={action.icon} color={action.danger ? "red" : undefined} onClick={() => {
+            if (action.type === "status") onStatusChange(vacancy.id, action.status);
+            if (action.type === "archive") onArchive(vacancy.id);
+          }}>{action.label}</Menu.Item>)}
+        </Menu.Dropdown>
+      </Menu>
+    </div>}
+    <div className={classes.managementTabs}>
+      <button type="button" className={activeTab === "applications" ? classes.managementTabActive : classes.managementTab} onClick={() => setActiveTab("applications")}>{ui.vacancies.managementTabs.applications}</button>
+      <button type="button" className={activeTab === "preview" ? classes.managementTabActive : classes.managementTab} onClick={() => setActiveTab("preview")}>{ui.vacancies.managementTabs.preview}</button>
+      <button type="button" className={activeTab === "edit" ? classes.managementTabActive : classes.managementTab} onClick={() => { if (onEdit) onEdit(); setActiveTab("edit"); }}>{ui.vacancies.managementTabs.edit}</button>
+    </div>
+    {activeTab === "applications" && <FormSection title={ui.vacancies.pipelineTitle}><div className={classes.pipelineTabs}>{stages.map((stage, index) => <button key={stage} className={index === 0 ? classes.pipelineTabActive : classes.pipelineTab}>{stage}<span>—</span></button>)}</div></FormSection>}
+    {activeTab === "preview" && <VacancyPreview vacancy={vacancy} options={options} />}
+    {activeTab === "edit" && <CreateVacancyTab {...formProps} options={options} editingVacancy={vacancy} mode="edit" />}
   </>;
+}
+
+function VacancyPreview({ vacancy, options }: { vacancy: VacancyRow | null; options: VacancyOptions }) {
+  const [isRecruiterOpen, setIsRecruiterOpen] = useState(false);
+  if (!vacancy) return <FormSection title={ui.vacancies.managementTabs.preview}><Text className={classes.muted}>{ui.vacancies.empty}</Text></FormSection>;
+
+  const skillGroups = groupVacancySkills(vacancy.skills);
+  const recruiterView = buildRecruiterPreviewFromVacancy(vacancy);
+
+  return <div className={classes.vacancyPreview}>
+    <RecruiterPreviewDrawer opened={isRecruiterOpen} data={recruiterView} title={ui.profile.previewTitle} labels={recruiterPreviewLabels()} onClose={() => setIsRecruiterOpen(false)} />
+    <section className={classes.vacancyPreviewHero}>
+      <div>
+        <Badge variant="light">{statusLabel(vacancy.status)}</Badge>
+        <Title order={2}>{vacancy.title}</Title>
+        <button type="button" className={classes.companyInlineLink}>{vacancy.company?.publicName ?? ui.profile.company}</button>
+        <Text className={classes.muted}>{ui.vacancies.updatedAt}: {dateShort(vacancy.updatedAt)}</Text>
+      </div>
+      <div className={classes.vacancyHeroAside}>
+        <Avatar src={vacancy.company?.logoUrl} size={72} radius="md" />
+      </div>
+    </section>
+    <div className={classes.vacancyPreviewGrid}>
+      <main className={classes.companyPreviewMain}>
+        <FormSection title={stripRequiredMark(ui.createVacancy.descriptionTitle)}>
+          <div className={classes.richPreview} dangerouslySetInnerHTML={{ __html: vacancy.description }} />
+        </FormSection>
+        <FormSection title={stripRequiredMark(ui.createVacancy.requirementsTitle)}>
+          <div className={classes.skillGroups}>{skillGroups.map((group) => <div key={group.category}>
+            <Text fw={900}>{skillCategoryLabel(group.category)}</Text>
+            <div className={classes.skillChips}>{group.skills.map((item) => <ChipBadge key={item.skillId} tone={skillWeightTone(item.weight)}>{item.skill?.name ?? item.skillId}</ChipBadge>)}</div>
+          </div>)}</div>
+          {vacancy.languages.length > 0 && <div className={classes.languageBlock}>
+            <Text fw={900}>{ui.createVacancy.languagesTitle}</Text>
+            <div className={classes.languageChips}>{vacancy.languages.map((item) => <ChipBadge tone="language" key={item.languageId}>{item.language?.name ?? item.languageId} - {languageLevelLabel(item.level)}</ChipBadge>)}</div>
+          </div>}
+        </FormSection>
+      </main>
+      <aside className={classes.companyPreviewAside}>
+        <FormSection title={ui.vacancies.aboutVacancy}>
+          <div className={classes.previewInfoList}>
+            <InfoRow label={ui.createVacancy.profession} value={vacancy.profession?.name} />
+            <InfoRow label={ui.createVacancy.salaryRange} value={formatSalary(vacancy)} />
+            <InfoRow label={ui.createVacancy.closingDate} value={dateShort(vacancy.closingDate)} />
+          </div>
+        </FormSection>
+        <FormSection title={stripRequiredMark(ui.createVacancy.conditionsTitle)}>
+          <div className={classes.previewInfoList}>
+            <InfoRow label={stripRequiredMark(ui.createVacancy.officeLocations)} value={joinNames(vacancy.locations.map((item) => findLabel(options.officeLocations, item.locationId)))} />
+            <InfoRow label={stripRequiredMark(ui.createVacancy.workFormats)} value={joinNames(vacancy.workFormats.map((item) => item.workFormat?.name))} />
+            <InfoRow label={stripRequiredMark(ui.createVacancy.employmentTypes)} value={joinNames(vacancy.employmentTypes.map((item) => item.employmentType?.name))} />
+            <InfoRow label={stripRequiredMark(ui.createVacancy.workSchedules)} value={joinNames(vacancy.workSchedules.map((item) => item.workSchedule?.name))} />
+          </div>
+        </FormSection>
+        {recruiterView && <RecruiterCard data={recruiterView} onClick={() => setIsRecruiterOpen(true)} />}
+      </aside>
+    </div>
+  </div>;
 }
 
 function CreateVacancyTab(props: {
@@ -697,6 +1070,7 @@ function CreateVacancyTab(props: {
   setSelectedSkillDraft: (value: { skillId: string; weight: SkillWeight }) => void;
   selectedLanguageDraft: { languageId: string; level: LanguageLevel | "" };
   setSelectedLanguageDraft: (value: { languageId: string; level: LanguageLevel | "" }) => void;
+  mode?: "create" | "edit";
   error?: string | null;
   saving?: boolean;
   onAddSkill: () => void;
@@ -704,7 +1078,7 @@ function CreateVacancyTab(props: {
   onClear: () => void;
   onSave: (status: "DRAFT" | "ACTIVE") => void;
 }) {
-  const { form, setForm, editingVacancy, options, skillsByCategory, selectedSkillDraft, setSelectedSkillDraft, selectedLanguageDraft, setSelectedLanguageDraft, error, saving, onAddSkill, onAddLanguage, onClear, onSave } = props;
+  const { form, setForm, editingVacancy, options, skillsByCategory, selectedSkillDraft, setSelectedSkillDraft, selectedLanguageDraft, setSelectedLanguageDraft, mode = "create", error, saving, onAddSkill, onAddLanguage, onClear, onSave } = props;
   const isEditingActiveVacancy = editingVacancy?.status === "ACTIVE";
   return <>
     <TabHeader title={editingVacancy ? ui.createVacancy.editTitle : ui.createVacancy.title} description={ui.createVacancy.description} />
@@ -719,18 +1093,18 @@ function CreateVacancyTab(props: {
       <RichTextEditor value={form.description} onChange={(description) => setForm({ ...form, description })} placeholder={ui.createVacancy.descriptionPlaceholder} />
     </FormSection>
     <FormSection title={ui.createVacancy.requirementsTitle} description={ui.createVacancy.requirementsDescription}>
-      <div className={`${classes.skillInputRow} ${classes.languageInputRow}`}>
+      <div className={classes.requirementInputRow}>
         <Select label={ui.createVacancy.skillWeight} data={skillWeights} value={selectedSkillDraft.weight} onChange={(weight) => setSelectedSkillDraft({ ...selectedSkillDraft, weight: (weight ?? "IMPORTANT") as SkillWeight })} />
         <Select searchable clearable label={ui.createVacancy.skill} placeholder={ui.createVacancy.skillPlaceholder} data={options.skills} value={selectedSkillDraft.skillId || null} onChange={(skillId) => setSelectedSkillDraft({ ...selectedSkillDraft, skillId: skillId ?? "" })} />
         <Button variant="light" onClick={onAddSkill} disabled={!selectedSkillDraft.skillId}>{ui.createVacancy.addSkill}</Button>
       </div>
       <VacancySkillGroups form={form} setForm={setForm} skillsByCategory={skillsByCategory} onSelectSkill={(skill) => setSelectedSkillDraft(skill)} />
-      <div className={classes.skillInputRow}>
-        <Select searchable clearable label={ui.createVacancy.language} placeholder={ui.createVacancy.languagePlaceholder} data={options.languages} value={selectedLanguageDraft.languageId || null} onChange={(languageId) => setSelectedLanguageDraft({ ...selectedLanguageDraft, languageId: languageId ?? "" })} />
+      <div className={classes.requirementInputRow}>
         <Select clearable label={ui.createVacancy.languageLevel} placeholder={ui.createVacancy.languageLevelPlaceholder} data={cefrLevels} value={selectedLanguageDraft.level || null} onChange={(level) => setSelectedLanguageDraft({ ...selectedLanguageDraft, level: (level ?? "") as LanguageLevel | "" })} />
+        <Select searchable clearable label={ui.createVacancy.language} placeholder={ui.createVacancy.languagePlaceholder} data={options.languages} value={selectedLanguageDraft.languageId || null} onChange={(languageId) => setSelectedLanguageDraft({ ...selectedLanguageDraft, languageId: languageId ?? "" })} />
         <Button variant="light" onClick={onAddLanguage} disabled={!selectedLanguageDraft.languageId || !selectedLanguageDraft.level}>{ui.createVacancy.addLanguage}</Button>
       </div>
-      <div className={classes.languageChips}>{form.languages.map((item) => <button type="button" className={classes.languageChip} key={item.languageId} onClick={() => setSelectedLanguageDraft(item)}>{findLabel(options.languages, item.languageId)} - {languageLevelLabel(item.level)}<span onClick={(event) => { event.stopPropagation(); setForm({ ...form, languages: form.languages.filter((language) => language.languageId !== item.languageId) }); }}>×</span></button>)}</div>
+      <div className={classes.languageChips}>{form.languages.map((item) => <ChipBadge tone="language" key={item.languageId} onClick={() => setSelectedLanguageDraft(item)} onRemove={() => setForm({ ...form, languages: form.languages.filter((language) => language.languageId !== item.languageId) })}>{findLabel(options.languages, item.languageId)} - {languageLevelLabel(item.level)}</ChipBadge>)}</div>
     </FormSection>
     <FormSection title={ui.createVacancy.conditionsTitle} description={ui.createVacancy.conditionsDescription}>
       <div className={classes.locationStrictRow}>
@@ -754,7 +1128,7 @@ function CreateVacancyTab(props: {
       <DateInput required label={ui.createVacancy.closingDate} placeholder={ui.createVacancy.closingDatePlaceholder} value={form.closingDate ? new Date(form.closingDate) : null} onChange={(value) => setForm({ ...form, closingDate: value ? dayjs(value).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" minDate={dayjs().add(1, "day").toDate()} clearable popoverProps={{ position: "bottom-end", withinPortal: true }} />
       <InlineError message={error} />
       <div className={classes.vacancyActions}>
-        <Button variant="light" onClick={onClear}>{commonUi.actions.clear}</Button>
+        <Button variant="light" onClick={onClear}>{mode === "edit" ? commonUi.actions.cancelChanges : commonUi.actions.clear}</Button>
         <Button variant="light" className={classes.outlineActionButton} leftSection={<SaveIcon />} loading={saving} onClick={() => onSave("DRAFT")}>{ui.createVacancy.saveDraft}</Button>
         <Button leftSection={<PublishIcon />} loading={saving} onClick={() => onSave("ACTIVE")}>{isEditingActiveVacancy ? ui.createVacancy.updatePublished : ui.createVacancy.publishNow}</Button>
       </div>
@@ -762,22 +1136,11 @@ function CreateVacancyTab(props: {
   </>;
 }
 
-function HrProfileTab({ profile, form, setForm, error, saving, vacanciesCount, onCompanyOpen, onClearError, onSave }: any) {
+function HrProfileTab({ profile, form, setForm, error, saving, activeVacanciesCount, totalVacanciesCount, onCompanyOpen, onClearError, onSave }: any) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const fullName = [profile?.user.lastName, profile?.user.firstName, profile?.user.middleName].filter(Boolean).join(" ");
-  const recruiterView = {
-    fullName,
-    position: profile?.position,
-    photoUrl: profile?.user.photoUrl,
-    status: profile?.user.status,
-    companyName: profile?.company.publicName,
-    email: profile?.user.email,
-    contacts: profile?.links ?? [],
-    createdAt: profile?.user.createdAt,
-    vacanciesCount,
-  };
+  const recruiterView = buildRecruiterPreviewFromProfile(profile, activeVacanciesCount, totalVacanciesCount);
   return <>
-    <RecruiterPreviewDrawer opened={isPreviewOpen} data={recruiterView} onClose={() => setIsPreviewOpen(false)} onCompanyOpen={() => { setIsPreviewOpen(false); onCompanyOpen(); }} />
+    <RecruiterPreviewDrawer opened={isPreviewOpen} data={recruiterView} title={ui.profile.previewTitle} labels={recruiterPreviewLabels()} onClose={() => setIsPreviewOpen(false)} onCompanyOpen={() => { setIsPreviewOpen(false); onCompanyOpen(); }} />
 
     <div className={classes.profileHeaderRow}>
       <TabHeader title={ui.profile.title} description={ui.profile.description} />
@@ -810,50 +1173,19 @@ function HrProfileTab({ profile, form, setForm, error, saving, vacanciesCount, o
 }
 
 /** Єдина компактна візитка рекрутера для кабінету, вакансій і публічних сторінок. */
-function RecruiterCard({ data, onClick }: { data: RecruiterView; onClick: () => void }) {
-  return <button type="button" className={classes.recruiterCard} onClick={onClick}>
-    <Avatar src={data.photoUrl} size={48} radius="xl" className={classes.avatarRing} />
-    <span>
-      <strong>{data.fullName}</strong>
-      <small>{data.position}</small>
-    </span>
-  </button>;
-}
+ 
 
 /** Єдина бічна панель перегляду публічної інформації рекрутера. */
-function RecruiterPreviewDrawer({ opened, data, onClose, onCompanyOpen }: { opened: boolean; data: RecruiterView | null; onClose: () => void; onCompanyOpen?: () => void }) {
-  const progress = getRecruiterProgress(data);
-  return <Drawer opened={opened} onClose={onClose} position="right" size="sm" title={ui.profile.previewTitle}>
-    <div className={classes.recruiterPreview}>
-      <div className={classes.recruiterStickyHeader}>
-        <div className={classes.previewHeader}>
-          <Avatar src={data?.photoUrl} size={82} radius="xl" className={classes.avatarRing} />
-          <div>
-            <Text fw={950}>{data?.fullName}</Text>
-            <Text className={classes.muted}>{data?.position}</Text>
-          </div>
-        </div>
-        <div className={classes.previewProgress}><span style={{ width: `${progress}%` }} /></div>
-      </div>
-      <div className={classes.recruiterPreviewBody}>
-        <InfoRow label={ui.profile.company} value={data?.companyName} actionLabel={ui.profile.openCompany} onClick={onCompanyOpen} />
-        <InfoRow label={ui.profile.position} value={data?.position} />
-        {data?.email && <ContactCopyRow label={ui.profile.email} value={data.email} />}
-        {data?.contacts?.map((contact) => <ContactCopyRow key={`${contact.linkName}-${contact.value}`} label={contact.linkName} value={contact.value} />)}
-        {data?.createdAt && <InfoRow label={ui.profile.createdAt} value={dateShort(data.createdAt)} />}
-        {typeof data?.vacanciesCount === "number" && <InfoRow label={ui.profile.activeVacancies} value={String(data.vacanciesCount)} />}
-        {typeof data?.vacanciesCount === "number" && <details className={classes.vacancyDetails}>
-          <summary>{ui.profile.vacanciesList}</summary>
-          <Text className={classes.muted}>{ui.vacancies.empty}</Text>
-        </details>}
-      </div>
-    </div>
-  </Drawer>;
-}
+ 
 
 function CompanyProfileTab(props: any) {
   const { company, companyHrs, form, setForm, options, newLocation, setNewLocation, error, saving, onAddLocation, onPreview, onClearError, onSave } = props;
-  return <><div className={classes.headerRow}><TabHeader title={ui.company.title} description={ui.company.description} /><Button variant="outline" className={classes.previewOutlineButton} onClick={onPreview}>{ui.company.preview}</Button></div>
+  const [selectedHr, setSelectedHr] = useState<CompanyHr | null>(null);
+  const selectedRecruiterView = buildRecruiterPreviewFromCompanyHr(selectedHr, company);
+
+  return <>
+    <RecruiterPreviewDrawer opened={Boolean(selectedRecruiterView)} data={selectedRecruiterView} title={ui.profile.previewTitle} labels={recruiterPreviewLabels()} onClose={() => setSelectedHr(null)} />
+    <div className={classes.headerRow}><TabHeader title={ui.company.title} description={ui.company.description} /><Button variant="outline" className={classes.previewOutlineButton} onClick={onPreview}>{ui.company.preview}</Button></div>
     <FormSection title={ui.company.publicTitle}>
       <div className={classes.companyHero}><Avatar src={form.logoUrl} size="xl" radius="md" /><div><Text fw={900}>{form.publicName || company?.publicName}</Text><ModerationBadge status={company?.verificationStatus} /></div></div>
       <div className={classes.grid}>
@@ -884,23 +1216,24 @@ function CompanyProfileTab(props: any) {
       <div className={classes.threeGrid}><Select label={ui.company.country} data={options.countries} value={newLocation.countryId ? String(newLocation.countryId) : null} onChange={(value) => setNewLocation({ countryId: Number(value), regionId: 0, cityId: 0 })} /><Select label={ui.company.region} data={options.regions} disabled={!newLocation.countryId} value={newLocation.regionId ? String(newLocation.regionId) : null} onChange={(value) => setNewLocation({ ...newLocation, regionId: Number(value), cityId: 0 })} /><Select label={ui.company.city} data={options.cities} disabled={!newLocation.regionId} value={newLocation.cityId ? String(newLocation.cityId) : null} onChange={(value) => setNewLocation({ ...newLocation, cityId: Number(value) })} /></div>
       <Button variant="light" onClick={onAddLocation} disabled={form.locations.length >= 10}>{ui.company.addLocation}</Button>
     </FormSection>
-    <FormSection title={ui.company.teamTitle}><div className={classes.hrCards}>{companyHrs.map((hr: CompanyHr) => <div key={hr.id} className={classes.hrCard}><Avatar src={hr.user.photoUrl} radius="xl" /><div><Text fw={900}>{[hr.user.lastName, hr.user.firstName].filter(Boolean).join(" ")}</Text><Text className={classes.muted}>{hr.position}</Text></div></div>)}</div></FormSection>
+    <FormSection title={ui.company.teamTitle}><div className={classes.hrCards}>{companyHrs.map((hr: CompanyHr) => <RecruiterCard key={hr.id} data={{ fullName: formatHrName(hr), position: hr.position, photoUrl: hr.user.photoUrl }} onClick={() => setSelectedHr(hr)} />)}</div></FormSection>
     <InlineError message={error} /><Button className={classes.fullButton} loading={saving} onClick={onSave}>{ui.company.save}</Button>
   </>;
 }
 
-function CompanyPublicPage({ company, companyHrs, vacancies, onBack }: { company: CompanyProfile | null; companyHrs: CompanyHr[]; vacancies: VacancyRow[]; onBack: () => void }) {
+function CompanyPublicPage({ company, companyHrs, vacancies, onBack, onVacancyOpen }: { company: CompanyProfile | null; companyHrs: CompanyHr[]; vacancies: VacancyRow[]; onBack: () => void; onVacancyOpen: (vacancy: VacancyRow) => void }) {
   const [selectedHr, setSelectedHr] = useState<CompanyHr | null>(null);
-  const selectedRecruiterView = selectedHr ? {
-    fullName: formatHrName(selectedHr),
-    position: selectedHr.position,
-    photoUrl: selectedHr.user.photoUrl,
-    status: selectedHr.user.status,
-    companyName: company?.publicName,
-  } : null;
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<VacancyStatus | "ALL">("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [sortBy, setSortBy] = useState<VacancySortBy>("updatedAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const selectedRecruiterView = buildRecruiterPreviewFromCompanyHr(selectedHr, company, vacancies);
+  const publicVacancies = paginateVacancies(sortPublicVacancies(filterPublicVacancies(vacancies, search, status), sortBy, sortDirection), page, pageSize);
 
   return <div className={classes.companyPreviewPage}>
-    <RecruiterPreviewDrawer opened={Boolean(selectedRecruiterView)} data={selectedRecruiterView} onClose={() => setSelectedHr(null)} />
+    <RecruiterPreviewDrawer opened={Boolean(selectedRecruiterView)} data={selectedRecruiterView} title={ui.profile.previewTitle} labels={recruiterPreviewLabels()} onClose={() => setSelectedHr(null)} />
 
     <button type="button" className={classes.backButton} onClick={onBack}><ArrowIcon /> {ui.company.backToCabinet}</button>
     <div className={classes.previewShellLabel}>{ui.company.publicProfile}</div>
@@ -917,7 +1250,9 @@ function CompanyPublicPage({ company, companyHrs, vacancies, onBack }: { company
           <div className={classes.richPreview} dangerouslySetInnerHTML={{ __html: company?.about || ui.company.emptyAbout }} />
         </FormSection>
         <FormSection title={ui.company.vacanciesTitle}>
-          {vacancies.length ? <div className={classes.publicVacancyList}>{vacancies.map((vacancy) => <button type="button" key={vacancy.id}>{vacancy.title}<Badge>{statusLabel(vacancy.status)}</Badge></button>)}</div> : <Text className={classes.muted}>{ui.vacancies.empty}</Text>}
+          <CompanyVacancyFilters search={search} status={status} sortBy={sortBy} sortDirection={sortDirection} pageSize={pageSize} onSearchChange={(value) => { setSearch(value); setPage(1); }} onStatusChange={(value) => { setStatus(value); setPage(1); }} onSortChange={(field, direction) => { setSortBy(field); setSortDirection(direction); setPage(1); }} onPageSizeChange={(value) => { setPageSize(value); setPage(1); }} />
+          {publicVacancies.items.length ? <div className={classes.publicVacancyList}>{publicVacancies.items.map((vacancy) => <button type="button" key={vacancy.id} onClick={() => onVacancyOpen(vacancy)}><span>{vacancy.title}<small>{vacancy.profession?.name}</small></span><VacancyStatusBadge status={vacancy.status} /></button>)}</div> : <Text className={classes.muted}>{ui.vacancies.emptyFiltered}</Text>}
+          <TablePagination page={page} pageSize={pageSize} totalItems={publicVacancies.totalItems} totalPages={publicVacancies.totalPages} onPageChange={setPage} onPageSizeChange={(value) => { setPageSize(value); setPage(1); }} />
         </FormSection>
       </section>
       <aside className={classes.companyPreviewAside}>
@@ -940,6 +1275,42 @@ function CompanyPublicPage({ company, companyHrs, vacancies, onBack }: { company
         </div>
       </aside>
     </div>
+  </div>;
+}
+
+function CompanyVacancyFilters(props: {
+  search: string;
+  status: VacancyStatus | "ALL";
+  sortBy: VacancySortBy;
+  sortDirection: SortDirection;
+  pageSize: number;
+  onSearchChange: (value: string) => void;
+  onStatusChange: (value: VacancyStatus | "ALL") => void;
+  onSortChange: (field: VacancySortBy, direction: SortDirection) => void;
+  onPageSizeChange: (value: number) => void;
+}) {
+  const { search, status, sortBy, sortDirection, pageSize, onSearchChange, onStatusChange, onSortChange, onPageSizeChange } = props;
+  const publicStatuses = vacancyStatuses.filter((item) => ["ACTIVE", "PAUSED", "CLOSED"].includes(item.value));
+  const sortFields: Array<{ value: VacancySortBy; label: string }> = [
+    { value: "title", label: ui.vacancies.position },
+    { value: "status", label: ui.vacancies.status },
+    { value: "closingDate", label: ui.vacancies.deadline },
+    { value: "updatedAt", label: ui.vacancies.updatedAt },
+  ];
+
+  return <div className={classes.companyVacancyFilters}>
+    <TextInput value={search} onChange={(event) => onSearchChange(event.currentTarget.value)} placeholder={ui.vacancies.searchPlaceholder} />
+    <Select data={[{ value: "ALL", label: ui.vacancies.allStatuses }, ...publicStatuses]} value={status} onChange={(value) => onStatusChange((value ?? "ALL") as VacancyStatus | "ALL")} />
+    <Select data={[{ value: "5", label: "5" }, { value: "10", label: "10" }, { value: "20", label: "20" }]} value={String(pageSize)} onChange={(value) => onPageSizeChange(Number(value ?? 5))} />
+    <Menu shadow="md" width={230} position="bottom-end">
+      <Menu.Target><button type="button" className={classes.sortIconButton}><SortIcon /></button></Menu.Target>
+      <Menu.Dropdown>
+        {sortFields.map((field) => <Menu.Item key={field.value} onClick={() => onSortChange(field.value, sortDirection)}>{sortBy === field.value ? "✓ " : ""}{field.label}</Menu.Item>)}
+        <Menu.Divider />
+        <Menu.Item onClick={() => onSortChange(sortBy, "asc")}>{sortDirection === "asc" ? "✓ " : ""}{ui.vacancies.sortAsc}</Menu.Item>
+        <Menu.Item onClick={() => onSortChange(sortBy, "desc")}>{sortDirection === "desc" ? "✓ " : ""}{ui.vacancies.sortDesc}</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   </div>;
 }
 
@@ -983,7 +1354,7 @@ function VacancySkillGroups({ form, setForm, skillsByCategory, onSelectSkill }: 
 
   return <div className={classes.skillGroups}>{categories.map((group) => <div key={group.category}>
     <Text fw={900}>{skillCategoryLabel(group.category)}</Text>
-    <div className={classes.skillChips}>{group.skills.map((item) => <button type="button" data-weight={item.weight} key={item.skillId} onClick={() => onSelectSkill({ skillId: item.skillId, weight: item.weight })}>{item.skill?.name}<span onClick={(event) => { event.stopPropagation(); setForm({ ...form, skills: form.skills.filter((skill) => skill.skillId !== item.skillId) }); }}>×</span></button>)}</div>
+    <div className={classes.skillChips}>{group.skills.map((item) => <ChipBadge tone={skillWeightTone(item.weight)} key={item.skillId} onClick={() => onSelectSkill({ skillId: item.skillId, weight: item.weight })} onRemove={() => setForm({ ...form, skills: form.skills.filter((skill) => skill.skillId !== item.skillId) })}>{item.skill?.name}</ChipBadge>)}</div>
   </div>)}</div>;
 }
 
@@ -996,16 +1367,22 @@ function LinkEditor({ links, setLinks, mode }: { links: LinkItem[]; setLinks: (l
     { value: "SOCIAL", label: messages.studentDashboard.linksEditor.categories.social },
     { value: "OTHER", label: messages.studentDashboard.linksEditor.categories.other },
   ].filter((category) => allowedTypes.includes(category.value));
-  const maxLinks = mode === "company" ? 6 : 6;
+  const maxLinks = 6;
+
   return <Stack gap="sm">{links.map((link, index) => {
     const selectedResource = getLinkResource(link.linkName, resources);
     const availableCategories = selectedResource
       ? categories.filter((item) => selectedResource.types.includes(item.value as LinkType))
       : categories;
-    return <div className={classes.linkGrid} key={index}><Select required label={ui.links.category} data={availableCategories} value={link.linkType} onChange={(value) => setLinks(links.map((item, i) => i === index ? { ...item, linkType: (value ?? allowedTypes[0]) as LinkType } : item))} /><Autocomplete required label={ui.links.name} data={resources.map((item) => item.name)} limit={resources.length} maxLength={100} value={link.linkName} onChange={(value) => {
-      const found = getLinkResource(value, resources);
-      setLinks(links.map((item, i) => i === index ? { ...item, linkName: value, linkType: found && !found.types.includes(item.linkType) ? found.types[0] : item.linkType } : item));
-    }} /><TextInput required label={ui.links.value} maxLength={255} value={link.value} onChange={(e) => setLinks(links.map((item, i) => i === index ? { ...item, value: formatContactValue(item.linkName, e.currentTarget.value) } : item))} /><AppTooltip label={commonUi.actions.delete}><button type="button" className={classes.iconButton} onClick={() => setLinks(links.filter((_, i) => i !== index))}><TrashIcon /></button></AppTooltip></div>;
+    return <div className={classes.linkGrid} key={index}>
+      <Select required label={ui.links.category} data={availableCategories} value={link.linkType} onChange={(value) => setLinks(links.map((item, i) => i === index ? { ...item, linkType: (value ?? allowedTypes[0]) as LinkType } : item))} />
+      <Autocomplete required label={ui.links.name} data={resources.map((item) => item.name)} limit={resources.length} maxLength={100} value={link.linkName} onChange={(value) => {
+        const found = getLinkResource(value, resources);
+        setLinks(links.map((item, i) => i === index ? { ...item, linkName: value, linkType: found && !found.types.includes(item.linkType) ? found.types[0] : item.linkType } : item));
+      }} />
+      <TextInput required label={ui.links.value} maxLength={255} value={link.value} onChange={(e) => setLinks(links.map((item, i) => i === index ? { ...item, value: formatContactValue(item.linkName, e.currentTarget.value) } : item))} />
+      <AppTooltip label={commonUi.actions.delete}><button type="button" className={classes.iconButton} onClick={() => setLinks(links.filter((_, i) => i !== index))}><TrashIcon /></button></AppTooltip>
+    </div>;
   })}<Button variant="light" onClick={() => setLinks([...links, { linkType: allowedTypes[0] as LinkType, linkName: "", value: "" }])} disabled={links.length >= maxLinks}>{ui.links.add}</Button></Stack>;
 }
 
@@ -1039,7 +1416,56 @@ const isValidUrlLike = (value: string) => /^(https?:\/\/|www\.|[a-z0-9-]+\.[a-z]
 const flattenSkills = (skillsByCategory?: Record<string, SkillOption[]>) => Object.values(skillsByCategory ?? {}).flat();
 const findLabel = (options: Array<{ value: string; label: string }>, value: string) => options.find((item) => item.value === value)?.label ?? value;
 const languageLevelLabel = (level: LanguageLevel | string) => cefrLevels.find((item) => item.value === level)?.label ?? level;
-const formatHrName = (hr?: CompanyHr | null) => [hr?.user.firstName, hr?.user.middleName, hr?.user.lastName].filter(Boolean).join(" ");
+const formatRecruiterName = (user?: { firstName?: string | null; middleName?: string | null; lastName?: string | null }) => [user?.lastName, user?.firstName, user?.middleName].filter(Boolean).join(" ");
+const formatHrName = (hr?: CompanyHr | null) => formatRecruiterName(hr?.user);
+const stripRequiredMark = (value: string) => value.replace(/\s*\*+$/, "");
+const countHrVacancies = (vacancies: VacancyRow[], hrProfileId?: string | null, status?: VacancyStatus) => vacancies.filter((vacancy) => vacancy.hrProfile?.id === hrProfileId && (!status || vacancy.status === status)).length;
+
+/** Формує стандартні дані публічного прев'ю рекрутера з профілю поточного HR. */
+function buildRecruiterPreviewFromProfile(profile: HrProfile | null, activeVacanciesCount?: number, totalVacanciesCount?: number): RecruiterPublicPreviewData {
+  return {
+    fullName: formatRecruiterName(profile?.user),
+    position: profile?.position,
+    photoUrl: profile?.user.photoUrl,
+    companyName: profile?.company.publicName,
+    email: profile?.user.email,
+    contacts: profile?.links ?? [],
+    createdAt: profile?.user.createdAt,
+    activeVacanciesCount,
+    totalVacanciesCount,
+  };
+}
+
+/** Формує стандартні дані публічного прев'ю рекрутера з картки рекрутера компанії. */
+function buildRecruiterPreviewFromCompanyHr(hr: CompanyHr | null, company: CompanyProfile | null, vacancies: VacancyRow[] = []): RecruiterPublicPreviewData | null {
+  if (!hr) return null;
+  return {
+    fullName: formatHrName(hr),
+    position: hr.position,
+    photoUrl: hr.user.photoUrl,
+    companyName: company?.publicName,
+    email: hr.user.email,
+    contacts: hr.links ?? [],
+    createdAt: hr.user.createdAt,
+    activeVacanciesCount: vacancies.length ? countHrVacancies(vacancies, hr.id, "ACTIVE") : undefined,
+    totalVacanciesCount: vacancies.length ? countHrVacancies(vacancies, hr.id) : undefined,
+  };
+}
+
+/** Формує стандартні дані публічного прев'ю рекрутера з вакансії. */
+function buildRecruiterPreviewFromVacancy(vacancy: VacancyRow): RecruiterPublicPreviewData | null {
+  if (!vacancy.hrProfile) return null;
+  return {
+    fullName: formatRecruiterName(vacancy.hrProfile.user),
+    position: vacancy.hrProfile.position,
+    photoUrl: vacancy.hrProfile.user.photoUrl,
+    companyName: vacancy.company?.publicName,
+    email: vacancy.hrProfile.user.email,
+    contacts: vacancy.hrProfile.links ?? [],
+    createdAt: vacancy.hrProfile.user.createdAt,
+  };
+}
+
 const normalizeHref = (value?: string | null) => {
   const trimmed = value?.trim();
   if (!trimmed || !isValidUrlLike(trimmed)) return null;
@@ -1049,21 +1475,53 @@ const copyToClipboard = (value: string) => {
   void navigator.clipboard?.writeText(value);
 };
 const normalizePhone = (value: string) => value.replace(/\s/g, "");
+const joinNames = (values: Array<string | undefined | null>) => values.filter(Boolean).join(", ") || null;
+const skillWeightTone = (weight: SkillWeight) => ({ CRITICAL: "critical", IMPORTANT: "important", NICE_TO_HAVE: "plus" }[weight] as "critical" | "important" | "plus");
+const publicVacancyStatusRank: Record<VacancyStatus, number> = { ACTIVE: 1, PAUSED: 2, CLOSED: 3, DRAFT: 4, ARCHIVED: 5 };
+const groupVacancySkills = (skills: VacancyRow["skills"]) => Object.entries(
+  skills.reduce<Record<string, VacancyRow["skills"]>>((groups, item) => {
+    const category = item.skill?.category ?? "OTHER";
+    groups[category] ??= [];
+    groups[category].push(item);
+    return groups;
+  }, {}),
+).map(([category, groupSkills]) => ({
+  category,
+  skills: [...groupSkills].sort((first, second) => skillWeightRank[second.weight] - skillWeightRank[first.weight]),
+}));
+const formatSalary = (vacancy: VacancyRow) => {
+  if (!vacancy.minSalary) return null;
+  const period = vacancy.salaryPeriod === "PER_HOUR" ? "грн/год" : "грн/міс";
+  return vacancy.maxSalary ? `${vacancy.minSalary}-${vacancy.maxSalary} ${period}` : `${vacancy.minSalary} ${period}`;
+};
 const normalizeSalaryInput = (value: string | number, previous: number | null) => {
   if (value === "") return null;
   if (typeof value !== "number" || value > maxSalaryInput) return previous;
   return value;
 };
-function getRecruiterProgress(data: RecruiterView | null) {
-  if (!data) return 0;
-  const checks = [
-    Boolean(data.fullName?.trim()),
-    Boolean(data.position?.trim()),
-    Boolean(data.companyName?.trim()),
-    Boolean(data.email?.trim()),
-    Boolean(data.contacts?.length),
-  ];
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+function filterPublicVacancies(vacancies: VacancyRow[], search: string, status: VacancyStatus | "ALL") {
+  return vacancies.filter((vacancy) => ["ACTIVE", "PAUSED", "CLOSED"].includes(vacancy.status))
+    .filter((vacancy) => status === "ALL" || vacancy.status === status)
+    .filter((vacancy) => !search.trim() || vacancy.title.toLowerCase().includes(search.trim().toLowerCase()));
+}
+function sortPublicVacancies(vacancies: VacancyRow[], sortBy: VacancySortBy, direction: SortDirection) {
+  const modifier = direction === "asc" ? 1 : -1;
+  return [...vacancies].sort((first, second) => {
+    if (sortBy === "status") return (publicVacancyStatusRank[first.status] - publicVacancyStatusRank[second.status]) * modifier;
+    const firstValue = sortBy === "title" ? first.title : first[sortBy];
+    const secondValue = sortBy === "title" ? second.title : second[sortBy];
+    return String(firstValue).localeCompare(String(secondValue), "uk") * modifier;
+  });
+}
+function paginateVacancies(vacancies: VacancyRow[], page: number, pageSize: number) {
+  const totalItems = vacancies.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+  return {
+    items: vacancies.slice((safePage - 1) * pageSize, safePage * pageSize),
+    totalItems,
+    totalPages,
+  };
 }
 function vacancyToForm(vacancy: VacancyRow): VacancyFormState {
   return {
@@ -1170,6 +1628,46 @@ function formatContactValue(name: string, value: string) {
   return value;
 }
 
+/** Повертає локалізовані підписи для спільного прев'ю рекрутера. */
+function recruiterPreviewLabels() {
+  return {
+    company: ui.profile.company,
+    position: ui.profile.position,
+    email: ui.profile.email,
+    createdAt: ui.profile.createdAt,
+    activeVacancies: ui.profile.activeVacancies,
+    totalVacancies: ui.profile.totalVacancies,
+    vacanciesList: ui.profile.vacanciesList,
+    emptyVacancies: ui.vacancies.empty,
+    copy: messages.studentDashboard.resumePreview.copy,
+  };
+}
+
+/** Повертає доступні дії вакансії залежно від її поточного статусу. */
+function getVacancyStatusActions(status: VacancyStatus) {
+  const editAction = { key: "edit", type: "edit" as const, label: ui.vacancies.edit, icon: <EditIcon />, danger: false };
+  const publishAction = { key: "publish", type: "status" as const, status: "ACTIVE" as VacancyStatus, label: ui.vacancies.publish, icon: <PublishIcon />, danger: false };
+  const pauseAction = { key: "pause", type: "status" as const, status: "PAUSED" as VacancyStatus, label: ui.vacancies.pause, icon: <PauseIcon />, danger: false };
+  const resumeAction = { key: "resume", type: "status" as const, status: "ACTIVE" as VacancyStatus, label: ui.vacancies.resume, icon: <PublishIcon />, danger: false };
+  const closeAction = { key: "close", type: "status" as const, status: "CLOSED" as VacancyStatus, label: ui.vacancies.close, icon: <CloseIcon />, danger: true };
+  const archiveAction = { key: "archive", type: "archive" as const, label: ui.vacancies.archive, icon: <ArchiveIcon />, danger: true };
+
+  if (status === "DRAFT") return [editAction, publishAction, archiveAction];
+  if (status === "ACTIVE") return [editAction, pauseAction, closeAction];
+  if (status === "PAUSED") return [editAction, resumeAction, closeAction];
+  if (status === "CLOSED") return [archiveAction];
+  return [];
+}
+
+/** Визначає головну швидку дію в деталях вакансії. */
+function getVacancyPrimaryAction(status: VacancyStatus) {
+  if (status === "DRAFT") return { key: "publish", type: "status" as const, status: "ACTIVE" as VacancyStatus, label: ui.vacancies.publish };
+  if (status === "ACTIVE") return { key: "pause", type: "status" as const, status: "PAUSED" as VacancyStatus, label: ui.vacancies.pause };
+  if (status === "PAUSED") return { key: "resume", type: "status" as const, status: "ACTIVE" as VacancyStatus, label: ui.vacancies.resume };
+  if (status === "CLOSED") return { key: "archive", type: "archive" as const, label: ui.vacancies.archive };
+  return null;
+}
+
 function PlusIcon() { return <svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z" /></svg>; }
 function BriefcaseIcon() { return <svg viewBox="0 0 24 24"><path d="M9 6V4h6v2h5a2 2 0 0 1 2 2v4H2V8a2 2 0 0 1 2-2h5Zm2 0h2V5h-2v1ZM2 14h20v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4Z" /></svg>; }
 function UserIcon() { return <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z" /></svg>; }
@@ -1182,3 +1680,8 @@ function EditIcon() { return <svg viewBox="0 0 24 24"><path d="M4 17.25V20h2.75L
 function ArchiveIcon() { return <svg viewBox="0 0 24 24"><path d="M20 6h-3.2l-1.1-2H8.3L7.2 6H4v14h16V6ZM9.5 6l.35-.65h4.3L14.5 6h-5ZM6 8h12v10H6V8Zm3 2h6v2H9v-2Zm0 3h6v2H9v-2Z" /></svg>; }
 function SaveIcon() { return <svg viewBox="0 0 24 24"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4ZM5 5h10.2L19 8.8V19H5V5Zm2 1h8v5H7V6Zm1 9h8v3H8v-3Z" /></svg>; }
 function PublishIcon() { return <svg viewBox="0 0 24 24"><path d="M12 3 4 11h5v10h6V11h5l-8-8Zm0 2.8 3.2 3.2H13v10h-2V9H8.8L12 5.8Z" /></svg>; }
+function EyeIcon() { return <svg viewBox="0 0 24 24"><path d="M12 5c5 0 9 5.2 9 7s-4 7-9 7-9-5.2-9-7 4-7 9-7Zm0 2c-3.6 0-6.6 3.4-7 5 .4 1.6 3.4 5 7 5s6.6-3.4 7-5c-.4-1.6-3.4-5-7-5Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z" /></svg>; }
+function MoreIcon() { return <svg viewBox="0 0 24 24"><path d="M6 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm6 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm6 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z" /></svg>; }
+function PauseIcon() { return <svg viewBox="0 0 24 24"><path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z" /></svg>; }
+function CloseIcon() { return <svg viewBox="0 0 24 24"><path d="m6.4 5 12.6 12.6-1.4 1.4L5 6.4 6.4 5Zm11.2 0L19 6.4 6.4 19 5 17.6 17.6 5Z" /></svg>; }
+function SortIcon() { return <svg viewBox="0 0 24 24"><path d="M7 4h10v2H7V4Zm-2 7h14v2H5v-2Zm3 7h8v2H8v-2Z" /></svg>; }

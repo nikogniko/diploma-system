@@ -15,6 +15,7 @@ type CabinetLayoutProps = {
   activeKey: string;
   onSelect: (key: string) => void;
   children: ReactNode;
+  defaultCollapsed?: boolean;
 };
 
 /** Спільний layout кабінету з лівою навігацією для всіх ролей. */
@@ -23,9 +24,11 @@ export function CabinetLayout({
   activeKey,
   onSelect,
   children,
+  defaultCollapsed = false,
 }: CabinetLayoutProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
+  /** Синхронізує згортання меню зі сторінками, яким потрібно більше горизонтального простору. */
   return (
     <main className={classes.page} data-collapsed={isCollapsed || undefined}>
       <aside className={classes.sidebar} data-collapsed={isCollapsed || undefined}>

@@ -1,0 +1,41 @@
+.card {
+  display: inline-flex;
+  gap: 0.8rem;
+  align-items: center;
+  width: fit-content;
+  align-self: center;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+  }
+
+  span {
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  strong {
+    color: var(--color-dark-main);
+  }
+
+  small {
+    color: var(--color-dark-muted);
+    font-weight: 700;
+  }
+}
+
+.avatarRing {
+  border: 3px solid var(--color-primary-soft);
+}

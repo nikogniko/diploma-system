@@ -95,8 +95,11 @@ export class CompanyRepository {
             middleName: true,
             photoUrl: true,
             status: true,
+            email: true,
+            createdAt: true,
           },
         },
+        links: true,
       },
     });
   }

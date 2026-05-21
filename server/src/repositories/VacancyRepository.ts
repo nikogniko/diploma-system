@@ -35,6 +35,17 @@ export type VacancyLanguageData = {
   level: LanguageLevel;
 };
 
+export type VacancyListSortBy = "title" | "status" | "closingDate" | "updatedAt" | "createdAt";
+
+export type VacancyListParams = {
+  page: number;
+  pageSize: number;
+  search?: string | null;
+  status?: ListingStatus | null;
+  sortBy: VacancyListSortBy;
+  sortDirection: Prisma.SortOrder;
+};
+
 const vacancyInclude = {
   profession: true,
   spheres: { include: { sphere: true } },
@@ -44,7 +55,7 @@ const vacancyInclude = {
   locations: { include: { location: true } },
   skills: { include: { skill: true } },
   languages: { include: { language: true } },
-  hrProfile: { include: { user: true } },
+  hrProfile: { include: { user: true, links: true } },
   company: true,
 } satisfies Prisma.VacancyInclude;
 
@@ -82,12 +93,39 @@ export class VacancyRepository {
   }
 
   /** Повертає всі вакансії компанії поточного рекрутера. */
-  async listCompanyVacancies(companyId: string) {
-    return this.db.vacancy.findMany({
-      where: { companyId },
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-      include: vacancyInclude,
-    });
+  async listCompanyVacancies(companyId: string, params: VacancyListParams) {
+    const where: Prisma.VacancyWhereInput = {
+      companyId,
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.search
+        ? {
+            OR: [
+              { title: { contains: params.search, mode: "insensitive" } },
+              { profession: { name: { contains: params.search, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const skip = (params.page - 1) * params.pageSize;
+    const orderBy = [{ [params.sortBy]: params.sortDirection }, { createdAt: "desc" }] as Prisma.VacancyOrderByWithRelationInput[];
+    const [items, totalItems] = await Promise.all([
+      this.db.vacancy.findMany({
+        where,
+        skip,
+        take: params.pageSize,
+        orderBy,
+        include: vacancyInclude,
+      }),
+      this.db.vacancy.count({ where }),
+    ]);
+
+    return {
+      items,
+      page: params.page,
+      pageSize: params.pageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / params.pageSize)),
+    };
   }
 
   /** Оновлює статус вакансії та дату публікації, якщо вакансія активується вперше. */

@@ -357,7 +357,8 @@
   align-items: end;
 }
 
-.skillInputRow {
+.skillInputRow,
+.requirementInputRow {
   display: grid;
   grid-template-columns: minmax(140px, 0.45fr) minmax(220px, 1fr) auto;
   gap: 0.75rem;
@@ -365,11 +366,13 @@
   margin-bottom: 0;
 }
 
-.languageInputRow {
-  grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.45fr) auto;
+.requirementInputRow {
+  grid-template-columns: minmax(9.5rem, 9.5rem) minmax(0, 1fr) minmax(9.5rem, 9.5rem);
 
   button {
-    min-width: 9.5rem;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
   }
 }
 
@@ -387,29 +390,18 @@
   margin-top: 0.35rem;
 }
 
-.skillChips button,
-.languageChips button {
-  @include chips.chip-base;
-  color: var(--color-dark-main);
-  background: var(--color-info-soft);
-  cursor: pointer;
+.languageBlock {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.55rem;
+
+  .languageChips {
+    margin-top: 0;
+  }
 }
 
-.skillChips button[data-weight="CRITICAL"] {
-  @include chips.skill-critical;
-}
-
-.skillChips button[data-weight="IMPORTANT"] {
-  @include chips.skill-important;
-}
-
-.skillChips button[data-weight="NICE_TO_HAVE"] {
-  @include chips.skill-plus;
-}
-
-.skillChips span,
-.languageChips span {
-  @include chips.chip-close;
+.skillGroups + p + .languageChips {
+  margin-top: 0.12rem;
 }
 
 .inlineCheckbox {
@@ -470,6 +462,118 @@
   align-items: end;
 }
 
+.managementTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding-inline: 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.managementTab,
+.managementTabActive {
+  position: relative;
+  bottom: -1px;
+  padding: 0.72rem 1rem;
+  color: var(--color-dark-main);
+  font: inherit;
+  font-weight: 900;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    color: var(--color-primary);
+    border-color: color-mix(in srgb, var(--color-primary) 42%, transparent);
+    transform: translateY(-1px);
+  }
+}
+
+.managementTabActive {
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
+  box-shadow: 0 -0.2rem 0 var(--color-primary) inset;
+  z-index: 1;
+}
+
+.vacancyPreview {
+  display: grid;
+  gap: 1rem;
+}
+
+.vacancyPreviewHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: clamp(1rem, 3vw, 1.4rem);
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+
+  h2 {
+    margin: 0.35rem 0 0.2rem;
+    color: var(--color-dark-main);
+  }
+
+  .muted {
+    font-size: 0.88rem;
+  }
+}
+
+.vacancyHeroAside {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+
+  :global(.mantine-Avatar-root) {
+    width: 5.5rem !important;
+    height: 100% !important;
+    min-height: 5.2rem;
+  }
+}
+
+.companyInlineLink {
+  padding: 0;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 1.12rem;
+  font-weight: 900;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.18rem;
+  }
+}
+
+.vacancyPreviewGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.36fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.previewInfoList {
+  display: grid;
+  gap: 0.65rem;
+}
+
 .iconButton {
   display: inline-grid;
   width: 2.15rem;
@@ -516,9 +620,14 @@
 
 .vacancyActions {
   display: grid;
-  grid-template-columns: minmax(0, 0.35fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(10rem, 1fr));
   gap: 0.65rem;
   margin-top: 0.75rem;
+
+  button {
+    min-height: 2.75rem;
+    white-space: normal;
+  }
 
   button:last-child {
     background: var(--color-primary);
@@ -687,8 +796,19 @@
 }
 
 .richPreview {
+  padding: 0.35rem 0.15rem;
   color: var(--color-dark-main);
   line-height: 1.6;
+
+  ul,
+  ol {
+    padding-left: 1.4rem;
+    margin-left: 0;
+  }
+
+  li {
+    padding-left: 0.2rem;
+  }
 }
 
 .publicVacancyList {
@@ -697,6 +817,8 @@
 
   button {
     display: flex;
+    gap: 0.75rem;
+    align-items: center;
     justify-content: space-between;
     padding: 0.75rem 0.9rem;
     color: var(--color-dark-main);
@@ -706,6 +828,46 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     cursor: pointer;
+
+    span {
+      display: grid;
+      min-width: 0;
+      text-align: left;
+    }
+
+    small {
+      overflow: hidden;
+      color: var(--color-dark-muted);
+      font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+.companyVacancyFilters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.35fr) minmax(5rem, 0.18fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+  margin-bottom: 0.75rem;
+}
+
+.sortIconButton {
+  display: inline-grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  color: var(--color-primary);
+  place-items: center;
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 42%, transparent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+    fill: currentColor;
   }
 }
 
@@ -846,8 +1008,218 @@
 
 .table {
   overflow: hidden;
+  table-layout: auto;
+  width: 100%;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+
+  th:first-child,
+  td:first-child {
+    width: auto;
+    min-width: 14rem;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 8.75rem;
+    min-width: 8.75rem;
+    white-space: nowrap;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 1%;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  th:nth-child(4),
+  td:nth-child(4) {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  th:nth-child(5),
+  td:nth-child(5) {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  th:nth-child(6),
+  td:nth-child(6) {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  th:last-child,
+  td:last-child {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  td:last-child > div {
+    width: max-content;
+    justify-content: flex-start;
+  }
+}
+
+.vacancyTableCard {
+  container-type: inline-size;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+@container (max-width: 1040px) {
+  .table th:nth-child(6),
+  .table td:nth-child(6) {
+    display: none;
+  }
+}
+
+@container (max-width: 900px) {
+  .table th:nth-child(5),
+  .table td:nth-child(5) {
+    display: none;
+  }
+}
+
+@container (max-width: 780px) {
+  .table th:nth-child(4),
+  .table td:nth-child(4) {
+    display: none;
+  }
+}
+
+@container (max-width: 660px) {
+  .table th:nth-child(3),
+  .table td:nth-child(3) {
+    display: none;
+  }
+}
+
+@container (max-width: 560px) {
+  .table th:nth-child(2),
+  .table td:nth-child(2) {
+    display: none;
+  }
+}
+
+.vacancyToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.3fr) minmax(6rem, 0.18fr);
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 0.8rem;
+}
+
+.vacancyRow {
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-primary-soft);
+  }
+}
+
+.vacancyTitleCell {
+  display: block;
+  max-width: clamp(12rem, 42vw, 38rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sortButton {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  color: var(--color-dark-main);
+  font: inherit;
+  font-weight: 900;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+
+  span {
+    color: var(--color-primary);
+    font-weight: 950;
+  }
+}
+
+.vacancyStatusBadge {
+  display: inline-flex;
+  min-width: max-content;
+  white-space: nowrap;
+
+  &[data-status="DRAFT"] {
+    color: var(--color-dark-muted);
+    background: var(--color-bg-main);
+  }
+
+  &[data-status="ACTIVE"] {
+    color: color-mix(in srgb, var(--color-secondary) 55%, var(--color-dark-main));
+    background: var(--color-secondary-soft);
+  }
+
+  &[data-status="PAUSED"] {
+    color: color-mix(in srgb, var(--color-warning) 65%, var(--color-dark-main));
+    background: var(--color-warning-soft);
+  }
+
+  &[data-status="CLOSED"] {
+    color: var(--color-surface);
+    background: var(--color-dark-main);
+  }
+
+  &[data-status="ARCHIVED"] {
+    color: var(--color-dark-muted);
+    background: color-mix(in srgb, var(--color-border) 70%, var(--color-surface));
+  }
+}
+
+.conditionBadges {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  width: max-content;
+
+  span {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.72rem;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+}
+
+.tablePagination {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.9rem;
+}
+
+.pageSizeSelect {
+  width: 5rem;
+}
+
+.emptyState {
+  display: grid;
+  gap: 0.75rem;
+  place-items: center;
+  padding: 2rem;
+  color: var(--color-dark-muted);
+  text-align: center;
+}
+
+.vacancyQuickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  padding-inline: 1.25rem;
 }
 
 .backButton {
@@ -928,10 +1300,15 @@
   .salaryFields,
   .linkGrid,
   .skillInputRow,
+  .requirementInputRow,
   .readonlyGrid,
   .profileHeaderRow,
   .companyPreviewGrid,
-  .headerRow {
+  .vacancyPreviewGrid,
+  .headerRow,
+  .vacancyToolbar,
+  .companyVacancyFilters,
+  .tablePagination {
     grid-template-columns: 1fr;
   }
 

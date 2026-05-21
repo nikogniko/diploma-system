@@ -36,7 +36,7 @@ export const getVacancyCatalogs = async (req: Request, res: Response, next: Next
 /** Повертає список вакансій компанії поточного рекрутера. */
 export const listMyVacancies = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await vacancyService.listMyVacancies(requireHrActorId(req));
+    const result = await vacancyService.listMyVacancies(requireHrActorId(req), req.query);
     res.status(HttpStatus.OK).json({ success: true, data: result });
   } catch (error) {
     next(error);
