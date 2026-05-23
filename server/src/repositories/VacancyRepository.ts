@@ -36,6 +36,7 @@ export type VacancyLanguageData = {
 };
 
 export type VacancyListSortBy = "title" | "status" | "closingDate" | "updatedAt" | "createdAt";
+export type PublicVacancySortBy = "title" | "closingDate" | "updatedAt" | "salaryFrom";
 
 export type VacancyListParams = {
   page: number;
@@ -44,6 +45,32 @@ export type VacancyListParams = {
   status?: ListingStatus | null;
   sortBy: VacancyListSortBy;
   sortDirection: Prisma.SortOrder;
+};
+
+export type PublicVacancyLanguageFilter = {
+  languageId: number;
+  levels: LanguageLevel[];
+};
+
+export type PublicVacancyListParams = {
+  page: number;
+  pageSize: number;
+  search?: string | null;
+  professionId?: number | null;
+  professionIds?: number[];
+  companyIds?: string[];
+  sphereIds?: number[];
+  regionIds?: number[];
+  cityIds?: number[];
+  workFormatIds?: number[];
+  employmentTypeIds?: number[];
+  workScheduleIds?: number[];
+  locationIds?: string[];
+  languageFilters?: PublicVacancyLanguageFilter[];
+  minSalary?: number | null;
+  sortBy: PublicVacancySortBy;
+  sortDirection: Prisma.SortOrder;
+  today: Date;
 };
 
 const vacancyInclude = {
@@ -128,6 +155,74 @@ export class VacancyRepository {
     };
   }
 
+  /** Повертає активні вакансії для студентського каталогу з фільтрами, сортуванням і пагінацією. */
+  async listPublicActiveVacancies(params: PublicVacancyListParams) {
+    const where = this.buildPublicVacancyWhere(params);
+    const skip = (params.page - 1) * params.pageSize;
+    const orderField = params.sortBy === "salaryFrom" ? "minSalary" : params.sortBy;
+    const orderBy = [{ [orderField]: params.sortDirection }, { updatedAt: "desc" }] as Prisma.VacancyOrderByWithRelationInput[];
+    const [items, totalItems] = await Promise.all([
+      this.db.vacancy.findMany({
+        where,
+        skip,
+        take: params.pageSize,
+        orderBy,
+        include: vacancyInclude,
+      }),
+      this.db.vacancy.count({ where }),
+    ]);
+
+    return {
+      items,
+      page: params.page,
+      pageSize: params.pageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / params.pageSize)),
+    };
+  }
+
+  /** Повертає активні та призупинені вакансії для публічної сторінки компанії. */
+  async listPublicCompanyVacancies(companyId: string) {
+    return this.db.vacancy.findMany({
+      where: {
+        companyId,
+        status: { in: [ListingStatus.ACTIVE, ListingStatus.PAUSED] },
+      },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      include: vacancyInclude,
+    });
+  }
+
+  /** Повертає компанії, що мають активні вакансії з актуальним дедлайном, для фільтра каталогу. */
+  async listPublicActiveVacancyCompanies(today: Date) {
+    return this.db.company.findMany({
+      where: {
+        vacancies: {
+          some: {
+            status: ListingStatus.ACTIVE,
+            closingDate: { gte: today },
+          },
+        },
+      },
+      select: { id: true, publicName: true },
+      orderBy: { publicName: "asc" },
+    });
+  }
+
+  /** Повертає одну публічно видиму вакансію для перегляду. */
+  async findPublicVisibleVacancyById(vacancyId: string, today: Date) {
+    return this.db.vacancy.findFirst({
+      where: {
+        id: vacancyId,
+        OR: [
+          { status: ListingStatus.ACTIVE, closingDate: { gte: today } },
+          { status: ListingStatus.PAUSED },
+        ],
+      },
+      include: vacancyInclude,
+    });
+  }
+
   /** Оновлює статус вакансії та дату публікації, якщо вакансія активується вперше. */
   async updateVacancyStatus(vacancyId: string, status: ListingStatus) {
     return this.db.vacancy.update({
@@ -138,6 +233,57 @@ export class VacancyRepository {
       },
       include: vacancyInclude,
     });
+  }
+
+  /** Будує Prisma-фільтр студентського каталогу. */
+  private buildPublicVacancyWhere(params: PublicVacancyListParams): Prisma.VacancyWhereInput {
+    const andFilters: Prisma.VacancyWhereInput[] = [
+      { status: ListingStatus.ACTIVE },
+      { closingDate: { gte: params.today } },
+    ];
+
+    if (params.search) {
+      andFilters.push({
+        OR: [
+          { title: { contains: params.search, mode: "insensitive" } },
+          { description: { contains: params.search, mode: "insensitive" } },
+          { profession: { name: { contains: params.search, mode: "insensitive" } } },
+          { company: { publicName: { contains: params.search, mode: "insensitive" } } },
+          { skills: { some: { skill: { name: { contains: params.search, mode: "insensitive" } } } } },
+        ],
+      });
+    }
+
+    if (params.professionIds?.length) andFilters.push({ professionId: { in: params.professionIds } });
+    else if (params.professionId) andFilters.push({ professionId: params.professionId });
+    if (params.companyIds?.length) andFilters.push({ companyId: { in: params.companyIds } });
+    if (params.sphereIds?.length) andFilters.push({ spheres: { some: { sphereId: { in: params.sphereIds } } } });
+    if (params.cityIds?.length) andFilters.push({ locations: { some: { location: { cityId: { in: params.cityIds } } } } });
+    else if (params.regionIds?.length) andFilters.push({ locations: { some: { location: { regionId: { in: params.regionIds } } } } });
+    if (params.workFormatIds?.length) andFilters.push({ workFormats: { some: { workFormatId: { in: params.workFormatIds } } } });
+    if (params.employmentTypeIds?.length) andFilters.push({ employmentTypes: { some: { employmentTypeId: { in: params.employmentTypeIds } } } });
+    if (params.workScheduleIds?.length) andFilters.push({ workSchedules: { some: { workScheduleId: { in: params.workScheduleIds } } } });
+    if (params.locationIds?.length) andFilters.push({ locations: { some: { locationId: { in: params.locationIds } } } });
+    if (params.minSalary !== null && params.minSalary !== undefined) {
+      andFilters.push({
+        OR: [
+          { minSalary: { gte: params.minSalary } },
+          { maxSalary: { gte: params.minSalary } },
+        ],
+      });
+    }
+    params.languageFilters?.forEach((filter) => {
+      andFilters.push({
+        languages: {
+          some: {
+            languageId: filter.languageId,
+            level: { in: filter.levels },
+          },
+        },
+      });
+    });
+
+    return { AND: andFilters };
   }
 
   /** Архівує активні вакансії компанії, у яких минув closingDate. */

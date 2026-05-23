@@ -34,6 +34,13 @@
       "alignRight": "Вирівняти праворуч"
     }
   },
+  "layout": {
+    "cabinet": {
+      "label": "Кабінет",
+      "expand": "Розгорнути меню кабінету",
+      "collapse": "Згорнути меню кабінету"
+    }
+  },
   "onboarding": {
     "accessDenied": {
       "title": "Доступ обмежено",
@@ -373,6 +380,142 @@
       "open": "Відкрити в новій вкладці",
       "profileFallbackName": "Кандидат",
       "skillsTitle": "Навички"
+    }
+  },
+  "publicVacancies": {
+    "common": {
+      "back": "Повернутися",
+      "notSpecified": "Не вказано",
+      "copy": "Скопіювати",
+      "open": "Відкрити",
+      "recruiterProfile": "Профіль рекрутера",
+      "company": "Компанія",
+      "profession": "Професія",
+      "recruiter": "Рекрутер",
+      "status": "Статус",
+      "position": "Посада",
+      "email": "Email",
+      "createdAt": "Профіль створено",
+      "activeVacancies": "Активні вакансії",
+      "totalVacancies": "Усього вакансій",
+      "vacanciesList": "Вакансії рекрутера",
+      "emptyVacancies": "Список вакансій буде доступний пізніше."
+    },
+    "catalog": {
+      "loading": "Відкриваємо каталог вакансій...",
+      "title": "Вакансії",
+      "subtitle": "Спільний каталог активних вакансій з актуальним дедлайном.",
+      "create": "Створити вакансію",
+      "searchPlaceholder": "Пошук за назвою, описом, компанією або навичкою",
+      "search": "Шукати",
+      "filters": "Фільтри",
+      "clearFilters": "Очистити фільтри",
+      "cancel": "Відмінити",
+      "apply": "Застосувати",
+      "profileMatch": "Підібрати за моїм профілем",
+      "professions": "Професії",
+      "professionPlaceholder": "Знайти професію",
+      "companies": "Компанії",
+      "companyPlaceholder": "Знайти компанію",
+      "spheres": "Сфери",
+      "spherePlaceholder": "Знайти сферу",
+      "locations": "Локації",
+      "regions": "Області",
+      "regionPlaceholder": "Знайти область",
+      "cities": "Міста",
+      "cityPlaceholder": "Знайти місто",
+      "citiesHint": "Спочатку оберіть область, щоб звузити список міст.",
+      "workFormat": "Формат роботи",
+      "employmentType": "Тип зайнятості",
+      "schedule": "Графік",
+      "languages": "Мови",
+      "languagePlaceholder": "Знайти мову",
+      "minSalary": "Мін. зарплата, грн",
+      "minSalaryPlaceholder": "Наприклад 20000",
+      "emptyTitle": "Вакансій не знайдено",
+      "emptyDescription": "Спробуйте змінити пошук або зняти частину фільтрів.",
+      "emptyHint": "Показуються тільки активні вакансії з актуальним дедлайном.",
+      "profileNotice": "Персональний підбір доступний після заповнення профілю студента.",
+      "applyNotice": "Модуль відгуків буде реалізовано пізніше.",
+      "found": "Знайдено: {{count}}",
+      "sortDesc": "За спаданням",
+      "sortAsc": "За зростанням",
+      "sortLabelAsc": "зрост.",
+      "sortLabelDesc": "спад.",
+      "sortFallback": "Сортування",
+      "sort": {
+        "updatedAt": "Оновлено",
+        "closingDate": "Дедлайн",
+        "title": "Назва",
+        "salaryFrom": "Зарплата від"
+      }
+    },
+    "card": {
+      "companyFallback": "Компанія",
+      "professionFallback": "Професія",
+      "locationFallback": "Локація не вказана",
+      "updatedAt": "Оновлено",
+      "salaryPerHour": "грн/год",
+      "salaryPerMonth": "грн/міс",
+      "notSpecified": "Не вказано",
+      "dot": "•"
+    },
+    "details": {
+      "status": "Активна вакансія",
+      "description": "Опис вакансії",
+      "requiredSkills": "Необхідні навички",
+      "requiredSkillsDescription": "Навички виділені кольором у порядку важливості для цієї вакансії: критичні йдуть першими, без них не можна подати відгук на вакансію.",
+      "languages": "Мови",
+      "about": "Про вакансію",
+      "conditions": "Умови роботи",
+      "salary": "Зарплата",
+      "closingDate": "Дедлайн",
+      "location": "Локація",
+      "locationRequired": "Локація обов'язкова",
+      "workFormat": "Формат",
+      "employmentType": "Тип зайнятості",
+      "schedule": "Графік",
+      "spheres": "Сфери",
+      "apply": "Відгукнутися",
+      "nativeLanguage": "Носій"
+    },
+    "companyPage": {
+      "loading": "Відкриваємо профіль компанії...",
+      "loadError": "Не вдалося завантажити компанію",
+      "about": "Про компанію",
+      "emptyAbout": "Опис компанії поки не заповнений.",
+      "vacancies": "Вакансії компанії",
+      "emptyVacancies": "Вакансій за обраними умовами немає.",
+      "spheres": "Сфери",
+      "contacts": "Контакти",
+      "contactsNote": "Публічні контакти компанії.",
+      "foundationYear": "Рік заснування",
+      "companySize": "Розмір компанії",
+      "team": "Команда",
+      "website": "Сайт",
+      "foundedSince": "від {{year}} року",
+      "employeesCount": "{{count}} співробітників",
+      "filters": {
+        "searchPlaceholder": "Пошук вакансії",
+        "allStatuses": "Усі статуси",
+        "active": "Активні",
+        "paused": "Призупинені",
+        "updatedDesc": "Оновлено: новіші",
+        "titleAsc": "Назва: А-Я",
+        "closingDateAsc": "Дедлайн: ближчі"
+      }
+    },
+    "statuses": {
+      "DRAFT": "Чернетка",
+      "ACTIVE": "Активна",
+      "PAUSED": "Призупинена",
+      "CLOSED": "Закрита",
+      "ARCHIVED": "Архівна"
+    },
+    "moderation": {
+      "PENDING": "Очікує перевірки",
+      "APPROVED": "Підтверджено",
+      "REJECTED": "Відхилено"
     }
   },
   "hrDashboard": {

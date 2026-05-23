@@ -2,6 +2,7 @@
 import { useAuth } from "@clerk/react";
 import {
   Autocomplete,
+  Avatar,
   Badge,
   Button,
   Checkbox,
@@ -9,6 +10,8 @@ import {
   Group,
   MultiSelect,
   NumberInput,
+  Pagination,
+  Paper,
   Select,
   Stack,
   Switch,
@@ -19,6 +22,7 @@ import {
 import { DateInput, MonthPickerInput } from "@mantine/dates";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ApiError, apiRequest } from "../../api/apiClient";
 import { ErrorBanner } from "../../components/common/ErrorBanner";
 import { FormSection } from "../../components/common/FormSection";
@@ -123,12 +127,55 @@ type StudentCatalogs = {
   skillsByCategory: Record<string, Skill[]>;
 };
 
+type VacancySearchMode = "regular" | "personalized";
+type VacancySortBy = "updatedAt" | "closingDate" | "title" | "salaryFrom";
+type SortDirection = "asc" | "desc";
+type SkillWeight = "CRITICAL" | "IMPORTANT" | "NICE_TO_HAVE";
+type LanguageLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | "NATIVE";
+type SalaryPeriod = "PER_MONTH" | "PER_HOUR";
+
+type StudentVacancy = {
+  id: string;
+  title: string;
+  description: string;
+  professionId: number;
+  profession?: CatalogItem | null;
+  isLocationCritical: boolean;
+  minSalary?: number | null;
+  maxSalary?: number | null;
+  salaryPeriod?: SalaryPeriod | null;
+  closingDate: string;
+  updatedAt: string;
+  company?: { id: string; publicName: string; logoUrl?: string | null } | null;
+  spheres: Array<{ sphereId: number; sphere?: CatalogItem | null }>;
+  employmentTypes: Array<{ employmentTypeId: number; employmentType?: CatalogItem | null }>;
+  workSchedules: Array<{ workScheduleId: number; workSchedule?: CatalogItem | null }>;
+  workFormats: Array<{ workFormatId: number; workFormat?: CatalogItem | null }>;
+  locations: Array<{ locationId: string; location?: { countryId: number; regionId?: number | null; cityId?: number | null } | null }>;
+  skills: Array<{ skillId: number; weight: SkillWeight; skill?: Skill | null }>;
+  languages: Array<{ languageId: number; level: LanguageLevel; language?: CatalogItem | null }>;
+};
+
+type VacancySearchEntry = {
+  vacancy: StudentVacancy;
+  matchScore: number | null;
+  matchExplanation: Record<string, unknown> | null;
+};
+
+type VacancySearchResponse = {
+  items: VacancySearchEntry[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
 const ui = messages.studentDashboard;
 const commonUi = messages.common;
 
 const navItems = [
   { key: "dashboard", label: ui.nav.dashboard, icon: <DashboardIcon />, underline: true },
-  { key: "vacancies", label: ui.nav.applications, icon: <BriefcaseIcon />, underline: true },
+  { key: "applications", label: ui.nav.applications, icon: <BriefcaseIcon />, underline: true },
   { key: "personal", label: ui.nav.personal, icon: <UserIcon /> },
   { key: "resume", label: ui.nav.resume, icon: <ResumeIcon /> },
   { key: "search", label: ui.nav.search, icon: <SearchIcon /> },
@@ -146,6 +193,14 @@ const cefrLevels = [
 const currentYear = new Date().getFullYear();
 const resourcePlaceholder = ui.resourcePlaceholder;
 const maxProfileLinks = 6;
+const maxSalaryInput = 9_999_999;
+const vacancyPageSizes = ["5", "10", "20"];
+const vacancySortOptions = [
+  { value: "updatedAt", label: "Оновлено" },
+  { value: "closingDate", label: "Дедлайн" },
+  { value: "title", label: "Назва" },
+  { value: "salaryFrom", label: "Зарплата від" },
+];
 const linkResources: LinkResource[] = [
   { name: "LinkedIn", types: ["SOCIAL", "PORTFOLIO"], domains: ["linkedin.com"] },
   { name: ui.linksEditor.suggestions.ownWebsite, types: ["WEBSITE"], allowAnyUrl: true },
@@ -171,7 +226,9 @@ const linkResources: LinkResource[] = [
 /** Кабінет кандидата з персональними даними, резюме і параметрами пошуку. */
 export default function StudentDashboard() {
   const { getToken } = useAuth();
-  const [active, setActive] = useState("dashboard");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [active, setActive] = useState(initialTab && navItems.some((item) => item.key === initialTab) ? initialTab : "dashboard");
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [catalogs, setCatalogs] = useState<StudentCatalogs | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -179,6 +236,25 @@ export default function StudentDashboard() {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isResumePreviewOpen, setIsResumePreviewOpen] = useState(false);
+  const [vacancySearch, setVacancySearch] = useState("");
+  const [vacancyMode, setVacancyMode] = useState<VacancySearchMode>("regular");
+  const [vacancyProfessionId, setVacancyProfessionId] = useState<string | null>(null);
+  const [vacancySphereIds, setVacancySphereIds] = useState<string[]>([]);
+  const [vacancyWorkFormatIds, setVacancyWorkFormatIds] = useState<string[]>([]);
+  const [vacancyEmploymentTypeIds, setVacancyEmploymentTypeIds] = useState<string[]>([]);
+  const [vacancyWorkScheduleIds, setVacancyWorkScheduleIds] = useState<string[]>([]);
+  const [vacancyLanguageId, setVacancyLanguageId] = useState<string | null>(null);
+  const [vacancyLanguageLevel, setVacancyLanguageLevel] = useState<LanguageLevel>("A1");
+  const [vacancyMinSalary, setVacancyMinSalary] = useState<number | null>(null);
+  const [vacancySortBy, setVacancySortBy] = useState<VacancySortBy>("updatedAt");
+  const [vacancySortDirection, setVacancySortDirection] = useState<SortDirection>("desc");
+  const [vacancyPage, setVacancyPage] = useState(1);
+  const [vacancyPageSize, setVacancyPageSize] = useState(10);
+  const [vacancyResult, setVacancyResult] = useState<VacancySearchResponse | null>(null);
+  const [isVacancyLoading, setIsVacancyLoading] = useState(false);
+  const [vacancyError, setVacancyError] = useState<string | null>(null);
+  const [selectedVacancy, setSelectedVacancy] = useState<VacancySearchEntry | null>(null);
+  const [applicationNotice, setApplicationNotice] = useState<string | null>(null);
 
   const [personalForm, setPersonalForm] = useState({
     firstName: "",
@@ -266,10 +342,76 @@ export default function StudentDashboard() {
     }
   };
 
+  /** Формує URL студентського каталогу вакансій з фільтрами, режимом і пагінацією. */
+  const buildVacancyCatalogPath = (overrides: Partial<{
+    page: number;
+    pageSize: number;
+    mode: VacancySearchMode;
+  }> = {}) => {
+    const params = new URLSearchParams({
+      page: String(overrides.page ?? vacancyPage),
+      pageSize: String(overrides.pageSize ?? vacancyPageSize),
+      mode: overrides.mode ?? vacancyMode,
+      sortBy: vacancySortBy,
+      sortDirection: vacancySortDirection,
+    });
+    if (vacancySearch.trim()) params.set("search", vacancySearch.trim());
+    if (vacancyProfessionId) params.set("professionId", vacancyProfessionId);
+    if (vacancySphereIds.length) params.set("sphereIds", vacancySphereIds.join(","));
+    if (vacancyWorkFormatIds.length) params.set("workFormatIds", vacancyWorkFormatIds.join(","));
+    if (vacancyEmploymentTypeIds.length) params.set("employmentTypeIds", vacancyEmploymentTypeIds.join(","));
+    if (vacancyWorkScheduleIds.length) params.set("workScheduleIds", vacancyWorkScheduleIds.join(","));
+    if (vacancyLanguageId) {
+      params.set("languageId", vacancyLanguageId);
+      params.set("languageLevel", vacancyLanguageLevel);
+    }
+    if (vacancyMinSalary !== null) params.set("minSalary", String(vacancyMinSalary));
+    return `/vacancies/student?${params.toString()}`;
+  };
+
+  /** Завантажує студентський каталог вакансій. */
+  const loadStudentVacancies = async (overrides: Partial<{ page: number; pageSize: number; mode: VacancySearchMode }> = {}) => {
+    setVacancyError(null);
+    setIsVacancyLoading(true);
+    try {
+      const token = await getToken();
+      const result = await apiRequest<VacancySearchResponse>(buildVacancyCatalogPath(overrides), token);
+      setVacancyResult(result);
+      setVacancyPage(result.page);
+      setVacancyPageSize(result.pageSize);
+    } catch (error) {
+      setVacancyError(getErrorMessage(error));
+    } finally {
+      setIsVacancyLoading(false);
+    }
+  };
+
+  /** Відкриває активну вакансію через окремий endpoint перегляду. */
+  const openVacancy = async (vacancyId: string) => {
+    setVacancyError(null);
+    setIsVacancyLoading(true);
+    setApplicationNotice(null);
+    try {
+      const token = await getToken();
+      const result = await apiRequest<VacancySearchEntry>(`/vacancies/student/${vacancyId}`, token);
+      setSelectedVacancy(result);
+    } catch (error) {
+      setVacancyError(getErrorMessage(error));
+    } finally {
+      setIsVacancyLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (active !== "vacancies" || vacancyResult) return;
+    void loadStudentVacancies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, vacancyResult]);
 
   useEffect(() => {
     const query = universityQuery.trim();
@@ -500,7 +642,10 @@ export default function StudentDashboard() {
   if (isLoading) return <AppLoader text={ui.loading.dashboard} />;
 
   return (
-    <CabinetLayout navItems={navItems} activeKey={active} onSelect={setActive}>
+    <CabinetLayout navItems={navItems} activeKey={active} onSelect={(key) => {
+      setActive(key);
+      setSearchParams(key === "dashboard" ? {} : { tab: key });
+    }}>
       <Drawer
         opened={isResumePreviewOpen}
         onClose={() => setIsResumePreviewOpen(false)}
@@ -513,7 +658,53 @@ export default function StudentDashboard() {
       <Stack gap="md">
         <ErrorBanner message={pageError} />
         {active === "dashboard" && <DashboardTab profile={profile} onOpenResume={() => setIsResumePreviewOpen(true)} />}
-        {active === "vacancies" && <SimpleTab title={ui.nav.applications} description={ui.simpleTab.applicationsDescription} />}
+        {active === "applications" && <SimpleTab title={ui.nav.applications} description={ui.simpleTab.description} />}
+        {active === "vacancies" && (
+          <VacancyCatalogTab
+            catalogs={catalogs}
+            result={vacancyResult}
+            selected={selectedVacancy}
+            loading={isVacancyLoading}
+            error={vacancyError}
+            notice={applicationNotice}
+            filters={{
+              search: vacancySearch,
+              mode: vacancyMode,
+              professionId: vacancyProfessionId,
+              sphereIds: vacancySphereIds,
+              workFormatIds: vacancyWorkFormatIds,
+              employmentTypeIds: vacancyEmploymentTypeIds,
+              workScheduleIds: vacancyWorkScheduleIds,
+              languageId: vacancyLanguageId,
+              languageLevel: vacancyLanguageLevel,
+              minSalary: vacancyMinSalary,
+              sortBy: vacancySortBy,
+              sortDirection: vacancySortDirection,
+              pageSize: vacancyPageSize,
+            }}
+            setters={{
+              setSearch: setVacancySearch,
+              setMode: setVacancyMode,
+              setProfessionId: setVacancyProfessionId,
+              setSphereIds: setVacancySphereIds,
+              setWorkFormatIds: setVacancyWorkFormatIds,
+              setEmploymentTypeIds: setVacancyEmploymentTypeIds,
+              setWorkScheduleIds: setVacancyWorkScheduleIds,
+              setLanguageId: setVacancyLanguageId,
+              setLanguageLevel: setVacancyLanguageLevel,
+              setMinSalary: setVacancyMinSalary,
+              setSortBy: setVacancySortBy,
+              setSortDirection: setVacancySortDirection,
+            }}
+            onSearch={() => { setVacancyPage(1); void loadStudentVacancies({ page: 1 }); }}
+            onPersonalized={() => { setVacancyMode("personalized"); setVacancyPage(1); void loadStudentVacancies({ page: 1, mode: "personalized" }); }}
+            onPageChange={(page) => { setVacancyPage(page); void loadStudentVacancies({ page }); }}
+            onPageSizeChange={(pageSize) => { setVacancyPageSize(pageSize); setVacancyPage(1); void loadStudentVacancies({ page: 1, pageSize }); }}
+            onOpen={(vacancyId) => void openVacancy(vacancyId)}
+            onBack={() => { setSelectedVacancy(null); setApplicationNotice(null); }}
+            onApply={() => setApplicationNotice("Модуль відгуків буде реалізовано пізніше.")}
+          />
+        )}
         {active === "personal" && (
           <PersonalTab
             profile={profile}
@@ -581,6 +772,176 @@ function DashboardTab({ profile, onOpenResume }: { profile: StudentProfile | nul
       </FormSection>
     </>
   );
+}
+
+function VacancyCatalogTab(props: {
+  catalogs: StudentCatalogs | null;
+  result: VacancySearchResponse | null;
+  selected: VacancySearchEntry | null;
+  loading: boolean;
+  error?: string | null;
+  notice?: string | null;
+  filters: {
+    search: string;
+    mode: VacancySearchMode;
+    professionId: string | null;
+    sphereIds: string[];
+    workFormatIds: string[];
+    employmentTypeIds: string[];
+    workScheduleIds: string[];
+    languageId: string | null;
+    languageLevel: LanguageLevel;
+    minSalary: number | null;
+    sortBy: VacancySortBy;
+    sortDirection: SortDirection;
+    pageSize: number;
+  };
+  setters: {
+    setSearch: (value: string) => void;
+    setMode: (value: VacancySearchMode) => void;
+    setProfessionId: (value: string | null) => void;
+    setSphereIds: (value: string[]) => void;
+    setWorkFormatIds: (value: string[]) => void;
+    setEmploymentTypeIds: (value: string[]) => void;
+    setWorkScheduleIds: (value: string[]) => void;
+    setLanguageId: (value: string | null) => void;
+    setLanguageLevel: (value: LanguageLevel) => void;
+    setMinSalary: (value: number | null) => void;
+    setSortBy: (value: VacancySortBy) => void;
+    setSortDirection: (value: SortDirection) => void;
+  };
+  onSearch: () => void;
+  onPersonalized: () => void;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  onOpen: (vacancyId: string) => void;
+  onBack: () => void;
+  onApply: () => void;
+}) {
+  const { catalogs, result, selected, loading, error, notice, filters, setters, onSearch, onPersonalized, onPageChange, onPageSizeChange, onOpen, onBack, onApply } = props;
+  const options = {
+    professions: catalogs?.professions.map(asOption) ?? [],
+    spheres: catalogs?.spheres.map(asOption) ?? [],
+    workFormats: catalogs?.workFormats.map(asOption) ?? [],
+    employmentTypes: catalogs?.employmentTypes.map(asOption) ?? [],
+    workSchedules: catalogs?.workSchedules.map(asOption) ?? [],
+    languages: catalogs?.languages.map(asOption) ?? [],
+  };
+
+  if (selected) {
+    return <VacancyDetails entry={selected} notice={notice} onBack={onBack} onApply={onApply} />;
+  }
+
+  return <>
+    <TabHeader title="Вакансії" description="Каталог активних вакансій для студентів. Можна шукати вручну або використати параметри профілю." />
+    <Paper className={classes.vacancyFilters}>
+      <div className={classes.vacancyFilterHeader}>
+        <TextInput label="Пошук" placeholder="Назва, опис, компанія або навичка" value={filters.search} onChange={(event) => setters.setSearch(event.currentTarget.value)} />
+        <Button className={classes.previewButton} onClick={onSearch} loading={loading}>Шукати</Button>
+        <Button variant="light" className={classes.personalizedButton} onClick={onPersonalized} loading={loading} data-active={filters.mode === "personalized" || undefined}>Підібрати за моїм профілем</Button>
+      </div>
+      <div className={classes.vacancyFilterGrid}>
+        <Select label="Професія" searchable clearable data={options.professions} value={filters.professionId} onChange={setters.setProfessionId} />
+        <MultiSelect label="Сфери" searchable data={options.spheres} value={filters.sphereIds} onChange={setters.setSphereIds} />
+        <MultiSelect label="Формат роботи" data={options.workFormats} value={filters.workFormatIds} onChange={setters.setWorkFormatIds} />
+        <MultiSelect label="Тип зайнятості" data={options.employmentTypes} value={filters.employmentTypeIds} onChange={setters.setEmploymentTypeIds} />
+        <MultiSelect label="Графік" data={options.workSchedules} value={filters.workScheduleIds} onChange={setters.setWorkScheduleIds} />
+        <div className={classes.languageFilterPair}>
+          <Select label="Мова" clearable data={options.languages} value={filters.languageId} onChange={setters.setLanguageId} />
+          <Select label="Рівень від" data={cefrLevels} value={filters.languageLevel} onChange={(value) => setters.setLanguageLevel((value ?? "A1") as LanguageLevel)} />
+        </div>
+        <NumberInput label="Мін. зарплата" min={0} max={maxSalaryInput} step={1000} allowNegative={false} allowDecimal={false} clampBehavior="strict" value={filters.minSalary ?? undefined} onChange={(value) => setters.setMinSalary(normalizeMoneyInput(value))} />
+        <Select label="Сортувати" data={vacancySortOptions} value={filters.sortBy} onChange={(value) => setters.setSortBy((value ?? "updatedAt") as VacancySortBy)} />
+        <Select label="Напрям" data={[{ value: "desc", label: "Спадання" }, { value: "asc", label: "Зростання" }]} value={filters.sortDirection} onChange={(value) => setters.setSortDirection((value ?? "desc") as SortDirection)} />
+      </div>
+    </Paper>
+    <InlineError message={error} />
+    {loading && <Stack gap="sm">{Array.from({ length: 3 }).map((_, index) => <Paper key={index} className={classes.vacancyCardSkeleton} />)}</Stack>}
+    {!loading && result && result.items.length === 0 && <FormSection title="Вакансій не знайдено" description="Спробуйте змінити пошук або зняти частину фільтрів."><Text className={classes.muted}>Показуються тільки активні вакансії з актуальним дедлайном.</Text></FormSection>}
+    {!loading && result && result.items.length > 0 && <>
+      <div className={classes.vacancyCatalogList}>{result.items.map((entry) => <VacancyCatalogCard key={entry.vacancy.id} entry={entry} onOpen={onOpen} />)}</div>
+      <div className={classes.catalogPagination}>
+        <Text className={classes.muted}>Знайдено: {result.totalItems}</Text>
+        <Pagination value={result.page} total={result.totalPages} onChange={onPageChange} />
+        <Select className={classes.catalogPageSize} data={vacancyPageSizes.map((value) => ({ value, label: value }))} value={String(filters.pageSize)} onChange={(value) => onPageSizeChange(Number(value ?? 10))} />
+      </div>
+    </>}
+  </>;
+}
+
+function VacancyCatalogCard({ entry, onOpen }: { entry: VacancySearchEntry; onOpen: (vacancyId: string) => void }) {
+  const vacancy = entry.vacancy;
+  const skills = primaryVacancySkills(vacancy);
+  return <Paper className={classes.vacancyCatalogCard}>
+    <div className={classes.vacancyCardMain}>
+      <div>
+        <Text className={classes.vacancyCardTitle}>{vacancy.title}</Text>
+        <Text className={classes.vacancyCompany}>{vacancy.company?.publicName ?? "Компанія"} · {vacancy.profession?.name ?? "Професія"}</Text>
+      </div>
+      <Avatar src={vacancy.company?.logoUrl} radius="md" size={54}>{vacancy.company?.publicName?.[0] ?? "C"}</Avatar>
+    </div>
+    <Text className={classes.vacancyDescription}>{stripHtml(vacancy.description)}</Text>
+    <div className={classes.vacancyMetaLine}>
+      <span>{labelList(vacancy.workFormats.map((item) => item.workFormat?.name))}</span>
+      <span>{labelList(vacancy.employmentTypes.map((item) => item.employmentType?.name))}</span>
+      <span>{labelList(vacancy.workSchedules.map((item) => item.workSchedule?.name))}</span>
+      <span>{shortVacancyLocation(vacancy)}</span>
+    </div>
+    <div className={classes.vacancyCardFooter}>
+      <div className={classes.vacancySkillRow}>{skills.map((skill) => <span key={`${skill.skillId}-${skill.weight}`} className={`${classes.skillChip} ${skillClass(skill.skill?.category ?? "")}`}>{skill.skill?.name}</span>)}</div>
+      <div className={classes.vacancyFooterActions}>
+        {formatVacancySalary(vacancy) && <Text fw={900}>{formatVacancySalary(vacancy)}</Text>}
+        <Text className={classes.muted}>до {dateShort(vacancy.closingDate)}</Text>
+        <Button onClick={() => onOpen(vacancy.id)}>Переглянути</Button>
+      </div>
+    </div>
+    {entry.matchScore !== null && <Badge className={classes.badge}>Match {entry.matchScore}</Badge>}
+  </Paper>;
+}
+
+function VacancyDetails({ entry, notice, onBack, onApply }: { entry: VacancySearchEntry; notice?: string | null; onBack: () => void; onApply: () => void }) {
+  const vacancy = entry.vacancy;
+  const skillGroups = groupVacancySkills(vacancy);
+  return <div className={classes.vacancyDetailsPage}>
+    <button type="button" className={classes.backButton} onClick={onBack}><ArrowIcon /> Назад до вакансій</button>
+    <section className={classes.vacancyDetailsHero}>
+      <div>
+        <Text className={classes.previewEyebrow}>Активна вакансія</Text>
+        <Title order={1}>{vacancy.title}</Title>
+        <Text className={classes.vacancyCompany}>{vacancy.company?.publicName ?? "Компанія"} · {vacancy.profession?.name ?? "Професія"}</Text>
+      </div>
+      <Avatar src={vacancy.company?.logoUrl} radius="md" size={76}>{vacancy.company?.publicName?.[0] ?? "C"}</Avatar>
+    </section>
+    <div className={classes.vacancyDetailsGrid}>
+      <section className={classes.sectionStack}>
+        <FormSection title="Опис вакансії">
+          <div className={classes.richPreview} dangerouslySetInnerHTML={{ __html: vacancy.description }} />
+        </FormSection>
+        <FormSection title="Навички">
+          <div className={classes.skillGroups}>{skillGroups.map((group) => <div key={group.category}><Text className={classes.skillGroupTitle}>{skillCategoryLabel(group.category)}</Text><div className={classes.chips}>{group.skills.map((item) => <span key={item.skillId} className={`${classes.skillChip} ${skillClass(item.skill?.category ?? "")}`}>{item.skill?.name}</span>)}</div></div>)}</div>
+        </FormSection>
+        {vacancy.languages.length > 0 && <FormSection title="Мови">
+          <div className={classes.chips}>{vacancy.languages.map((item) => <span key={item.languageId} className={classes.locationChip}>{item.language?.name}: {languageLevelLabel(item.level)}</span>)}</div>
+        </FormSection>}
+      </section>
+      <aside className={classes.sectionStack}>
+        <FormSection title="Умови роботи">
+          <InfoLine label="Формат" value={labelList(vacancy.workFormats.map((item) => item.workFormat?.name))} />
+          <InfoLine label="Тип зайнятості" value={labelList(vacancy.employmentTypes.map((item) => item.employmentType?.name))} />
+          <InfoLine label="Графік" value={labelList(vacancy.workSchedules.map((item) => item.workSchedule?.name))} />
+          <InfoLine label="Локація" value={shortVacancyLocation(vacancy)} />
+          {vacancy.isLocationCritical && <Badge className={classes.badge}>Локація обов'язкова</Badge>}
+          <InfoLine label="Зарплата" value={formatVacancySalary(vacancy) ?? "Не вказано"} />
+          <InfoLine label="Дедлайн" value={dateShort(vacancy.closingDate)} />
+        </FormSection>
+        <FormSection title="Сфери">
+          <div className={classes.chips}>{vacancy.spheres.map((item) => <span className={classes.locationChip} key={item.sphereId}>{item.sphere?.name}</span>)}</div>
+        </FormSection>
+        <Button className={classes.fullButton} onClick={onApply}>Відгукнутися</Button>
+        {notice && <div className={classes.hint}>{notice}</div>}
+      </aside>
+    </div>
+  </div>;
 }
 
 function PersonalTab({ profile, form, setForm, error, saving, onSave }: any) {
@@ -661,7 +1022,7 @@ function SearchTab(props: any) {
       <FormSection title={ui.search.salaryTitle} description={ui.search.salaryDescription}>
         <div className={classes.salaryGrid}>
           <Switch className={classes.centerCheckbox} label={ui.search.showAllSalary} checked={form.showAllSalary} onChange={(e) => setForm({ ...form, showAllSalary: e.currentTarget.checked, minSalary: e.currentTarget.checked ? null : form.minSalary })} />
-          <NumberInput label={ui.search.minSalary} min={0} step={1000} disabled={form.showAllSalary} value={form.minSalary ?? 0} onChange={(value) => setForm({ ...form, minSalary: Number(value) || 0 })} />
+          <NumberInput label={ui.search.minSalary} min={0} max={maxSalaryInput} step={1000} allowNegative={false} allowDecimal={false} clampBehavior="strict" disabled={form.showAllSalary} value={form.minSalary ?? undefined} onChange={(value) => setForm({ ...form, minSalary: normalizeMoneyInput(value) ?? 0 })} />
         </div>
         <div className={classes.threeGrid}>
           <Checkbox.Group className={classes.checkboxGroup} label={ui.search.employmentTypes} value={form.employmentTypeIds} onChange={(value) => setForm({ ...form, employmentTypeIds: value })}>{options.employmentTypes.map((item: any) => <Checkbox key={item.value} value={item.value} label={item.label} />)}</Checkbox.Group>
@@ -837,9 +1198,73 @@ function buildLinks(form: { links: LinkItem[]; telegram: string; viber: string }
   return links;
 }
 
+function InfoLine({ label, value }: { label: string; value?: string | null }) {
+  return <div className={classes.infoLine}><span>{label}</span><strong>{value || "Не вказано"}</strong></div>;
+}
+
+function primaryVacancySkills(vacancy: StudentVacancy) {
+  return [...vacancy.skills]
+    .sort((first, second) => skillWeightRank[second.weight] - skillWeightRank[first.weight] || skillCategoryRank(first.skill?.category) - skillCategoryRank(second.skill?.category))
+    .slice(0, 5);
+}
+
+function groupVacancySkills(vacancy: StudentVacancy) {
+  const order = ["HARD_SKILL", "TOOL", "SOFT_SKILL"];
+  return Object.entries(vacancy.skills.reduce<Record<string, StudentVacancy["skills"]>>((groups, item) => {
+    const category = item.skill?.category ?? "OTHER";
+    groups[category] ??= [];
+    groups[category].push(item);
+    return groups;
+  }, {}))
+    .sort(([first], [second]) => order.indexOf(first) - order.indexOf(second))
+    .map(([category, skills]) => ({
+      category,
+      skills: [...skills].sort((first, second) => skillWeightRank[second.weight] - skillWeightRank[first.weight]),
+    }));
+}
+
+function formatVacancySalary(vacancy: StudentVacancy) {
+  if (!vacancy.minSalary && !vacancy.maxSalary) return null;
+  const period = vacancy.salaryPeriod === "PER_HOUR" ? "грн/год" : "грн/міс";
+  if (vacancy.minSalary && vacancy.maxSalary) return `${vacancy.minSalary}-${vacancy.maxSalary} ${period}`;
+  return `${vacancy.minSalary ?? vacancy.maxSalary} ${period}`;
+}
+
+function shortVacancyLocation(vacancy: StudentVacancy) {
+  return vacancy.locations.length ? `${vacancy.locations.length} локац.` : "Локація не вказана";
+}
+
+function labelList(values: Array<string | null | undefined>) {
+  return values.filter(Boolean).join(", ") || "Не вказано";
+}
+
+function skillCategoryRank(category?: string | null) {
+  if (category === "HARD_SKILL") return 1;
+  if (category === "TOOL") return 2;
+  if (category === "SOFT_SKILL") return 3;
+  return 4;
+}
+
+function skillCategoryLabel(category: string) {
+  if (category === "HARD_SKILL") return "Hard Skills";
+  if (category === "TOOL") return "Tools";
+  if (category === "SOFT_SKILL") return "Soft Skills";
+  return category;
+}
+
+const skillWeightRank: Record<SkillWeight, number> = {
+  CRITICAL: 3,
+  IMPORTANT: 2,
+  NICE_TO_HAVE: 1,
+};
+
 const asOption = (item: CatalogItem) => ({ value: String(item.id), label: item.name });
 const clean = (value: string) => value.trim();
 const nullable = (value?: string | null) => value?.trim() || null;
+const normalizeMoneyInput = (value: string | number) => {
+  if (value === "" || typeof value !== "number" || Number.isNaN(value)) return null;
+  return Math.min(Math.max(0, Math.trunc(value)), maxSalaryInput);
+};
 const dateShort = (value: string) => dayjs(value).format("DD.MM.YYYY");
 const monthShort = (value: string) => dayjs(value).format("MM.YYYY");
 const monthToDate = (value: string) => value.length === 7 ? `${value}-01` : value;
@@ -901,6 +1326,7 @@ function formatLocation(item: LocationJoin, catalogs: StudentCatalogs) {
 function getErrorMessage(error: unknown) { return error instanceof ApiError || error instanceof Error ? error.message : commonUi.messages.unknownError; }
 
 function DashboardIcon() { return <svg viewBox="0 0 24 24"><path d="M4 13h7V4H4v9Zm0 7h7v-5H4v5Zm9 0h7v-9h-7v9Zm0-16v5h7V4h-7Z" /></svg>; }
+function ArrowIcon() { return <svg viewBox="0 0 24 24"><path d="m10 6 1.4 1.4L8.8 10H20v2H8.8l2.6 2.6L10 16l-5-5 5-5Z" /></svg>; }
 function BriefcaseIcon() { return <svg viewBox="0 0 24 24"><path d="M9 6V4h6v2h5a2 2 0 0 1 2 2v4H2V8a2 2 0 0 1 2-2h5Zm2 0h2V5h-2v1ZM2 14h20v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4Z" /></svg>; }
 function UserIcon() { return <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z" /></svg>; }
 function ResumeIcon() { return <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z" /></svg>; }

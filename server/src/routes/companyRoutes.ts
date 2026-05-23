@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getPublicCompany,
   getMyCompany,
   getMyCompanyHrs,
   searchCompanies,
@@ -12,6 +13,6 @@ router.get("/", searchCompanies);
 router.get("/my-cabinet", getMyCompany);
 router.patch("/my-cabinet", updateMyCompany);
 router.get("/my-cabinet/hr-profiles", getMyCompanyHrs);
-// TODO: додати /my-cabinet/vacancies після реалізації модуля вакансій.
+router.get("/:companyId", getPublicCompany);
 
 export default router;

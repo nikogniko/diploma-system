@@ -1,6 +1,7 @@
 import { Button, Stack, Text } from "@mantine/core";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { messages } from "../locales/localizedMessages";
 import classes from "./CabinetLayout.module.scss";
 
 type CabinetNavItem = {
@@ -16,6 +17,8 @@ type CabinetLayoutProps = {
   onSelect: (key: string) => void;
   children: ReactNode;
   defaultCollapsed?: boolean;
+  autoCollapseKeys?: string[];
+  collapseSignal?: number;
 };
 
 /** Спільний layout кабінету з лівою навігацією для всіх ролей. */
@@ -25,17 +28,32 @@ export function CabinetLayout({
   onSelect,
   children,
   defaultCollapsed = false,
+  autoCollapseKeys = [],
+  collapseSignal = 0,
 }: CabinetLayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const previousActiveKey = useRef(activeKey);
+  const previousCollapseSignal = useRef(collapseSignal);
+  const ui = messages.layout.cabinet;
 
-  /** Синхронізує згортання меню зі сторінками, яким потрібно більше горизонтального простору. */
+  useEffect(() => {
+    const changed = previousActiveKey.current !== activeKey;
+    const collapseRequested = previousCollapseSignal.current !== collapseSignal && collapseSignal > 0;
+    previousActiveKey.current = activeKey;
+    previousCollapseSignal.current = collapseSignal;
+    if ((changed && autoCollapseKeys.includes(activeKey)) || collapseRequested) {
+      setIsCollapsed(true);
+    }
+  }, [activeKey, autoCollapseKeys, collapseSignal]);
+
+  /** Меню змінюється користувачем; для вибраних вкладок дозволене тільки одноразове автозгортання. */
   return (
     <main className={classes.page} data-collapsed={isCollapsed || undefined}>
       <aside className={classes.sidebar} data-collapsed={isCollapsed || undefined}>
         <Stack gap="xs">
           <div className={classes.sidebarHeader}>
-            <Text className={classes.sidebarLabel}>Кабінет</Text>
-            <button className={classes.collapseButton} type="button" onClick={() => setIsCollapsed((value) => !value)} aria-label={isCollapsed ? "Розгорнути меню кабінету" : "Згорнути меню кабінету"}>
+            <Text className={classes.sidebarLabel}>{ui.label}</Text>
+            <button className={classes.collapseButton} type="button" onClick={() => setIsCollapsed((value) => !value)} aria-label={isCollapsed ? ui.expand : ui.collapse}>
               {isCollapsed ? <MenuIcon /> : <CloseIcon />}
             </button>
           </div>

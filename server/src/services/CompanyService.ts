@@ -16,6 +16,7 @@ import {
 } from "../repositories/HrProfileRepository.js";
 import type { LocationKey } from "../repositories/StudentProfileRepository.js";
 import { transactionManager, TransactionManager } from "../repositories/TransactionManager.js";
+import { VacancyRepository, vacancyRepository } from "../repositories/VacancyRepository.js";
 import { EmailValidator } from "../utils/EmailValidator.js";
 
 type LinkInput = {
@@ -47,6 +48,7 @@ export class CompanyService {
     private readonly companies: CompanyRepository = companyRepository,
     private readonly hrs: HrProfileRepository = hrProfileRepository,
     private readonly txManager: TransactionManager = transactionManager,
+    private readonly vacancies: VacancyRepository = vacancyRepository,
   ) {}
 
   /** Повертає компанію, до якої належить поточний HR. */
@@ -57,6 +59,25 @@ export class CompanyService {
   /** Шукає компанії для вибору під час onboarding роботодавця. */
   async searchCompanies(query?: string) {
     return this.companies.searchCompanies(query);
+  }
+
+  /** Повертає публічну сторінку компанії за id. */
+  async getPublicCompany(companyId: string) {
+    const company = await this.companies.findCompanyById(companyId);
+    if (!company) {
+      throw new BusinessLogicError(
+        "Company not found",
+        HttpStatus.NOT_FOUND,
+        "COMPANY_NOT_FOUND",
+      );
+    }
+
+    const [companyHrs, vacancyPage] = await Promise.all([
+      this.companies.listCompanyHrs(companyId),
+      this.vacancies.listPublicCompanyVacancies(companyId),
+    ]);
+
+    return { company, companyHrs, vacancies: vacancyPage };
   }
 
   /** Повертає список HR профілів компанії поточного HR. */
@@ -158,7 +179,6 @@ export class CompanyService {
     }
   }
 
-  /** Перетворює посилання з API у формат createMany. */
   private mapLinks(links: LinkInput[]) {
     return links.map((link) => ({
       linkType: this.requiredEnum(link.linkType, LinkType, "linkType"),

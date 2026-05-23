@@ -29,6 +29,17 @@ export const searchCompanies = async (req: Request, res: Response, next: NextFun
   }
 };
 
+/** Повертає публічну сторінку компанії за id. */
+export const getPublicCompany = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const companyId = Array.isArray(req.params.companyId) ? req.params.companyId[0] : req.params.companyId;
+    const result = await companyService.getPublicCompany(companyId);
+    res.status(HttpStatus.OK).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /** Повертає компанію поточного HR. */
 export const getMyCompany = async (req: Request, res: Response, next: NextFunction) => {
   try {

@@ -3,8 +3,11 @@ import {
   archiveVacancy,
   changeVacancyStatus,
   createVacancy,
+  getStudentVacancy,
+  getStudentVacancyFilterOptions,
   getMyVacancy,
   getVacancyCatalogs,
+  listStudentVacancies,
   listMyVacancies,
   updateVacancy,
 } from "../controllers/VacancyController.js";
@@ -12,6 +15,9 @@ import {
 const router = Router();
 
 router.get("/catalogs", getVacancyCatalogs);
+router.get("/student", listStudentVacancies);
+router.get("/student/filter-options", getStudentVacancyFilterOptions);
+router.get("/student/:vacancyId", getStudentVacancy);
 router.get("/my-cabinet", listMyVacancies);
 router.post("/my-cabinet", createVacancy);
 router.get("/my-cabinet/:vacancyId", getMyVacancy);

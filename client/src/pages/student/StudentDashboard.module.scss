@@ -424,6 +424,192 @@
   gap: 0.45rem;
 }
 
+.vacancyFilters,
+.vacancyCatalogCard,
+.vacancyDetailsHero {
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.vacancyFilterHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 0.9rem;
+}
+
+.vacancyFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.languageFilterPair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(6rem, 0.45fr);
+  gap: 0.5rem;
+}
+
+.personalizedButton {
+  min-height: 2.65rem;
+
+  &[data-active="true"] {
+    color: var(--color-surface);
+    background: var(--color-primary);
+  }
+}
+
+.vacancyCatalogList,
+.vacancyDetailsPage {
+  display: grid;
+  gap: 1rem;
+}
+
+.vacancyCatalogCard {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.vacancyCardMain,
+.vacancyCardFooter,
+.vacancyFooterActions,
+.catalogPagination {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.vacancyCardMain,
+.vacancyCardFooter,
+.catalogPagination {
+  justify-content: space-between;
+}
+
+.vacancyCardTitle {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-dark-main);
+  font-size: 1.1rem;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vacancyCompany,
+.vacancyDescription {
+  color: var(--color-dark-muted);
+}
+
+.vacancyDescription {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.vacancyMetaLine,
+.vacancySkillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.vacancyMetaLine span {
+  color: var(--color-dark-main);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.vacancyFooterActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.catalogPageSize {
+  width: 5rem;
+}
+
+.vacancyCardSkeleton {
+  min-height: 10rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.backButton {
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+  width: fit-content;
+  color: var(--color-primary);
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+    fill: currentColor;
+  }
+}
+
+.vacancyDetailsHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.previewEyebrow {
+  color: var(--color-primary);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.vacancyDetailsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.38fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.richPreview {
+  color: var(--color-dark-main);
+  line-height: 1.6;
+
+  ul,
+  ol {
+    padding-left: 1.4rem;
+  }
+}
+
+.infoLine {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--color-border);
+
+  span {
+    color: var(--color-dark-muted);
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
+  strong {
+    color: var(--color-dark-main);
+  }
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -446,11 +632,22 @@
   .linkGrid,
   .salaryGrid,
   .personalGrid,
-  .profileTop {
+  .profileTop,
+  .vacancyFilterHeader,
+  .vacancyFilterGrid,
+  .languageFilterPair,
+  .vacancyDetailsHero,
+  .vacancyDetailsGrid {
     grid-template-columns: 1fr;
   }
 
   .formActions {
     grid-template-columns: 1fr;
+  }
+
+  .vacancyCardFooter,
+  .catalogPagination {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
