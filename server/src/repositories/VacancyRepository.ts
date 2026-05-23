@@ -60,6 +60,7 @@ export type PublicVacancyListParams = {
   professionIds?: number[];
   companyIds?: string[];
   sphereIds?: number[];
+  countryIds?: number[];
   regionIds?: number[];
   cityIds?: number[];
   workFormatIds?: number[];
@@ -258,8 +259,21 @@ export class VacancyRepository {
     else if (params.professionId) andFilters.push({ professionId: params.professionId });
     if (params.companyIds?.length) andFilters.push({ companyId: { in: params.companyIds } });
     if (params.sphereIds?.length) andFilters.push({ spheres: { some: { sphereId: { in: params.sphereIds } } } });
-    if (params.cityIds?.length) andFilters.push({ locations: { some: { location: { cityId: { in: params.cityIds } } } } });
-    else if (params.regionIds?.length) andFilters.push({ locations: { some: { location: { regionId: { in: params.regionIds } } } } });
+    if (params.countryIds?.length || params.cityIds?.length || params.regionIds?.length) {
+      andFilters.push({
+        OR: [
+          ...(params.countryIds?.length
+            ? [{ locations: { some: { location: { countryId: { in: params.countryIds } } } } }]
+            : []),
+          ...(params.regionIds?.length
+            ? [{ locations: { some: { location: { regionId: { in: params.regionIds } } } } }]
+            : []),
+          ...(params.cityIds?.length
+            ? [{ locations: { some: { location: { cityId: { in: params.cityIds } } } } }]
+            : []),
+        ],
+      });
+    }
     if (params.workFormatIds?.length) andFilters.push({ workFormats: { some: { workFormatId: { in: params.workFormatIds } } } });
     if (params.employmentTypeIds?.length) andFilters.push({ employmentTypes: { some: { employmentTypeId: { in: params.employmentTypeIds } } } });
     if (params.workScheduleIds?.length) andFilters.push({ workSchedules: { some: { workScheduleId: { in: params.workScheduleIds } } } });

@@ -395,7 +395,8 @@ Backend - Express API. Основний потік: route → controller → ser
 
 - `PublicVacancyListParams` доповнено `professionIds?: number[]`.
 - `PublicVacancyListParams` також підтримує `companyIds?: string[]`.
-- `PublicVacancyListParams` також підтримує `regionIds?: number[]` і `cityIds?: number[]` для фільтра локацій у публічному каталозі.
-- `buildPublicVacancyWhere(params)` фільтрує `professionId: { in: professionIds }`, `companyId: { in: companyIds }`, а також вакансії за містами або областями; одиничний `professionId` лишився fallback для сумісності.
+- `PublicVacancyListParams` також підтримує `countryIds?: number[]`, `regionIds?: number[]` і `cityIds?: number[]` для фільтра локацій у публічному каталозі.
+- `buildPublicVacancyWhere(params)` фільтрує `professionId: { in: professionIds }`, `companyId: { in: companyIds }`, а також вакансії за країнами, областями або містами через OR; одиничний `professionId` лишився fallback для сумісності.
+- Логіка локацій ієрархічна тільки зверху вниз: країна матчить усі локації країни, область матчить область і її міста, місто матчить тільки конкретне місто. Місто кандидата не матчить вакансію, де роботодавець вказав лише область.
 - `listPublicActiveVacancyCompanies(today)` повертає компанії, які мають активні вакансії з актуальним дедлайном, для UI-фільтра.
 - Summary: студентський/публічний каталог може фільтрувати вакансії за кількома професіями та компаніями без зміни існуючих HR endpoint-ів.

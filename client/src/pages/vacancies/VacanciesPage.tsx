@@ -319,10 +319,13 @@ export default function VacanciesPage() {
       setIsProfilePresetActive(false);
       return;
     }
+    const profileLocations = locationFiltersFromProfile(profile.desiredLocations);
     const next: FilterState = {
       ...draftFilters,
       mode: "personalized",
       professionIds: profile.desiredProfessions.map((item) => String(item.professionId)),
+      regionIds: profileLocations.regionIds,
+      cityIds: profileLocations.cityIds,
       employmentTypeIds: profile.employmentTypes.map((item) => String(item.employmentTypeId)),
       workScheduleIds: profile.workSchedules.map((item) => String(item.workScheduleId)),
       workFormatIds: profile.workFormats.map((item) => String(item.workFormatId)),
@@ -391,7 +394,7 @@ export default function VacanciesPage() {
           <SearchableFilterGroup title={ui.catalog.professions} placeholder={ui.catalog.professionPlaceholder} values={draftFilters.professionIds} options={options.professions} onChange={(professionIds) => updateDraft({ professionIds })} />
           <SearchableFilterGroup title={ui.catalog.companies} placeholder={ui.catalog.companyPlaceholder} values={draftFilters.companyIds} options={options.companies} onChange={(companyIds) => updateDraft({ companyIds })} />
           <SearchableFilterGroup title={ui.catalog.spheres} placeholder={ui.catalog.spherePlaceholder} values={draftFilters.sphereIds} options={options.spheres} onChange={(sphereIds) => updateDraft({ sphereIds })} />
-          <LocationFilterGroup regions={options.regions} cities={options.cities} regionIds={draftFilters.regionIds} cityIds={draftFilters.cityIds} onRegionChange={(regionIds) => updateDraft({ regionIds, cityIds: draftFilters.cityIds.filter((cityId) => options.cities.some((city) => String(city.id) === cityId && regionIds.includes(String(city.regionId)))) })} onCityChange={(cityIds) => updateDraft({ cityIds })} />
+          <LocationFilterGroup regions={options.regions} cities={options.cities} regionIds={draftFilters.regionIds} cityIds={draftFilters.cityIds} onRegionChange={(regionIds) => updateDraft({ regionIds })} onCityChange={(cityIds) => updateDraft({ cityIds })} />
           <CompactCheckGroup title={ui.catalog.workFormat} values={draftFilters.workFormatIds} options={options.workFormats} onChange={(workFormatIds) => updateDraft({ workFormatIds })} />
           <CompactCheckGroup title={ui.catalog.employmentType} values={draftFilters.employmentTypeIds} options={options.employmentTypes} onChange={(employmentTypeIds) => updateDraft({ employmentTypeIds })} />
           <CompactCheckGroup title={ui.catalog.schedule} values={draftFilters.workScheduleIds} options={options.workSchedules} onChange={(workScheduleIds) => updateDraft({ workScheduleIds })} />
@@ -459,19 +462,62 @@ function LocationFilterGroup({
   onRegionChange: (values: string[]) => void;
   onCityChange: (values: string[]) => void;
 }) {
-  const visibleCities = regionIds.length
-    ? cities.filter((city) => regionIds.includes(String(city.regionId)))
-    : [];
+  const [query, setQuery] = useState("");
+  const [expandedRegionIds, setExpandedRegionIds] = useState<string[]>([]);
+  const normalizedQuery = query.trim().toLowerCase();
+  const selectedRegions = selectedLocationItems(regions, regionIds);
+  const selectedCities = selectedLocationItems(cities, cityIds);
+  const citiesByRegion = useMemo(
+    () => groupCitiesByRegion(cities, normalizedQuery),
+    [cities, normalizedQuery],
+  );
+  const visibleRegions = regions.filter((region) => {
+    if (!normalizedQuery) return true;
+    return region.name.toLowerCase().includes(normalizedQuery) || Boolean(citiesByRegion.get(region.id)?.length);
+  });
+
+  const toggleValue = (values: string[], value: string) =>
+    values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+  const toggleRegion = (regionId: string) => onRegionChange(toggleValue(regionIds, regionId));
+  const toggleCity = (cityId: string) => onCityChange(toggleValue(cityIds, cityId));
+  const toggleExpanded = (regionId: string) =>
+    setExpandedRegionIds((current) => toggleValue(current, regionId));
+  const isExpanded = (regionId: string, hasMatchingCities: boolean) =>
+    expandedRegionIds.includes(regionId) || (Boolean(normalizedQuery) && hasMatchingCities);
 
   return (
     <div className={classes.filterGroup}>
       <Text fw={900}>{ui.catalog.locations}</Text>
-      <SearchableFilterGroup title={ui.catalog.regions} placeholder={ui.catalog.regionPlaceholder} values={regionIds} options={regions} onChange={onRegionChange} />
-      {regionIds.length > 0 ? (
-        <SearchableFilterGroup title={ui.catalog.cities} placeholder={ui.catalog.cityPlaceholder} values={cityIds} options={visibleCities} onChange={onCityChange} />
-      ) : (
-        <Text className={classes.muted}>{ui.catalog.citiesHint}</Text>
+      {(selectedRegions.length > 0 || selectedCities.length > 0) && (
+        <div className={classes.selectedChips}>
+          {selectedRegions.map((region) => <button type="button" key={`region-${region.id}`} onClick={() => toggleRegion(String(region.id))}>{region.name}<CloseIcon /></button>)}
+          {selectedCities.map((city) => <button type="button" key={`city-${city.id}`} onClick={() => toggleCity(String(city.id))}>{city.name}<CloseIcon /></button>)}
+        </div>
       )}
+      <TextInput placeholder={ui.catalog.regionPlaceholder} value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
+      <div className={classes.locationTree}>
+        {visibleRegions.map((region) => {
+          const regionCities = citiesByRegion.get(region.id) ?? [];
+          const expanded = isExpanded(String(region.id), regionCities.length > 0);
+          return (
+            <div className={classes.locationRegion} key={region.id}>
+              <div className={classes.locationRegionRow}>
+                <Checkbox checked={regionIds.includes(String(region.id))} onChange={() => toggleRegion(String(region.id))} label={region.name} />
+                <button type="button" className={classes.locationExpandButton} data-expanded={expanded || undefined} onClick={() => toggleExpanded(String(region.id))} aria-label={ui.catalog.cities}>
+                  <ChevronIcon />
+                </button>
+              </div>
+              {expanded && (
+                <div className={classes.locationCities}>
+                  {regionCities.map((city) => (
+                    <Checkbox key={city.id} checked={cityIds.includes(String(city.id))} onChange={() => toggleCity(String(city.id))} label={city.name} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -532,6 +578,29 @@ const skillWeightRank: Record<SkillWeight, number> = { CRITICAL: 3, IMPORTANT: 2
 const skillCategoryRank = (category?: string | null) => category === "HARD_SKILL" ? 1 : category === "TOOL" ? 2 : category === "SOFT_SKILL" ? 3 : 4;
 const languageLevelLabel = (level: string) => level === "NATIVE" ? ui.details.nativeLanguage : level;
 const findName = (items: CatalogItem[], id: string | number) => items.find((item) => String(item.id) === String(id))?.name ?? "";
+const selectedLocationItems = <T extends CatalogItem>(items: T[], values: string[]) =>
+  values.map((value) => items.find((item) => String(item.id) === value)).filter(Boolean) as T[];
+const locationFiltersFromProfile = (
+  desiredLocations: StudentProfile["desiredLocations"],
+) =>
+  desiredLocations.reduce(
+    (filters, item) => {
+      const location = item.location;
+      if (location.cityId) filters.cityIds.push(String(location.cityId));
+      else if (location.regionId) filters.regionIds.push(String(location.regionId));
+      return filters;
+    },
+    { regionIds: [] as string[], cityIds: [] as string[] },
+  );
+const groupCitiesByRegion = (cities: Array<CatalogItem & { regionId: number }>, query: string) => {
+  const grouped = new Map<number, Array<CatalogItem & { regionId: number }>>();
+  cities
+    .filter((city) => !query || city.name.toLowerCase().includes(query))
+    .forEach((city) => {
+      grouped.set(city.regionId, [...(grouped.get(city.regionId) ?? []), city]);
+    });
+  return grouped;
+};
 const sortByName = <T extends { name: string }>(items: T[]) => [...items].sort((first, second) => first.name.localeCompare(second.name, "uk"));
 const vacancyLocationLabels = (vacancy: StudentVacancy, catalogs: VacancyCatalogs | null) => {
   const labels = vacancy.locations.map((item) => {
@@ -588,3 +657,4 @@ function ArrowIcon() { return <svg viewBox="0 0 24 24"><path d="m10 6 1.4 1.4L8.
 function SearchIcon() { return <svg viewBox="0 0 24 24"><path d="m21 19.6-5.2-5.2a7 7 0 1 0-1.4 1.4l5.2 5.2L21 19.6ZM5 10a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z" /></svg>; }
 function CloseIcon() { return <svg viewBox="0 0 24 24"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z" /></svg>; }
 function CheckIcon() { return <svg viewBox="0 0 24 24"><path d="m9 16.2-3.5-3.5L4 14.2 9 19 20.5 7.5 19 6 9 16.2Z" /></svg>; }
+function ChevronIcon() { return <svg viewBox="0 0 24 24"><path d="m7.4 8.6 4.6 4.6 4.6-4.6L18 10l-6 6-6-6 1.4-1.4Z" /></svg>; }

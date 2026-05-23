@@ -25,6 +25,7 @@ export type VacancySearchRequest = {
   professionIds?: unknown;
   companyIds?: unknown;
   sphereIds?: unknown;
+  countryIds?: unknown;
   regionIds?: unknown;
   cityIds?: unknown;
   workFormatIds?: unknown;
@@ -139,6 +140,7 @@ export class VacancySearchService {
       professionIds: this.numberList(query.professionIds),
       companyIds: this.stringList(query.companyIds),
       sphereIds: this.numberList(query.sphereIds),
+      countryIds: this.numberList(query.countryIds),
       regionIds: this.numberList(query.regionIds),
       cityIds: this.numberList(query.cityIds),
       workFormatIds: this.numberList(query.workFormatIds),
@@ -165,7 +167,10 @@ export class VacancySearchService {
       params.employmentTypeIds = this.mergeNumbers(params.employmentTypeIds, profile.employmentTypes.map((item) => item.employmentTypeId));
       params.workScheduleIds = this.mergeNumbers(params.workScheduleIds, profile.workSchedules.map((item) => item.workScheduleId));
       params.workFormatIds = this.mergeNumbers(params.workFormatIds, profile.workFormats.map((item) => item.workFormatId));
-      params.locationIds = profile.desiredLocations.map((item) => item.locationId);
+      const profileLocations = this.locationFiltersFromProfile(profile.desiredLocations);
+      params.countryIds = this.mergeNumbers(params.countryIds, profileLocations.countryIds);
+      params.regionIds = this.mergeNumbers(params.regionIds, profileLocations.regionIds);
+      params.cityIds = this.mergeNumbers(params.cityIds, profileLocations.cityIds);
       params.minSalary ??= profile.minSalary ?? null;
     }
 
@@ -233,6 +238,31 @@ export class VacancySearchService {
 
   private mergeNumbers(first: number[] = [], second: number[] = []) {
     return [...new Set([...first, ...second])];
+  }
+
+  private locationFiltersFromProfile(
+    desiredLocations: Array<{
+      location: {
+        countryId: number;
+        regionId?: number | null;
+        cityId?: number | null;
+      };
+    }>,
+  ) {
+    return desiredLocations.reduce(
+      (filters, item) => {
+        const location = item.location;
+        if (location.cityId) filters.cityIds.push(location.cityId);
+        else if (location.regionId) filters.regionIds.push(location.regionId);
+        else filters.countryIds.push(location.countryId);
+        return filters;
+      },
+      {
+        countryIds: [] as number[],
+        regionIds: [] as number[],
+        cityIds: [] as number[],
+      },
+    );
   }
 
   private clampPositiveInt(value: unknown, fallback: number, min: number, max: number) {
