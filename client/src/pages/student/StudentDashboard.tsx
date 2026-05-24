@@ -128,7 +128,7 @@ type StudentCatalogs = {
 };
 
 type VacancySearchMode = "regular" | "personalized";
-type VacancySortBy = "updatedAt" | "closingDate" | "title" | "salaryFrom";
+type VacancySortBy = "relevance" | "updatedAt" | "salaryFrom";
 type SortDirection = "asc" | "desc";
 type SkillWeight = "CRITICAL" | "IMPORTANT" | "NICE_TO_HAVE";
 type LanguageLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | "NATIVE";
@@ -196,9 +196,8 @@ const maxProfileLinks = 6;
 const maxSalaryInput = 9_999_999;
 const vacancyPageSizes = ["5", "10", "20"];
 const vacancySortOptions = [
+  { value: "relevance", label: "Релевантність" },
   { value: "updatedAt", label: "Оновлено" },
-  { value: "closingDate", label: "Дедлайн" },
-  { value: "title", label: "Назва" },
   { value: "salaryFrom", label: "Зарплата від" },
 ];
 const linkResources: LinkResource[] = [
@@ -246,7 +245,7 @@ export default function StudentDashboard() {
   const [vacancyLanguageId, setVacancyLanguageId] = useState<string | null>(null);
   const [vacancyLanguageLevel, setVacancyLanguageLevel] = useState<LanguageLevel>("A1");
   const [vacancyMinSalary, setVacancyMinSalary] = useState<number | null>(null);
-  const [vacancySortBy, setVacancySortBy] = useState<VacancySortBy>("updatedAt");
+  const [vacancySortBy, setVacancySortBy] = useState<VacancySortBy>("relevance");
   const [vacancySortDirection, setVacancySortDirection] = useState<SortDirection>("desc");
   const [vacancyPage, setVacancyPage] = useState(1);
   const [vacancyPageSize, setVacancyPageSize] = useState(10);
@@ -363,10 +362,10 @@ export default function StudentDashboard() {
     if (vacancyWorkScheduleIds.length) params.set("workScheduleIds", vacancyWorkScheduleIds.join(","));
     if (vacancyLanguageId) {
       params.set("languageId", vacancyLanguageId);
-      params.set("languageLevel", vacancyLanguageLevel);
+      params.set("minLanguageLevel", vacancyLanguageLevel);
     }
     if (vacancyMinSalary !== null) params.set("minSalary", String(vacancyMinSalary));
-    return `/vacancies/student?${params.toString()}`;
+    return `/vacancies/search?${params.toString()}`;
   };
 
   /** Завантажує студентський каталог вакансій. */
@@ -567,6 +566,7 @@ export default function StudentDashboard() {
     setNewLocation((current) => ({ countryId: current.countryId, regionId: 0, cityId: 0 }));
   };
 
+  /** Saves an education record from the resume editor form. */
   const saveEducation = () => runResume("education", educationEditId, {
     universityId: educationForm.universityId ? Number(educationForm.universityId) : null,
     customUniversityName: educationForm.universityId ? null : nullable(educationForm.customUniversityName || universityQuery),
@@ -583,6 +583,7 @@ export default function StudentDashboard() {
     return null;
   });
 
+  /** Saves a language proficiency record from the resume editor form. */
   const saveLanguage = () => runResume("languages", languageEditId, {
     languageId: Number(languageForm.languageId),
     level: languageForm.level,
@@ -592,6 +593,7 @@ export default function StudentDashboard() {
     return null;
   });
 
+  /** Saves a course record after validating its linked skills. */
   const saveCourse = () => {
     if (courseForm.skillIds.length < 1) return setBlockErrors((c) => ({ ...c, courses: ui.errors.courseRequired }));
     return runResume("courses", courseEditId, { ...courseForm, startDate: monthToDate(courseForm.startDate), endDate: courseForm.endDate ? monthToDate(courseForm.endDate) : null, certificateUrl: nullable(courseForm.certificateUrl), skillIds: courseForm.skillIds.map(Number) }, () => { setCourseForm(emptyCourse); setCourseEditId(null); }, () => {
@@ -600,6 +602,7 @@ export default function StudentDashboard() {
     });
   };
 
+  /** Saves a project record after validating its required data and skills. */
   const saveProject = () => {
     if (projectForm.skillIds.length < 3) return setBlockErrors((c) => ({ ...c, projects: ui.errors.projectRequired }));
     return runResume("projects", projectEditId, { ...projectForm, projectUrl: nullable(projectForm.projectUrl), skillIds: projectForm.skillIds.map(Number) }, () => { setProjectForm(emptyProject); setProjectEditId(null); }, () => {
@@ -608,6 +611,7 @@ export default function StudentDashboard() {
     });
   };
 
+  /** Saves an experience record after validating its required data and skills. */
   const saveExperience = () => {
     if (experienceForm.skillIds.length < 3) return setBlockErrors((c) => ({ ...c, experiences: ui.errors.experienceRequired }));
     return runResume("experiences", experienceEditId, { ...experienceForm, professionId: Number(experienceForm.professionId), sphereId: Number(experienceForm.sphereId), endDate: nullable(experienceForm.endDate), skillIds: experienceForm.skillIds.map(Number) }, () => { setExperienceForm(emptyExperience); setExperienceEditId(null); }, () => {
@@ -756,6 +760,7 @@ export default function StudentDashboard() {
   );
 }
 
+/** Renders the dashboard summary for the student's cabinet. */
 function DashboardTab({ profile, onOpenResume }: { profile: StudentProfile | null; onOpenResume: () => void }) {
   return (
     <>
@@ -774,6 +779,7 @@ function DashboardTab({ profile, onOpenResume }: { profile: StudentProfile | nul
   );
 }
 
+/** Renders vacancy search controls, results, paging and the selected vacancy. */
 function VacancyCatalogTab(props: {
   catalogs: StudentCatalogs | null;
   result: VacancySearchResponse | null;
@@ -852,7 +858,7 @@ function VacancyCatalogTab(props: {
         </div>
         <NumberInput label="Мін. зарплата" min={0} max={maxSalaryInput} step={1000} allowNegative={false} allowDecimal={false} clampBehavior="strict" value={filters.minSalary ?? undefined} onChange={(value) => setters.setMinSalary(normalizeMoneyInput(value))} />
         <Select label="Сортувати" data={vacancySortOptions} value={filters.sortBy} onChange={(value) => setters.setSortBy((value ?? "updatedAt") as VacancySortBy)} />
-        <Select label="Напрям" data={[{ value: "desc", label: "Спадання" }, { value: "asc", label: "Зростання" }]} value={filters.sortDirection} onChange={(value) => setters.setSortDirection((value ?? "desc") as SortDirection)} />
+        {filters.sortBy !== "relevance" && <Select label="Напрям" data={[{ value: "desc", label: "Спадання" }, { value: "asc", label: "Зростання" }]} value={filters.sortDirection} onChange={(value) => setters.setSortDirection((value ?? "desc") as SortDirection)} />}
       </div>
     </Paper>
     <InlineError message={error} />
@@ -869,6 +875,7 @@ function VacancyCatalogTab(props: {
   </>;
 }
 
+/** Renders one selectable vacancy card in the student catalog. */
 function VacancyCatalogCard({ entry, onOpen }: { entry: VacancySearchEntry; onOpen: (vacancyId: string) => void }) {
   const vacancy = entry.vacancy;
   const skills = primaryVacancySkills(vacancy);
@@ -899,6 +906,7 @@ function VacancyCatalogCard({ entry, onOpen }: { entry: VacancySearchEntry; onOp
   </Paper>;
 }
 
+/** Renders full details for the selected public vacancy. */
 function VacancyDetails({ entry, notice, onBack, onApply }: { entry: VacancySearchEntry; notice?: string | null; onBack: () => void; onApply: () => void }) {
   const vacancy = entry.vacancy;
   const skillGroups = groupVacancySkills(vacancy);
@@ -944,6 +952,7 @@ function VacancyDetails({ entry, notice, onBack, onApply }: { entry: VacancySear
   </div>;
 }
 
+/** Renders editable personal information and contact visibility controls. */
 function PersonalTab({ profile, form, setForm, error, saving, onSave }: any) {
   return (
     <>
@@ -998,6 +1007,7 @@ function PersonalTab({ profile, form, setForm, error, saving, onSave }: any) {
   );
 }
 
+/** Renders editable vacancy-search preferences stored in the profile. */
 function SearchTab(props: any) {
   const { form, setForm, options, countries, regions, cities, newLocation, setNewLocation, error, saving, onAddLocation, onSave } = props;
   return (
@@ -1036,6 +1046,7 @@ function SearchTab(props: any) {
   );
 }
 
+/** Renders resume sections and their edit actions. */
 function ResumeTab(props: any) {
   const { profile, personalForm, setPersonalForm, saveAboutInfo, options, universities, universityQuery, setUniversityQuery, forms, setters, edits, editIds, errors, saving, actions, clearError } = props;
   const { educationForm, languageForm, courseForm, projectForm, experienceForm } = forms;
@@ -1083,6 +1094,7 @@ function ResumeTab(props: any) {
   );
 }
 
+/** Renders and edits course or project competency records. */
 function CompetencySection({ type, title, description, items, form, setForm, edit, isEditing, error, saving, onSave, onDelete, options, clearError }: any) {
   const isCourse = type === "courses";
   const isProject = type === "projects";
@@ -1095,6 +1107,7 @@ function CompetencySection({ type, title, description, items, form, setForm, edi
   </FormSection>;
 }
 
+/** Renders and edits professional experience records. */
 function ExperienceSection({ form, setForm, items, options, edit, isEditing, error, saving, onSave, onDelete, clearError }: any) {
   return <FormSection title={ui.resume.experienceTitle} description={ui.resume.experienceDescription}>
     <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => <><strong>{formatDuration(i.startDate, i.endDate)}</strong> · {dateShort(i.startDate)} - {i.endDate ? dateShort(i.endDate) : ui.resume.now}<br />{i.profession?.name ?? ""} · {i.sphere?.name ?? ""}</>} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
@@ -1105,6 +1118,7 @@ function ExperienceSection({ form, setForm, items, options, edit, isEditing, err
   </FormSection>;
 }
 
+/** Renders a capped skill selector grouped by skill category. */
 function SmartSkillSelector({ value, onChange, options, max }: { value: string[]; onChange: (v: string[]) => void; options: Array<{ value: string; label: string; category?: string; name?: string }>; max: number }) {
   const [search, setSearch] = useState("");
   const selected = options.filter((option: any) => value.includes(option.value));
@@ -1116,11 +1130,13 @@ function SmartSkillSelector({ value, onChange, options, max }: { value: string[]
   })}</div></div>;
 }
 
+/** Renders editable resume records as a compact card list. */
 function RecordList({ items, title, meta, skills, links, onEdit, onDelete }: any) {
   if (!items.length) return <Text className={classes.muted}>{ui.resume.noRecords}</Text>;
   return <div className={classes.cardList}>{items.map((item: any) => <div key={item.id} className={classes.recordCard}><span className={classes.dragHandle}>⠿</span><div><Text className={classes.recordTitle}>{title(item)}</Text>{meta?.(item) && <Text className={classes.recordMeta}>{meta(item)}</Text>}{links?.(item)?.length > 0 && <div className={classes.urlList}>{links(item).map((link: { label: string; value: string }) => <AppTooltip key={`${link.label}-${link.value}`} label={link.value}><a className={classes.resourceLink} href={normalizeHref(link.value)} target="_blank" rel="noreferrer">{link.label}</a></AppTooltip>)}</div>}{skills && <SkillChips skills={skills(item)} />}</div><div className={classes.iconActions}><AppTooltip label={commonUi.actions.edit}><button className={classes.iconButton} onClick={() => onEdit(item)}><EditIcon /></button></AppTooltip><AppTooltip label={commonUi.actions.delete}><button className={`${classes.iconButton} ${classes.dangerIconButton}`} onClick={() => onDelete(item)}><TrashIcon /></button></AppTooltip></div></div>)}</div>;
 }
 
+/** Renders and edits profile resource links. */
 function LinkEditor({ links, setLinks }: { links: LinkItem[]; setLinks: (links: LinkItem[]) => void }) {
   const [error, setError] = useState<string | null>(null);
   const categoryOptions = [
@@ -1130,6 +1146,7 @@ function LinkEditor({ links, setLinks }: { links: LinkItem[]; setLinks: (links: 
     { value: "PORTFOLIO", label: ui.linksEditor.categories.portfolio },
     { value: "OTHER", label: ui.linksEditor.categories.other },
   ];
+  /** Appends one empty link field when the profile link limit allows it. */
   const add = () => {
     const last = links.at(-1);
     if (links.length >= maxProfileLinks) {
@@ -1162,6 +1179,7 @@ function LinkEditor({ links, setLinks }: { links: LinkItem[]; setLinks: (links: 
   })}<InlineError message={error} /><Button variant="light" onClick={add} disabled={links.length >= maxProfileLinks}>{ui.actions.addLink}</Button></Stack>;
 }
 
+/** Renders the profile visibility segmented selector. */
 function VisibilitySelector({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const items = [
     ["PUBLIC", ui.visibility.publicLabel, ui.visibility.publicText],
@@ -1171,26 +1189,32 @@ function VisibilitySelector({ value, onChange }: { value: string; onChange: (val
   return <div className={classes.visibilityOptions}>{items.map(([id, label, text]) => <label className={classes.visibilityOption} key={id}><Checkbox className={classes.visibilityCheckbox} checked={value === id} onChange={() => onChange(id)} label={<><Text fw={900}>{label}</Text><Text className={classes.muted}>{text}</Text></>} /></label>)}</div>;
 }
 
+/** Renders category-colored chips for a skill collection. */
 function SkillChips({ skills }: { skills: Skill[] }) {
   return <div className={classes.chips}>{skills.map((skill) => <span key={skill.id} className={`${classes.skillChip} ${skillClass(skill.category)}`}>{skill.name}</span>)}</div>;
 }
 
+/** Renders the heading and description of a cabinet tab. */
 function TabHeader({ title, description }: { title: string; description: string }) {
   return <div className={classes.tabHeader}><Title order={1} className={classes.tabTitle}>{title}</Title><Text className={classes.tabDescription}>{description}</Text></div>;
 }
 
+/** Renders a placeholder tab for cabinet sections without workflows yet. */
 function SimpleTab({ title, description }: { title: string; description: string }) {
   return <><TabHeader title={title} description={description} /><FormSection title={ui.simpleTab.soon} description={ui.simpleTab.description}><Text className={classes.muted}>{ui.simpleTab.text}</Text></FormSection></>;
 }
 
+/** Renders an inline error only when a message is present. */
 function InlineError({ message }: { message?: string | null }) {
   return message ? <div className={classes.inlineError}>{message}</div> : null;
 }
 
+/** Renders save and cancel actions for an editable form block. */
 function ActionButtons({ saving, isEditing, createLabel, onSave, onCancel }: { saving?: boolean; isEditing?: boolean; createLabel?: string; onSave: () => void; onCancel: () => void }) {
   return <div className={classes.formActions}><Button className={classes.fullButton} loading={saving} onClick={onSave}>{isEditing ? commonUi.actions.saveChanges : (createLabel ?? commonUi.actions.add)}</Button><Button className={classes.cancelButton} variant="light" onClick={onCancel}>{isEditing ? commonUi.actions.cancelChanges : commonUi.actions.clear}</Button></div>;
 }
 
+/** Combines user links with populated messenger contacts for persistence. */
 function buildLinks(form: { links: LinkItem[]; telegram: string; viber: string }): LinkItem[] {
   const links = form.links.filter((link) => link.linkName.trim() && link.value.trim());
   if (form.telegram.trim()) links.push({ linkType: "MESSENGER", linkName: "Telegram", value: form.telegram.trim() });
@@ -1198,16 +1222,19 @@ function buildLinks(form: { links: LinkItem[]; telegram: string; viber: string }
   return links;
 }
 
+/** Renders one labeled detail row when its value exists. */
 function InfoLine({ label, value }: { label: string; value?: string | null }) {
   return <div className={classes.infoLine}><span>{label}</span><strong>{value || "Не вказано"}</strong></div>;
 }
 
+/** Selects the most prominent skills to show on a vacancy card. */
 function primaryVacancySkills(vacancy: StudentVacancy) {
   return [...vacancy.skills]
     .sort((first, second) => skillWeightRank[second.weight] - skillWeightRank[first.weight] || skillCategoryRank(first.skill?.category) - skillCategoryRank(second.skill?.category))
     .slice(0, 5);
 }
 
+/** Groups vacancy skills into requirement weight categories. */
 function groupVacancySkills(vacancy: StudentVacancy) {
   const order = ["HARD_SKILL", "TOOL", "SOFT_SKILL"];
   return Object.entries(vacancy.skills.reduce<Record<string, StudentVacancy["skills"]>>((groups, item) => {
@@ -1223,6 +1250,7 @@ function groupVacancySkills(vacancy: StudentVacancy) {
     }));
 }
 
+/** Formats the vacancy salary interval for display. */
 function formatVacancySalary(vacancy: StudentVacancy) {
   if (!vacancy.minSalary && !vacancy.maxSalary) return null;
   const period = vacancy.salaryPeriod === "PER_HOUR" ? "грн/год" : "грн/міс";
@@ -1230,14 +1258,17 @@ function formatVacancySalary(vacancy: StudentVacancy) {
   return `${vacancy.minSalary ?? vacancy.maxSalary} ${period}`;
 }
 
+/** Extracts a compact visible location label for a vacancy. */
 function shortVacancyLocation(vacancy: StudentVacancy) {
   return vacancy.locations.length ? `${vacancy.locations.length} локац.` : "Локація не вказана";
 }
 
+/** Joins non-empty catalog labels for compact display. */
 function labelList(values: Array<string | null | undefined>) {
   return values.filter(Boolean).join(", ") || "Не вказано";
 }
 
+/** Defines visual ordering of skill categories. */
 function skillCategoryRank(category?: string | null) {
   if (category === "HARD_SKILL") return 1;
   if (category === "TOOL") return 2;
@@ -1245,6 +1276,7 @@ function skillCategoryRank(category?: string | null) {
   return 4;
 }
 
+/** Maps a skill category identifier to its localized label. */
 function skillCategoryLabel(category: string) {
   if (category === "HARD_SKILL") return "Hard Skills";
   if (category === "TOOL") return "Tools";
@@ -1258,18 +1290,28 @@ const skillWeightRank: Record<SkillWeight, number> = {
   NICE_TO_HAVE: 1,
 };
 
+/** Converts a catalog item into a Select option. */
 const asOption = (item: CatalogItem) => ({ value: String(item.id), label: item.name });
+/** Trims user-entered text before persistence. */
 const clean = (value: string) => value.trim();
+/** Converts empty optional text values to null. */
 const nullable = (value?: string | null) => value?.trim() || null;
+/** Clamps a monetary input to the accepted non-negative integer range. */
 const normalizeMoneyInput = (value: string | number) => {
   if (value === "" || typeof value !== "number" || Number.isNaN(value)) return null;
   return Math.min(Math.max(0, Math.trunc(value)), maxSalaryInput);
 };
+/** Formats an ISO date for short UI display. */
 const dateShort = (value: string) => dayjs(value).format("DD.MM.YYYY");
+/** Formats a date as month and year for resume records. */
 const monthShort = (value: string) => dayjs(value).format("MM.YYYY");
+/** Converts month-only picker values into ISO date input values. */
 const monthToDate = (value: string) => value.length === 7 ? `${value}-01` : value;
+/** Checks whether a profile resource looks like a public URL. */
 const isValidUrlLike = (value: string) => /^(https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,})/i.test(value.trim());
+/** Finds validation metadata for a named link resource. */
 const getLinkResource = (name: string) => linkResources.find((item) => item.name.toLowerCase() === name.trim().toLowerCase());
+/** Parses a profile resource URL for host-level validation. */
 const getLinkUrl = (value: string) => {
   const trimmed = value.trim();
   try {
@@ -1278,7 +1320,9 @@ const getLinkUrl = (value: string) => {
     return null;
   }
 };
+/** Checks whether a URL host belongs to one of the supported domains. */
 const linkHostMatches = (host: string, domains: string[]) => domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+/** Validates one typed profile resource link. */
 const validateProfileLink = (link: LinkItem) => {
   const errors = ui.errors as Record<string, string>;
   if (!link.linkType || !link.linkName.trim() || !link.value.trim()) return errors.linksRequired ?? ui.errors.links;
@@ -1291,10 +1335,15 @@ const validateProfileLink = (link: LinkItem) => {
   if (!url || !linkHostMatches(url.hostname.replace(/^www\./i, "").toLowerCase(), resource.domains)) return errors.linkDomainInvalid ?? ui.errors.links;
   return null;
 };
+/** Normalizes user links into browser-ready absolute URLs. */
 const normalizeHref = (value: string) => /^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim().replace(/^www\./i, "www.")}`;
+/** Produces readable plain text from rich text fragments. */
 const stripHtml = (value: string) => value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+/** Sorts dated records from newest to oldest. */
 const sortByDateDesc = <T extends Record<string, string>>(items: T[], key: keyof T) => [...items].sort((a, b) => dayjs(String(b[key])).valueOf() - dayjs(String(a[key])).valueOf());
+/** Sorts academic records from latest start year to earliest. */
 const sortByYearDesc = <T extends { startYear: number }>(items: T[]) => [...items].sort((a, b) => b.startYear - a.startYear);
+/** Formats the elapsed duration between two resume dates. */
 const formatDuration = (start: string, end?: string | null) => {
   const startDate = dayjs(start);
   const endDate = end ? dayjs(end) : dayjs();
@@ -1305,6 +1354,7 @@ const formatDuration = (start: string, end?: string | null) => {
   const days = Math.max(1, endDate.diff(startDate, "day"));
   return `${days} ${pluralUk(days, commonUi.duration.day)}`;
 };
+/** Chooses the Ukrainian plural form for a numeric value. */
 const pluralUk = (value: number, forms: string[]) => {
   const mod10 = value % 10;
   const mod100 = value % 100;
@@ -1312,9 +1362,13 @@ const pluralUk = (value: number, forms: string[]) => {
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
   return forms[2];
 };
+/** Maps an education degree identifier to its display label. */
 const degreeLabel = (degree: string) => ({ JUNIOR_BACHELOR: ui.degreeLabels.juniorBachelor, BACHELOR: ui.degreeLabels.bachelor, MASTER: ui.degreeLabels.master, PHD: ui.degreeLabels.phd, OTHER: ui.degreeLabels.other }[degree] ?? degree);
+/** Maps a language proficiency identifier to its display label. */
 const languageLevelLabel = (level: string) => cefrLevels.find((item) => item.value === level)?.label ?? level;
+/** Selects a chip style from a skill category. */
 const skillClass = (category: string) => category.toLowerCase().includes("soft") ? classes.soft : category.toLowerCase().includes("tool") ? classes.tools : classes.hard;
+/** Builds a visible location name from a location relation and catalogs. */
 function formatLocation(item: LocationJoin, catalogs: StudentCatalogs) {
   const label = [
     catalogs.countries.find((country) => country.id === item.location.countryId)?.name,
@@ -1323,14 +1377,24 @@ function formatLocation(item: LocationJoin, catalogs: StudentCatalogs) {
   ].filter(Boolean).join(", ");
   return label || ui.fallbacks.location;
 }
+/** Converts unknown API failures into a visible error message. */
 function getErrorMessage(error: unknown) { return error instanceof ApiError || error instanceof Error ? error.message : commonUi.messages.unknownError; }
 
+/** Renders the dashboard navigation icon. */
 function DashboardIcon() { return <svg viewBox="0 0 24 24"><path d="M4 13h7V4H4v9Zm0 7h7v-5H4v5Zm9 0h7v-9h-7v9Zm0-16v5h7V4h-7Z" /></svg>; }
+/** Renders the back navigation icon. */
 function ArrowIcon() { return <svg viewBox="0 0 24 24"><path d="m10 6 1.4 1.4L8.8 10H20v2H8.8l2.6 2.6L10 16l-5-5 5-5Z" /></svg>; }
+/** Renders the vacancies navigation icon. */
 function BriefcaseIcon() { return <svg viewBox="0 0 24 24"><path d="M9 6V4h6v2h5a2 2 0 0 1 2 2v4H2V8a2 2 0 0 1 2-2h5Zm2 0h2V5h-2v1ZM2 14h20v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4Z" /></svg>; }
+/** Renders the personal profile navigation icon. */
 function UserIcon() { return <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z" /></svg>; }
+/** Renders the resume navigation icon. */
 function ResumeIcon() { return <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z" /></svg>; }
+/** Renders the search navigation icon. */
 function SearchIcon() { return <svg viewBox="0 0 24 24"><path d="m21 19.6-5.2-5.2a7 7 0 1 0-1.4 1.4L19.6 21 21 19.6ZM5 10a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z" /></svg>; }
+/** Renders an informational status icon. */
 function InfoIcon() { return <svg viewBox="0 0 24 24"><path d="M11 17h2v-6h-2v6Zm1-14a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 16a7 7 0 1 1 0-14 7 7 0 0 1 0 14Zm-1-10h2V7h-2v2Z" /></svg>; }
+/** Renders the edit record icon. */
 function EditIcon() { return <svg viewBox="0 0 24 24"><path d="M4 17.25V20h2.75L17.8 8.95 15.05 6.2 4 17.25ZM19.7 7.05a1 1 0 0 0 0-1.4l-1.35-1.35a1 1 0 0 0-1.4 0l-1.05 1.05 2.75 2.75 1.05-1.05Z" /></svg>; }
+/** Renders the delete record icon. */
 function TrashIcon() { return <svg viewBox="0 0 24 24"><path d="M7 21a2 2 0 0 1-2-2V7h14v12a2 2 0 0 1-2 2H7ZM9 4h6l1 1h4v2H4V5h4l1-1Z" /></svg>; }

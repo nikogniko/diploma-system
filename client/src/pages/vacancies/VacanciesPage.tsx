@@ -178,7 +178,9 @@ export default function VacanciesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [filtersOpened, setFiltersOpened] = useState(false);
   const [isProfilePresetActive, setIsProfilePresetActive] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
+  /** Returns a Clerk token for authenticated API requests when available. */
   const tokenLoader = async () => (isSignedIn ? await getToken() : null);
 
   const options = useMemo(() => ({
@@ -197,6 +199,7 @@ export default function VacanciesPage() {
     role ??
     (typeof window !== "undefined" && user?.id ? localStorage.getItem(`currentRole:${user.id}`) ?? undefined : undefined);
 
+  /** Loads catalogs, public filter options, profile preferences and initial results. */
   const loadCatalogs = async () => {
     setError(null);
     setLoading(true);
@@ -218,6 +221,7 @@ export default function VacanciesPage() {
     }
   };
 
+  /** Builds a vacancy search endpoint URL from current page controls. */
   const buildPath = (state: FilterState, nextPage: number) => {
     const params = new URLSearchParams({
       page: String(nextPage),
@@ -243,6 +247,7 @@ export default function VacanciesPage() {
     return `/vacancies/search?${params.toString()}`;
   };
 
+  /** Loads one page of searchable vacancies from the backend. */
   const loadVacancies = async (state = filters, nextPage = page) => {
     setError(null);
     setSearching(true);
@@ -258,6 +263,7 @@ export default function VacanciesPage() {
     }
   };
 
+  /** Loads a public vacancy record for the details view. */
   const loadVacancyDetails = async (vacancyId: string) => {
     setError(null);
     setSearching(true);
@@ -273,6 +279,7 @@ export default function VacanciesPage() {
     }
   };
 
+  /** Opens a vacancy details route and fetches its data. */
   const openVacancy = async (nextVacancyId: string) => {
     navigate(`/vacancies/${nextVacancyId}`);
     await loadVacancyDetails(nextVacancyId);
@@ -292,11 +299,13 @@ export default function VacanciesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vacancyId, isSignedIn]);
 
+  /** Updates draft filter controls and exits profile-preset mode. */
   const updateDraft = (patch: Partial<FilterState>) => {
     setDraftFilters((current) => ({ ...current, ...(isProfilePresetActive ? { mode: "regular" as VacancySearchMode } : {}), ...patch }));
     setIsProfilePresetActive(false);
   };
 
+  /** Applies filters and starts search results at the first page. */
   const applyFilters = (state = draftFilters) => {
     setFilters(state);
     setPage(1);
@@ -304,6 +313,7 @@ export default function VacanciesPage() {
     void loadVacancies(state, 1);
   };
 
+  /** Resets all catalog controls and reloads the default results. */
   const clearFilters = () => {
     setFilters(defaultFilters);
     setDraftFilters(defaultFilters);
@@ -312,6 +322,7 @@ export default function VacanciesPage() {
     void loadVacancies(defaultFilters, 1);
   };
 
+  /** Fills search filters from the current student's preferences. */
   const applyProfilePreset = () => {
     if (effectiveRole !== "STUDENT" || !profile) {
       setNotice(ui.catalog.profileNotice);
@@ -351,7 +362,7 @@ export default function VacanciesPage() {
       </div>
 
       <div className={classes.toolbar}>
-        <TextInput className={classes.searchInput} value={draftFilters.search} onChange={(event) => updateDraft({ search: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") applyFilters(); }} placeholder={ui.catalog.searchPlaceholder} description={ui.catalog.searchHint} />
+        <TextInput className={classes.searchInput} value={draftFilters.search} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} onChange={(event) => updateDraft({ search: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") applyFilters(); }} placeholder={ui.catalog.searchPlaceholder} description={isSearchFocused ? ui.catalog.searchHint : undefined} />
         <Button leftSection={<SearchIcon />} onClick={() => applyFilters()} loading={searching}>{ui.catalog.search}</Button>
           <Button className={classes.filterButton} variant="light" onClick={() => setFiltersOpened(true)}><FilterIcon /><span className={classes.filterButtonText}>{ui.catalog.filters}</span></Button>
         <Button className={classes.iconOnlyButton} variant="subtle" onClick={clearFilters} aria-label={ui.catalog.clearFilters}><CloseIcon /></Button>
@@ -438,10 +449,12 @@ export default function VacanciesPage() {
   );
 }
 
+/** Renders a searchable multi-select group for a catalog filter. */
 function SearchableFilterGroup({ title, placeholder, values, options, onChange }: { title: string; placeholder: string; values: string[]; options: FilterOption[]; onChange: (values: string[]) => void }) {
   const [query, setQuery] = useState("");
   const visible = sortByName(options.filter((option) => option.name.toLowerCase().includes(query.trim().toLowerCase())));
   const selected = values.map((value) => options.find((option) => String(option.id) === value)).filter(Boolean) as FilterOption[];
+  /** Removes one selected value from this filter group. */
   const remove = (value: string) => onChange(values.filter((item) => item !== value));
   return (
     <div className={classes.filterGroup}>
@@ -455,6 +468,7 @@ function SearchableFilterGroup({ title, placeholder, values, options, onChange }
   );
 }
 
+/** Renders hierarchical region and city multi-select controls. */
 function LocationFilterGroup({
   regions,
   cities,
@@ -484,12 +498,17 @@ function LocationFilterGroup({
     return region.name.toLowerCase().includes(normalizedQuery) || Boolean(citiesByRegion.get(region.id)?.length);
   });
 
+  /** Toggles an identifier in a set of selected location ids. */
   const toggleValue = (values: string[], value: string) =>
     values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+  /** Toggles selection of one region. */
   const toggleRegion = (regionId: string) => onRegionChange(toggleValue(regionIds, regionId));
+  /** Toggles selection of one city. */
   const toggleCity = (cityId: string) => onCityChange(toggleValue(cityIds, cityId));
+  /** Expands or collapses cities under a region. */
   const toggleExpanded = (regionId: string) =>
     setExpandedRegionIds((current) => toggleValue(current, regionId));
+  /** Reports whether a region's city list should be visible. */
   const isExpanded = (regionId: string, hasMatchingCities: boolean) =>
     expandedRegionIds.includes(regionId) || (Boolean(normalizedQuery) && hasMatchingCities);
 
@@ -530,6 +549,7 @@ function LocationFilterGroup({
   );
 }
 
+/** Renders a compact checkbox group for short filter catalogs. */
 function CompactCheckGroup({ title, values, options, onChange }: { title: string; values: string[]; options: CatalogItem[]; onChange: (values: string[]) => void }) {
   return (
     <Checkbox.Group label={title} value={values} onChange={onChange}>
@@ -538,10 +558,12 @@ function CompactCheckGroup({ title, values, options, onChange }: { title: string
   );
 }
 
+/** Lets the user select languages together with minimum required levels. */
 function LanguageFilterEditor({ languages, values, onChange }: { languages: CatalogItem[]; values: Array<{ languageId: string; level: LanguageLevel }>; onChange: (values: Array<{ languageId: string; level: LanguageLevel }>) => void }) {
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState<LanguageLevel>("A1");
   const visible = sortByName(languages.filter((language) => language.name.toLowerCase().includes(query.trim().toLowerCase())));
+  /** Adds or updates one selected language requirement. */
   const addLanguage = (languageId: string) => {
     const next = values.filter((item) => item.languageId !== languageId);
     onChange([...next, { languageId, level }]);
@@ -557,6 +579,7 @@ function LanguageFilterEditor({ languages, values, onChange }: { languages: Cata
   );
 }
 
+/** Displays the full public preview for a selected vacancy. */
 function VacancyDetails({ entry, catalogs, role, notice, onBack, onApply }: { entry: VacancySearchEntry; catalogs: VacancyCatalogs | null; role?: string; notice?: string | null; onBack: () => void; onApply: () => void }) {
   const vacancy = entry.vacancy;
   const [isRecruiterOpen, setIsRecruiterOpen] = useState(false);
@@ -576,6 +599,7 @@ function VacancyDetails({ entry, catalogs, role, notice, onBack, onApply }: { en
   </div>;
 }
 
+/** Selects the highest-priority skills shown on a vacancy card. */
 function primaryVacancySkills(vacancy: StudentVacancy) {
   return [...vacancy.skills]
     .sort((first, second) => skillWeightRank[second.weight] - skillWeightRank[first.weight] || skillCategoryRank(first.skill?.category) - skillCategoryRank(second.skill?.category))
@@ -583,11 +607,16 @@ function primaryVacancySkills(vacancy: StudentVacancy) {
 }
 
 const skillWeightRank: Record<SkillWeight, number> = { CRITICAL: 3, IMPORTANT: 2, NICE_TO_HAVE: 1 };
+/** Orders skills consistently when their requirement weights match. */
 const skillCategoryRank = (category?: string | null) => category === "HARD_SKILL" ? 1 : category === "TOOL" ? 2 : category === "SOFT_SKILL" ? 3 : 4;
+/** Formats a language proficiency enum for display. */
 const languageLevelLabel = (level: string) => level === "NATIVE" ? ui.details.nativeLanguage : level;
+/** Resolves a catalog identifier into its human-readable name. */
 const findName = (items: CatalogItem[], id: string | number) => items.find((item) => String(item.id) === String(id))?.name ?? "";
+/** Resolves selected location ids into their catalog records. */
 const selectedLocationItems = <T extends CatalogItem>(items: T[], values: string[]) =>
   values.map((value) => items.find((item) => String(item.id) === value)).filter(Boolean) as T[];
+/** Derives selectable region and city filters from a student profile. */
 const locationFiltersFromProfile = (
   desiredLocations: StudentProfile["desiredLocations"],
 ) =>
@@ -600,6 +629,7 @@ const locationFiltersFromProfile = (
     },
     { regionIds: [] as string[], cityIds: [] as string[] },
   );
+/** Groups visible cities by their parent region for the location tree. */
 const groupCitiesByRegion = (cities: Array<CatalogItem & { regionId: number }>, query: string) => {
   const grouped = new Map<number, Array<CatalogItem & { regionId: number }>>();
   cities
@@ -609,7 +639,9 @@ const groupCitiesByRegion = (cities: Array<CatalogItem & { regionId: number }>, 
     });
   return grouped;
 };
+/** Sorts named catalog items using Ukrainian locale order. */
 const sortByName = <T extends { name: string }>(items: T[]) => [...items].sort((first, second) => first.name.localeCompare(second.name, "uk"));
+/** Creates concise location labels for a vacancy card or preview. */
 const vacancyLocationLabels = (vacancy: StudentVacancy, catalogs: VacancyCatalogs | null) => {
   const labels = vacancy.locations.map((item) => {
     const location = item.location;
@@ -620,10 +652,13 @@ const vacancyLocationLabels = (vacancy: StudentVacancy, catalogs: VacancyCatalog
   }).filter(Boolean) as string[];
   return labels.length ? [...new Set(labels)].slice(0, 3) : [ui.card.locationFallback];
 };
+/** Normalizes salary input to an optional bounded integer. */
 const normalizeMoneyInput = (value: string | number) => value === "" || typeof value !== "number" || Number.isNaN(value) ? null : Math.min(Math.max(0, Math.trunc(value)), maxSalaryInput);
+/** Formats the active sorting mode for accessible control labeling. */
 const sortLabel = (filters: FilterState) => filters.sortBy === "relevance"
   ? `${ui.catalog.sort.relevance} · ${ui.catalog.relevanceFirst}`
   : `${sortOptions.find((item) => item.value === filters.sortBy)?.label ?? ui.catalog.sortFallback} · ${filters.sortDirection === "asc" ? ui.catalog.sortLabelAsc : ui.catalog.sortLabelDesc}`;
+/** Normalizes API and runtime errors into visible copy. */
 const getErrorMessage = (error: unknown) => error instanceof ApiError || error instanceof Error ? error.message : messages.common.messages.unknownError;
 const statusLabels: Record<NonNullable<StudentVacancy["status"]>, string> = {
   DRAFT: ui.statuses.DRAFT,
@@ -632,6 +667,7 @@ const statusLabels: Record<NonNullable<StudentVacancy["status"]>, string> = {
   CLOSED: ui.statuses.CLOSED,
   ARCHIVED: ui.statuses.ARCHIVED,
 };
+/** Resolves a vacancy status enum into its localized label. */
 const statusLabel = (status: NonNullable<StudentVacancy["status"]>) => statusLabels[status] ?? status;
 const recruiterPreviewLabels = {
   company: ui.common.company,
@@ -644,6 +680,7 @@ const recruiterPreviewLabels = {
   emptyVacancies: ui.common.emptyVacancies,
   copy: ui.common.copy,
 };
+/** Maps vacancy recruiter data into the shared public preview DTO. */
 function buildRecruiterPreviewFromVacancy(vacancy: StudentVacancy): RecruiterPublicPreviewData | null {
   if (!vacancy.hrProfile) return null;
   return {
@@ -656,15 +693,23 @@ function buildRecruiterPreviewFromVacancy(vacancy: StudentVacancy): RecruiterPub
     createdAt: vacancy.hrProfile.user?.createdAt,
   };
 }
+/** Builds a display name for the vacancy recruiter. */
 function formatRecruiterName(user?: VacancyRecruiterUser) {
   const value = [user?.lastName, user?.firstName, user?.middleName].filter(Boolean).join(" ").trim();
   return value || ui.common.recruiter;
 }
 
+/** Renders the filter toolbar icon. */
 function FilterIcon() { return <svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" /></svg>; }
+/** Renders the sorting toolbar icon. */
 function SortIcon() { return <svg viewBox="0 0 24 24"><path d="M7 4h2v12l3-3 1.4 1.4L8 20l-5.4-5.6L4 13l3 3V4Zm10 0 5.4 5.6L21 11l-3-3v12h-2V8l-3 3-1.4-1.4L17 4Z" /></svg>; }
+/** Renders the back-navigation icon. */
 function ArrowIcon() { return <svg viewBox="0 0 24 24"><path d="m10 6 1.4 1.4L8.8 10H20v2H8.8l2.6 2.6L10 16l-5-5 5-5Z" /></svg>; }
+/** Renders the search action icon. */
 function SearchIcon() { return <svg viewBox="0 0 24 24"><path d="m21 19.6-5.2-5.2a7 7 0 1 0-1.4 1.4l5.2 5.2L21 19.6ZM5 10a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z" /></svg>; }
+/** Renders the remove or clear icon. */
 function CloseIcon() { return <svg viewBox="0 0 24 24"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z" /></svg>; }
+/** Renders the selected-option icon. */
 function CheckIcon() { return <svg viewBox="0 0 24 24"><path d="m9 16.2-3.5-3.5L4 14.2 9 19 20.5 7.5 19 6 9 16.2Z" /></svg>; }
+/** Renders the location expansion icon. */
 function ChevronIcon() { return <svg viewBox="0 0 24 24"><path d="m7.4 8.6 4.6 4.6 4.6-4.6L18 10l-6 6-6-6 1.4-1.4Z" /></svg>; }

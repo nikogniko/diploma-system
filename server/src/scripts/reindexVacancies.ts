@@ -7,6 +7,7 @@ import {
 import { getElasticsearchClient } from "../search/elasticsearchClient.js";
 import { vacancyRepository } from "../repositories/VacancyRepository.js";
 
+/** Rebuilds vacancy search documents from the PostgreSQL source of truth. */
 const main = async () => {
   const index = await ensureVacanciesIndex();
   const vacancies = await vacancyRepository.listVacanciesForSearchIndex();

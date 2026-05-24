@@ -72,6 +72,7 @@ const textField = {
   },
 } as const;
 
+/** Creates the denormalized vacancy index and mapping when it is absent. */
 export const ensureVacanciesIndex = async () => {
   const client = getElasticsearchClient();
   const index = vacanciesIndexName();
@@ -132,6 +133,7 @@ export const ensureVacanciesIndex = async () => {
   return index;
 };
 
+/** Converts a relational Prisma vacancy record into one search-index document. */
 export const buildVacancySearchDocument = (vacancy: VacancyForSearchIndex): VacancySearchDocument => {
   const skillNames = vacancy.skills.map((item) => item.skill.name);
 
@@ -177,6 +179,7 @@ export const buildVacancySearchDocument = (vacancy: VacancyForSearchIndex): Vaca
   };
 };
 
+/** Selects names of vacancy skills assigned to a requirement priority. */
 const skillNamesByWeight = (
   vacancy: VacancyForSearchIndex,
   weight: RequirementWeight,

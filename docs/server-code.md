@@ -244,7 +244,7 @@ Backend - Express API. Основний потік: route → controller → ser
 
 ### `VacancyMatchingService.ts`
 
-- `normalizeVacancyRequirements(vacancy: VacancyForMatching)` - формує normalized requirements для майбутнього matching.
+- `normalizeVacancyRequirements(vacancy: VacancyForMatching)` - формує normalized requirements для обчислення відповідності вакансії.
 - `requirementWeightScore` - scoring map для `RequirementWeight`.
 - Summary: підготовка вакансії до matching, поки без повного matching pipeline.
 
@@ -339,20 +339,21 @@ Backend - Express API. Основний потік: route → controller → ser
 
 `server/src` має правильний для MVP поділ на routes/controllers/services/repositories. Найближчий борг - винести повторні validators/auth helpers у shared utilities, додати public endpoints для компанії/рекрутера/вакансій, коли preview стане публічним продуктово.
 
-## Оновлення: Студентський Каталог Вакансій
+## Студентський Каталог Вакансій
 
 ### `server/src/routes/vacancyRoutes.ts`
 
-- Додано `GET /api/vacancies/student` для списку активних вакансій.
-- Додано `GET /api/vacancies/student/:vacancyId` для перегляду однієї активної вакансії.
-- HR endpoints `/api/vacancies/my-cabinet*` не змінювалися.
+- `GET /api/vacancies/search` повертає список активних вакансій із пошуком, фільтрами, сортуванням і пагінацією.
+- `GET /api/vacancies/student/filter-options` повертає додаткові значення фільтрів студентського каталогу.
+- `GET /api/vacancies/student/:vacancyId` повертає одну видиму вакансію для перегляду.
+- `/api/vacancies/my-cabinet*` обслуговують керування вакансіями роботодавця.
 
 ### `server/src/controllers/VacancyController.ts`
 
-#### `listStudentVacancies(req, res, next)`
+#### `searchVacancies(req, res, next)`
 
 - Призначення: приймає query каталогу вакансій для студента.
-- Params: `page`, `pageSize`, `search`, `professionId`, `sphereIds`, `workFormatIds`, `employmentTypeIds`, `workScheduleIds`, `languageId`, `languageLevel`, `minSalary`, `sortBy`, `sortDirection`, `mode`.
+- Params: `page`, `pageSize`, `search`, `professionIds`, `companyIds`, `sphereIds`, `countryIds`, `regionIds`, `cityIds`, `locationIds`, `workFormatIds`, `employmentTypeIds`, `workScheduleIds`, пари `languageId` + `minLanguageLevel`, `minSalary`, `sortBy`, `sortDirection`, `mode`.
 - Повертає: `items`, `page`, `pageSize`, `totalItems`, `totalPages`.
 - Викликає: `vacancySearchService.searchVacancies`.
 
@@ -371,24 +372,26 @@ Backend - Express API. Основний потік: route → controller → ser
 - Методи:
   - `searchVacancies(query: VacancySearchRequest = {}, clerkUserId?: string | null)` - regular/personalized search, фільтри, сортування, пагінація.
   - `getActiveVacancy(vacancyId: string)` - повертає публічно видиму вакансію: активну з актуальним дедлайном або призупинену.
-  - `getIndexMappingDraft()` - описує fields майбутнього Elasticsearch index.
-- Fallback: Elasticsearch контейнер є у `docker-compose.yml`, але клієнта/config/indexing pipeline у коді немає, тому сервіс використовує БД через `VacancyRepository`.
+  - `getIndexMappingDraft()` - описує денормалізовані fields документа індексу вакансій.
+- Elasticsearch flow: якщо `ELASTICSEARCH_ENABLED=true` і вузол доступний, сервіс виконує text search та strict filters в індексі `${ELASTICSEARCH_INDEX_PREFIX}_vacancies`, після чого завантажує публічні записи вакансій через Prisma.
+- Fallback: якщо Elasticsearch вимкнений, недоступний або повертає помилку, сервіс виконує пошук через `VacancyRepository`, а PostgreSQL лишається source of truth.
 - Personalized mode: бере з профілю студента бажані професії, формати, типи зайнятості, графіки, локації і мінімальну зарплату.
 - Placeholder: `matchScore` і `matchExplanation` повертаються як `null`; frontend їх не показує.
-- Підготовлені поля індексу: `id`, `title`, `description`, `status`, `closingDate`, `updatedAt`, `professionId`, `professionName`, `sphereIds`, `workFormatIds`, `employmentTypeIds`, `workScheduleIds`, `languageRequirements`, `skillRequirements`, `minSalary`, `maxSalary`, `companyId`, `companyName`, `locationIds`.
+- Search parser: звичайні слова є soft OR terms, терми з префіксом `*` є required terms, а `+` використовується тільки як роздільник.
+- Поля індексу: `id`, `title`, `description`, `status`, `closingDate`, `createdAt`, `updatedAt`, `professionId`, `professionName`, `companyId`, `companyName`, `sphereIds`, `sphereNames`, `workFormats`, `employmentTypes`, `workSchedules`, `languageRequirements`, `skillNames`, `criticalSkillNames`, `importantSkillNames`, `plusSkillNames`, `salaryFrom`, `salaryTo`, `locationIds`, `countryIds`, `regionIds`, `cityIds`.
 
 ### `server/src/repositories/VacancyRepository.ts`
 
-- Додано `listPublicActiveVacancies(params)`.
-- Додано `listPublicCompanyVacancies(companyId)` для сторінки компанії; повертає `ACTIVE` і `PAUSED`.
-- Додано `findPublicVisibleVacancyById(vacancyId, today)`.
+- `listPublicActiveVacancies(params)` виконує Prisma fallback пошуку активних актуальних вакансій.
+- `listPublicCompanyVacancies(companyId)` повертає `ACTIVE` і `PAUSED` вакансії для сторінки компанії.
+- `findPublicVisibleVacancyById(vacancyId, today)` повертає вакансію для публічного перегляду.
 - Бізнес-обмеження студентського каталогу на repository/service рівні: search list повертає `status = ACTIVE` і `closingDate >= today`; detail view також відкриває `PAUSED`, якщо користувач прийшов зі сторінки компанії.
-## Оновлення пошуку вакансій
+## Пошук Вакансій
 
 ### `server/src/services/VacancySearchService.ts`
 
 - Пошук активних вакансій підтримує `professionIds` як список професій поряд зі старим одиничним `professionId`.
-- Personalized mode для студентів тепер заповнює список професій з `desiredProfessions`, а не лише першу професію.
+- Personalized mode для студентів формує список професій з `desiredProfessions`.
 - Summary: backend готовий до multi-select професій у спільному каталозі `/vacancies`.
 
 ### `server/src/repositories/VacancyRepository.ts`

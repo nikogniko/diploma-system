@@ -35,7 +35,7 @@ export const getVacancyCatalogs = async (req: Request, res: Response, next: Next
 };
 
 /** Повертає активні вакансії для студентського каталогу. */
-export const listStudentVacancies = async (req: Request, res: Response, next: NextFunction) => {
+export const searchVacancies = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getAuth(req);
     const result = await vacancySearchService.searchVacancies(req.query, userId);

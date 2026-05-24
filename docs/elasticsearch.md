@@ -58,7 +58,11 @@ Example text search through the backend:
 curl "http://localhost:5000/api/vacancies/search?search=React&page=1&pageSize=10"
 ```
 
-The `search` value is free text. The backend accepts terms separated with spaces, commas, plus signs or semicolons, removes duplicates and common linking words, then builds an OR-style relevance query.
+The `search` value is free text. The backend accepts terms separated with spaces, commas, plus signs or semicolons, removes duplicates and common linking words, then builds a relevance query. Ordinary terms are soft OR terms. A term prefixed with `*`, for example `*Trainee`, must match at least one searchable field. The `+` character is only a separator.
+
+Searchable fields are boosted in this order: `title`; skill fields (`criticalSkillNames`, `importantSkillNames`, `plusSkillNames`, `skillNames`); `professionName`; `sphereNames`; `description`; `companyName`.
+
+With text search, `sortBy=relevance` ranks by Elasticsearch `_score` and then `updatedAt`. For `sortBy=updatedAt` or `sortBy=salaryFrom`, the requested field is primary and `_score` is a tie-breaker. Without text search, relevance is normalized to `updatedAt desc`.
 
 ## Thunder Client Requests
 
@@ -67,6 +71,7 @@ Create `GET` requests in Thunder Client against the backend:
 ```text
 http://localhost:5000/api/vacancies/search?page=1&pageSize=10
 http://localhost:5000/api/vacancies/search?search=React&page=1&pageSize=10
+http://localhost:5000/api/vacancies/search?search=JavaScript%20%2AMiddle&sortBy=relevance&page=1&pageSize=10
 http://localhost:5000/api/vacancies/search?search=розробник%20React%20trainee%20робота%20в%20команді&page=1&pageSize=10
 http://localhost:5000/api/vacancies/search?search=React%2BNode.js%3BSQL&page=1&pageSize=10
 http://localhost:5000/api/vacancies/search?professionIds=3&sphereIds=10&minSalary=30000&page=1&pageSize=10

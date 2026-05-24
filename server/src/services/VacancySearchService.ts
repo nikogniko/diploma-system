@@ -72,11 +72,13 @@ const languageRank: LanguageLevel[] = [
 const ignoredSearchTerms = new Set(["в", "у", "і", "й", "та", "на", "з", "до", "для", "a", "an", "the", "and", "in", "for", "of"]);
 
 export class VacancySearchService {
+  /** Creates the search service with database-backed vacancy and student access. */
   constructor(
     private readonly vacancies: VacancyRepository = vacancyRepository,
     private readonly students: StudentProfileRepository = studentProfileRepository,
   ) {}
 
+  /** Searches student-visible vacancies through Elasticsearch with Prisma fallback. */
   async searchVacancies(query: VacancySearchRequest = {}, clerkUserId?: string | null) {
     const mode = this.normalizeMode(query.mode);
     const params = await this.buildSearchParams(query, mode, clerkUserId);
@@ -92,6 +94,7 @@ export class VacancySearchService {
     };
   }
 
+  /** Returns one student-visible vacancy for the public preview. */
   async getActiveVacancy(vacancyId: string) {
     const vacancy = await this.vacancies.findPublicVisibleVacancyById(vacancyId, this.todayDateOnly());
     if (!vacancy) {
@@ -104,12 +107,14 @@ export class VacancySearchService {
     };
   }
 
+  /** Returns dynamic company options available in the vacancy catalog. */
   async getPublicFilterOptions() {
     return {
       companies: await this.vacancies.listPublicActiveVacancyCompanies(this.todayDateOnly()),
     };
   }
 
+  /** Describes denormalized fields held by the vacancy search document. */
   getIndexMappingDraft() {
     return {
       index: vacanciesIndexName(),
@@ -145,6 +150,7 @@ export class VacancySearchService {
     };
   }
 
+  /** Normalizes query values and applies personalized profile constraints. */
   private async buildSearchParams(
     query: VacancySearchRequest,
     mode: SearchMode,
@@ -201,6 +207,7 @@ export class VacancySearchService {
     return params;
   }
 
+  /** Uses Elasticsearch when available and recovers through Prisma otherwise. */
   private async searchWithPreferredBackend(params: PublicVacancyListParams) {
     if (await isElasticsearchAvailable()) {
       try {
@@ -213,6 +220,7 @@ export class VacancySearchService {
     return this.vacancies.listPublicActiveVacancies(params);
   }
 
+  /** Runs index search and hydrates ordered result ids with current Prisma records. */
   private async searchWithElasticsearch(params: PublicVacancyListParams) {
     const response = await getElasticsearchClient().search<{ id: string }>({
       index: vacanciesIndexName(),
@@ -245,6 +253,7 @@ export class VacancySearchService {
     };
   }
 
+  /** Builds strict filters plus boosted soft and required full-text clauses. */
   private elasticsearchQuery(params: PublicVacancyListParams): estypes.QueryDslQueryContainer {
     const filter: estypes.QueryDslQueryContainer[] = [
       { term: { status: ListingStatus.ACTIVE } },
@@ -314,6 +323,7 @@ export class VacancySearchService {
     };
   }
 
+  /** Builds relevance-first or explicitly requested Elasticsearch sorting. */
   private elasticsearchSort(params: PublicVacancyListParams): estypes.Sort {
     if (params.sortBy === "relevance" && params.search) {
       return [{ _score: { order: "desc" } }, { updatedAt: { order: "desc" } }];
@@ -325,10 +335,12 @@ export class VacancySearchService {
     ];
   }
 
+  /** Resolves catalog mode to its supported value. */
   private normalizeMode(value: unknown): SearchMode {
     return value === "personalized" ? "personalized" : "regular";
   }
 
+  /** Resolves sort mode, using relevance only for non-empty text queries. */
   private normalizeSortBy(value: unknown, hasSearch: boolean): PublicVacancySortBy {
     const allowed: PublicVacancySortBy[] = ["relevance", "updatedAt", "salaryFrom"];
     if (typeof value === "string" && allowed.includes(value as PublicVacancySortBy)) {
@@ -337,6 +349,7 @@ export class VacancySearchService {
     return hasSearch ? "relevance" : "updatedAt";
   }
 
+  /** Splits free text into deduplicated soft and `*`-required search terms. */
   private parseSearchQuery(value: unknown): ParsedSearchQuery {
     if (typeof value !== "string") return { normalizedText: null, softTerms: [], requiredTerms: [] };
 
@@ -372,6 +385,7 @@ export class VacancySearchService {
     };
   }
 
+  /** Creates one boosted multi-field relevance clause for a term. */
   private elasticsearchTermQuery(term: string): estypes.QueryDslQueryContainer {
     return {
       multi_match: {
@@ -393,6 +407,7 @@ export class VacancySearchService {
     };
   }
 
+  /** Parses an optional positive integer query parameter. */
   private optionalNumber(value: unknown): number | null {
     if (Array.isArray(value)) return this.optionalNumber(value[0]);
     if (value === undefined || value === null || value === "") return null;
@@ -400,16 +415,19 @@ export class VacancySearchService {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
+  /** Parses and deduplicates positive integer query-list parameters. */
   private numberList(...values: unknown[]) {
     const raw = values.flatMap((value) => Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : []);
     return [...new Set(raw.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0))];
   }
 
+  /** Parses and deduplicates non-empty string query-list parameters. */
   private stringList(value: unknown) {
     const raw = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
     return [...new Set(raw.map((item) => String(item).trim()).filter(Boolean))];
   }
 
+  /** Pairs language ids with accepted proficiency levels at or above minimums. */
   private languageFilters(languageIds: unknown, minimumLevels: unknown) {
     const ids = this.numberList(languageIds);
     const levels = Array.isArray(minimumLevels)
@@ -427,24 +445,29 @@ export class VacancySearchService {
     });
   }
 
+  /** Resolves a language-level input to a supported CEFR value. */
   private normalizeLanguageLevel(value: unknown) {
     return typeof value === "string" && Object.values(LanguageLevel).includes(value as LanguageLevel)
       ? value as LanguageLevel
       : LanguageLevel.A1;
   }
 
+  /** Returns all language levels satisfying the requested minimum. */
   private levelsAtLeast(level: LanguageLevel) {
     return languageRank.slice(languageRank.indexOf(level));
   }
 
+  /** Converts language level into its sortable numeric rank. */
   private languageLevelRank(level: LanguageLevel) {
     return languageRank.indexOf(level) + 1;
   }
 
+  /** Combines numeric filter selections without duplicate ids. */
   private mergeNumbers(first: number[] = [], second: number[] = []) {
     return [...new Set([...first, ...second])];
   }
 
+  /** Extracts country, region and city constraints from saved locations. */
   private locationFiltersFromProfile(
     desiredLocations: Array<{
       location: {
@@ -470,12 +493,14 @@ export class VacancySearchService {
     );
   }
 
+  /** Bounds pagination integers to supported request limits. */
   private clampPositiveInt(value: unknown, fallback: number, min: number, max: number) {
     const parsed = Number(value);
     if (!Number.isInteger(parsed)) return fallback;
     return Math.min(Math.max(parsed, min), max);
   }
 
+  /** Returns today's local date at midnight for vacancy expiry checks. */
   private todayDateOnly() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

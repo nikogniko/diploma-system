@@ -90,6 +90,7 @@ export const vacancyInclude = {
 } satisfies Prisma.VacancyInclude;
 
 export class VacancyRepository {
+  /** Creates a vacancy persistence adapter over the provided Prisma client. */
   constructor(private readonly db: DbClient = prisma) {}
 
   /** Створює базовий запис вакансії без M:N зв'язків. */
@@ -194,7 +195,7 @@ export class VacancyRepository {
     });
   }
 
-  /** Returns public vacancies by ids; caller can restore external ranking order. */
+  /** Returns public vacancies by ids; caller restores external ranking order. */
   async findPublicActiveVacanciesByIds(vacancyIds: string[], today: Date) {
     if (vacancyIds.length === 0) return [];
     return this.db.vacancy.findMany({
@@ -322,6 +323,7 @@ export class VacancyRepository {
     return { AND: andFilters };
   }
 
+  /** Builds OR-able Prisma conditions for one normalized text search term. */
   private searchFieldConditions(term: string): Prisma.VacancyWhereInput[] {
     return [
       { title: { contains: term, mode: "insensitive" } },

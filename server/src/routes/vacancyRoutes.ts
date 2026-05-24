@@ -7,7 +7,7 @@ import {
   getStudentVacancyFilterOptions,
   getMyVacancy,
   getVacancyCatalogs,
-  listStudentVacancies,
+  searchVacancies,
   listMyVacancies,
   updateVacancy,
 } from "../controllers/VacancyController.js";
@@ -15,8 +15,7 @@ import {
 const router = Router();
 
 router.get("/catalogs", getVacancyCatalogs);
-router.get("/search", listStudentVacancies);
-router.get("/student", listStudentVacancies);
+router.get("/search", searchVacancies);
 router.get("/student/filter-options", getStudentVacancyFilterOptions);
 router.get("/student/:vacancyId", getStudentVacancy);
 router.get("/my-cabinet", listMyVacancies);

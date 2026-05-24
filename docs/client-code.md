@@ -270,7 +270,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 - Призначення: стилі HR-кабінету.
 - Важливі блоки: форми, profile/company preview, vacancy preview, таблиця.
-- Поточна правка: таблиця повернена на `table-layout: auto`; колонку умов прибрано; перша колонка обмежена шириною і переносить довгі назви без tooltip; остання колонка дій не приховується; responsive rules приховують тільки необов'язкові колонки справа наліво.
+- Таблиця використовує `table-layout: auto`; колонки умов немає; перша колонка обмежена шириною і переносить довгі назви без tooltip; остання колонка дій завжди видима; responsive rules приховують тільки необов'язкові колонки справа наліво.
 - Summary: містить responsive rules і UI-стани HR dashboard.
 
 ## `client/src/pages/student`
@@ -337,7 +337,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 `client/src` має зрозумілий MVP-поділ на pages/components/layouts/api/utils. Основний борг - надмірно великі dashboard-файли і відсутність domain-specific API service wrappers, але це не блокує дипломний MVP.
 
-## Оновлення: Студентський Каталог Вакансій
+## Студентський Каталог Вакансій
 
 ### `client/src/pages/student/StudentDashboard.tsx`
 
@@ -346,7 +346,8 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Призначення: вкладка “Вакансії” у кабінеті студента.
 - Props: catalogs, result, selected vacancy, loading/error/notice, filters, setters, callbacks.
 - Приймає фільтри: search, profession, spheres, work formats, employment types, schedules, language + minimum level, min salary, sortBy, sortDirection, pageSize.
-- Викликає: `GET /vacancies/student`.
+- Поле `search` показує підказку про required-терм `*Trainee` тільки під час фокусу вводу.
+- Викликає: `GET /vacancies/search`.
 - Режими: `regular` і `personalized`.
 - Побічні ефекти: network request через callbacks, зміна local state.
 
@@ -374,14 +375,14 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 ### `client/src/pages/student/StudentDashboard.module.scss`
 
-- Додано стилі каталогу: фільтри, картки, responsive grid, detail-view, empty/loading/error states.
+- Стилі каталогу охоплюють фільтри, картки, responsive grid, detail-view, empty/loading/error states.
 - Фільтри перебудовуються в одну колонку на mobile.
 - Картка стримана: інформація стисла, без перевантаження badge-плашками.
 
 ### `client/src/pages/hr/HrDashboard.module.scss`
 
 - У таблиці управління вакансіями перша колонка зменшена та обмежена (`28%`, `max-width: 20rem`).
-- Додано відступ між назвою вакансії і професією.
+- Між назвою вакансії і професією передбачений відступ.
 - Дедлайн повернуто як видиму колонку після “Оновлено” на звичайних ширинах.
 - Службові колонки лишаються content-sized; перша й остання колонки не приховуються.
 ## `client/src/pages/vacancies`
@@ -393,12 +394,12 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Призначення: окрема спільна сторінка `/vacancies` з верхньої навігації сайту.
 - Props: не приймає.
 - Повертає: каталог активних вакансій, бічну панель фільтрів, сортування, пагінацію та режим перегляду вакансії.
-- API calls: `GET /catalogs/student-cabinet`, `GET /vacancies/student`, `GET /vacancies/student/:vacancyId`; для студента додатково `GET /students/my-cabinet`, щоб заповнити фільтри з профілю.
+- API calls: `GET /catalogs/student-cabinet`, `GET /vacancies/search`, `GET /vacancies/student/filter-options`, `GET /vacancies/student/:vacancyId`; для студента також `GET /students/my-cabinet`, щоб заповнити фільтри з профілю.
 - Методи: `loadCatalogs()`, `buildPath(state, nextPage)`, `loadVacancies(state, nextPage)`, `openVacancy(vacancyId)`, `updateDraft(patch)`, `applyFilters(state)`, `clearFilters()`, `applyProfilePreset()`.
 - Фільтри: великі категорії мають власний пошук, плашки обраних значень і обмежений список зі скролом; компанії завантажуються з активних вакансій; локації показуються деревом область → міста, де область і кожне місто можна обирати незалежно; мови додаються парами `мова-рівень`.
 - Персональний підбір: тумблер одноразово заповнює професії, формати, типи зайнятості, графіки, мови та зарплату з профілю студента і запускає пошук; після ручного редагування наступний пошук стає regular.
 - Картка: контейнер звужений, опис лишається обрізаним, локації показуються назвами міст/областей/країн у плашках, зарплата форматується з розрядами, замість deadline показується `Оновлено`.
-- Відкриття вакансії: картка клікабельна повністю; кнопка `Переглянути` прибрана.
+- Відкриття вакансії: уся картка є клікабельною дією перегляду.
 - Повернення з перегляду: кнопка `Повернутися` використовує browser history, тому зберігає контекст відкриття з каталогу або сторінки компанії.
 - Пагінація: селект кількості елементів використовує Mantine `Select` зі спільною шириною для каталогу і вакансій компанії.
 - Побічні ефекти: network requests, зміна local state, placeholder-повідомлення для майбутнього модуля відгуків.
@@ -475,4 +476,4 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - UI behavior: кнопка `Повернутися` веде на попередню сторінку; ширина сторінки синхронізована з `/vacancies`; hero показує badge модерації над назвою і коротку мету `від {рік} року • {кількість} співробітників`.
 - Вакансії: список фільтрується по `Активні` / `Призупинені`, використовує reusable `VacancySearchCard`, показує локації через довідники, а додаткові фільтри відкриваються окремим рядком біля пошуку.
 - Reuse: цей самий component використовується в HR-вкладці компанії як embedded preview; при відкритті preview з кнопки HR меню одноразово згортається.
-- Summary: сторінка компанії тепер стилістично ближча до перегляду вакансії та використовує спільні компоненти каталогу.
+- Summary: сторінка компанії стилістично узгоджена з переглядом вакансії та використовує спільні компоненти каталогу.
