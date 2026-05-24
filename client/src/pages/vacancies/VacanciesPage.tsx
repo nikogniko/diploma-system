@@ -32,7 +32,7 @@ type CatalogItem = { id: number; name: string };
 type FilterOption = { id: number | string; name: string };
 type Skill = CatalogItem & { category: string };
 type VacancySearchMode = "regular" | "personalized";
-type VacancySortBy = "updatedAt" | "closingDate" | "title" | "salaryFrom";
+type VacancySortBy = "relevance" | "updatedAt" | "salaryFrom";
 type SortDirection = "asc" | "desc";
 type SkillWeight = "CRITICAL" | "IMPORTANT" | "NICE_TO_HAVE";
 type LanguageLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | "NATIVE";
@@ -144,15 +144,14 @@ const defaultFilters: FilterState = {
   workScheduleIds: [],
   languageFilters: [],
   minSalary: null,
-  sortBy: "updatedAt",
+  sortBy: "relevance",
   sortDirection: "desc",
   pageSize: 10,
 };
 const cefrLevels = ["A1", "A2", "B1", "B2", "C1", "C2", "NATIVE"] as const;
 const sortOptions: Array<{ value: VacancySortBy; label: string }> = [
+  { value: "relevance", label: messages.publicVacancies.catalog.sort.relevance },
   { value: "updatedAt", label: messages.publicVacancies.catalog.sort.updatedAt },
-  { value: "closingDate", label: messages.publicVacancies.catalog.sort.closingDate },
-  { value: "title", label: messages.publicVacancies.catalog.sort.title },
   { value: "salaryFrom", label: messages.publicVacancies.catalog.sort.salaryFrom },
 ];
 type VacancyFilterOptions = { companies: Array<{ id: string; publicName: string }> };
@@ -238,10 +237,10 @@ export default function VacanciesPage() {
     if (state.workScheduleIds.length) params.set("workScheduleIds", state.workScheduleIds.join(","));
     if (state.languageFilters.length) {
       params.set("languageId", state.languageFilters.map((item) => item.languageId).join(","));
-      params.set("languageLevel", state.languageFilters.map((item) => item.level).join(","));
+      params.set("minLanguageLevel", state.languageFilters.map((item) => item.level).join(","));
     }
     if (state.minSalary !== null) params.set("minSalary", String(state.minSalary));
-    return `/vacancies/student?${params.toString()}`;
+    return `/vacancies/search?${params.toString()}`;
   };
 
   const loadVacancies = async (state = filters, nextPage = page) => {
@@ -352,7 +351,7 @@ export default function VacanciesPage() {
       </div>
 
       <div className={classes.toolbar}>
-        <TextInput className={classes.searchInput} value={draftFilters.search} onChange={(event) => updateDraft({ search: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") applyFilters(); }} placeholder={ui.catalog.searchPlaceholder} />
+        <TextInput className={classes.searchInput} value={draftFilters.search} onChange={(event) => updateDraft({ search: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") applyFilters(); }} placeholder={ui.catalog.searchPlaceholder} description={ui.catalog.searchHint} />
         <Button leftSection={<SearchIcon />} onClick={() => applyFilters()} loading={searching}>{ui.catalog.search}</Button>
           <Button className={classes.filterButton} variant="light" onClick={() => setFiltersOpened(true)}><FilterIcon /><span className={classes.filterButtonText}>{ui.catalog.filters}</span></Button>
         <Button className={classes.iconOnlyButton} variant="subtle" onClick={clearFilters} aria-label={ui.catalog.clearFilters}><CloseIcon /></Button>
@@ -363,23 +362,32 @@ export default function VacanciesPage() {
           <Menu.Dropdown>
             {sortOptions.map((option) => (
               <Menu.Item leftSection={filters.sortBy === option.value ? <CheckIcon /> : <span className={classes.menuIconSpace} />} key={option.value} onClick={() => {
-                const next = { ...filters, sortBy: option.value, mode: isProfilePresetActive ? "regular" as VacancySearchMode : filters.mode };
+                const next = { ...filters, sortBy: option.value, sortDirection: option.value === "relevance" ? "desc" as SortDirection : filters.sortDirection, mode: isProfilePresetActive ? "regular" as VacancySearchMode : filters.mode };
                 setFilters(next);
-                setDraftFilters((current) => ({ ...current, sortBy: option.value }));
+                setDraftFilters((current) => ({ ...current, sortBy: option.value, sortDirection: next.sortDirection }));
                 setIsProfilePresetActive(false);
                 void loadVacancies(next, 1);
               }}>{option.label}</Menu.Item>
             ))}
-            <Menu.Divider />
-            {(["desc", "asc"] as SortDirection[]).map((direction) => (
-              <Menu.Item leftSection={filters.sortDirection === direction ? <CheckIcon /> : <span className={classes.menuIconSpace} />} key={direction} onClick={() => {
-                const next = { ...filters, mode: isProfilePresetActive ? "regular" as VacancySearchMode : filters.mode, sortDirection: direction };
-                setFilters(next);
-                setDraftFilters((current) => ({ ...current, sortDirection: next.sortDirection }));
-                setIsProfilePresetActive(false);
-                void loadVacancies(next, 1);
-              }}>{direction === "desc" ? ui.catalog.sortDesc : ui.catalog.sortAsc}</Menu.Item>
-            ))}
+            {filters.sortBy === "relevance" ? (
+              <>
+                <Menu.Divider />
+                <Menu.Item disabled>{ui.catalog.relevanceFirst}</Menu.Item>
+              </>
+            ) : (
+              <>
+                <Menu.Divider />
+                {(["desc", "asc"] as SortDirection[]).map((direction) => (
+                  <Menu.Item leftSection={filters.sortDirection === direction ? <CheckIcon /> : <span className={classes.menuIconSpace} />} key={direction} onClick={() => {
+                    const next = { ...filters, mode: isProfilePresetActive ? "regular" as VacancySearchMode : filters.mode, sortDirection: direction };
+                    setFilters(next);
+                    setDraftFilters((current) => ({ ...current, sortDirection: next.sortDirection }));
+                    setIsProfilePresetActive(false);
+                    void loadVacancies(next, 1);
+                  }}>{direction === "desc" ? ui.catalog.sortDesc : ui.catalog.sortAsc}</Menu.Item>
+                ))}
+              </>
+            )}
           </Menu.Dropdown>
         </Menu>
       </div>
@@ -613,7 +621,9 @@ const vacancyLocationLabels = (vacancy: StudentVacancy, catalogs: VacancyCatalog
   return labels.length ? [...new Set(labels)].slice(0, 3) : [ui.card.locationFallback];
 };
 const normalizeMoneyInput = (value: string | number) => value === "" || typeof value !== "number" || Number.isNaN(value) ? null : Math.min(Math.max(0, Math.trunc(value)), maxSalaryInput);
-const sortLabel = (filters: FilterState) => `${sortOptions.find((item) => item.value === filters.sortBy)?.label ?? ui.catalog.sortFallback} · ${filters.sortDirection === "asc" ? ui.catalog.sortLabelAsc : ui.catalog.sortLabelDesc}`;
+const sortLabel = (filters: FilterState) => filters.sortBy === "relevance"
+  ? `${ui.catalog.sort.relevance} · ${ui.catalog.relevanceFirst}`
+  : `${sortOptions.find((item) => item.value === filters.sortBy)?.label ?? ui.catalog.sortFallback} · ${filters.sortDirection === "asc" ? ui.catalog.sortLabelAsc : ui.catalog.sortLabelDesc}`;
 const getErrorMessage = (error: unknown) => error instanceof ApiError || error instanceof Error ? error.message : messages.common.messages.unknownError;
 const statusLabels: Record<NonNullable<StudentVacancy["status"]>, string> = {
   DRAFT: ui.statuses.DRAFT,

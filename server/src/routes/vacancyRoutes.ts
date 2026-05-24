@@ -15,6 +15,7 @@ import {
 const router = Router();
 
 router.get("/catalogs", getVacancyCatalogs);
+router.get("/search", listStudentVacancies);
 router.get("/student", listStudentVacancies);
 router.get("/student/filter-options", getStudentVacancyFilterOptions);
 router.get("/student/:vacancyId", getStudentVacancy);

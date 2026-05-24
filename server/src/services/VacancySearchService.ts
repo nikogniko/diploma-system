@@ -1,6 +1,7 @@
+import type { estypes } from "@elastic/elasticsearch";
 import {
   LanguageLevel,
-  type Prisma,
+  ListingStatus,
 } from "../../prisma/generated/client/index.js";
 import { BusinessLogicError, HttpStatus } from "../errors/BusinessLogicError.js";
 import {
@@ -13,9 +14,18 @@ import {
   StudentProfileRepository,
   studentProfileRepository,
 } from "../repositories/StudentProfileRepository.js";
+import {
+  getElasticsearchClient,
+  isElasticsearchAvailable,
+  vacanciesIndexName,
+} from "../search/elasticsearchClient.js";
 
 type SearchMode = "regular" | "personalized";
-type SortDirection = Prisma.SortOrder;
+type ParsedSearchQuery = {
+  normalizedText: string | null;
+  softTerms: string[];
+  requiredTerms: string[];
+};
 
 export type VacancySearchRequest = {
   page?: unknown;
@@ -28,11 +38,16 @@ export type VacancySearchRequest = {
   countryIds?: unknown;
   regionIds?: unknown;
   cityIds?: unknown;
+  locationIds?: unknown;
   workFormatIds?: unknown;
+  workFormats?: unknown;
   employmentTypeIds?: unknown;
+  employmentTypes?: unknown;
   workScheduleIds?: unknown;
+  workSchedules?: unknown;
   languageId?: unknown;
   languageLevel?: unknown;
+  minLanguageLevel?: unknown;
   minSalary?: unknown;
   sortBy?: unknown;
   sortDirection?: unknown;
@@ -54,19 +69,18 @@ const languageRank: LanguageLevel[] = [
   LanguageLevel.C2,
   LanguageLevel.NATIVE,
 ];
+const ignoredSearchTerms = new Set(["в", "у", "і", "й", "та", "на", "з", "до", "для", "a", "an", "the", "and", "in", "for", "of"]);
 
-/** Пошук активних вакансій для студентів. Поки використовує БД fallback, але має стабільний інтерфейс для Elasticsearch. */
 export class VacancySearchService {
   constructor(
     private readonly vacancies: VacancyRepository = vacancyRepository,
     private readonly students: StudentProfileRepository = studentProfileRepository,
   ) {}
 
-  /** Повертає список активних вакансій для звичайного або персоналізованого режиму. */
   async searchVacancies(query: VacancySearchRequest = {}, clerkUserId?: string | null) {
     const mode = this.normalizeMode(query.mode);
     const params = await this.buildSearchParams(query, mode, clerkUserId);
-    const result = await this.vacancies.listPublicActiveVacancies(params);
+    const result = await this.searchWithPreferredBackend(params);
 
     return {
       ...result,
@@ -78,7 +92,6 @@ export class VacancySearchService {
     };
   }
 
-  /** Повертає одну публічно видиму вакансію для перегляду. */
   async getActiveVacancy(vacancyId: string) {
     const vacancy = await this.vacancies.findPublicVisibleVacancyById(vacancyId, this.todayDateOnly());
     if (!vacancy) {
@@ -91,51 +104,59 @@ export class VacancySearchService {
     };
   }
 
-  /** Повертає додаткові опції фільтрів для публічного каталогу вакансій. */
   async getPublicFilterOptions() {
     return {
       companies: await this.vacancies.listPublicActiveVacancyCompanies(this.todayDateOnly()),
     };
   }
 
-  /** Опис полів майбутнього Elasticsearch-індексу без підключення інфраструктури в MVP. */
   getIndexMappingDraft() {
     return {
-      index: "vacancies",
+      index: vacanciesIndexName(),
       fields: [
         "id",
         "title",
         "description",
         "status",
-        "closingDate",
-        "updatedAt",
         "professionId",
         "professionName",
-        "sphereIds",
-        "workFormatIds",
-        "employmentTypeIds",
-        "workScheduleIds",
-        "languageRequirements",
-        "skillRequirements",
-        "minSalary",
-        "maxSalary",
         "companyId",
         "companyName",
+        "sphereIds",
+        "sphereNames",
+        "workFormats",
+        "employmentTypes",
+        "workSchedules",
+        "languageRequirements",
+        "salaryFrom",
+        "salaryTo",
+        "closingDate",
+        "updatedAt",
+        "createdAt",
+        "skillNames",
+        "criticalSkillNames",
+        "importantSkillNames",
+        "plusSkillNames",
         "locationIds",
+        "countryIds",
+        "regionIds",
+        "cityIds",
       ],
     };
   }
 
-  /** Готує параметри пошуку; у personalized mode додає фільтри з профілю студента. */
   private async buildSearchParams(
     query: VacancySearchRequest,
     mode: SearchMode,
     clerkUserId?: string | null,
   ): Promise<PublicVacancyListParams> {
+    const parsedSearch = this.parseSearchQuery(query.search);
     const params: PublicVacancyListParams = {
       page: this.clampPositiveInt(query.page, 1, 1, 10_000),
       pageSize: this.clampPositiveInt(query.pageSize, 10, 5, 20),
-      search: this.optionalText(query.search),
+      search: parsedSearch.normalizedText,
+      softSearchTerms: parsedSearch.softTerms,
+      requiredSearchTerms: parsedSearch.requiredTerms,
       professionId: this.optionalNumber(query.professionId),
       professionIds: this.numberList(query.professionIds),
       companyIds: this.stringList(query.companyIds),
@@ -143,13 +164,16 @@ export class VacancySearchService {
       countryIds: this.numberList(query.countryIds),
       regionIds: this.numberList(query.regionIds),
       cityIds: this.numberList(query.cityIds),
-      workFormatIds: this.numberList(query.workFormatIds),
-      employmentTypeIds: this.numberList(query.employmentTypeIds),
-      workScheduleIds: this.numberList(query.workScheduleIds),
-      languageFilters: this.languageFilters(query.languageId, query.languageLevel),
+      locationIds: this.stringList(query.locationIds),
+      workFormatIds: this.numberList(query.workFormatIds, query.workFormats),
+      employmentTypeIds: this.numberList(query.employmentTypeIds, query.employmentTypes),
+      workScheduleIds: this.numberList(query.workScheduleIds, query.workSchedules),
+      languageFilters: this.languageFilters(query.languageId, query.minLanguageLevel ?? query.languageLevel),
       minSalary: this.optionalNumber(query.minSalary),
-      sortBy: this.normalizeSortBy(query.sortBy),
-      sortDirection: query.sortDirection === "asc" ? "asc" : "desc",
+      sortBy: this.normalizeSortBy(query.sortBy, parsedSearch.normalizedText !== null),
+      sortDirection: query.sortBy === "relevance" && parsedSearch.normalizedText === null
+        ? "desc"
+        : query.sortDirection === "asc" ? "asc" : "desc",
       today: this.todayDateOnly(),
     };
 
@@ -177,19 +201,196 @@ export class VacancySearchService {
     return params;
   }
 
+  private async searchWithPreferredBackend(params: PublicVacancyListParams) {
+    if (await isElasticsearchAvailable()) {
+      try {
+        return await this.searchWithElasticsearch(params);
+      } catch (error) {
+        console.warn("Elasticsearch vacancy search failed, falling back to Prisma.", error);
+      }
+    }
+
+    return this.vacancies.listPublicActiveVacancies(params);
+  }
+
+  private async searchWithElasticsearch(params: PublicVacancyListParams) {
+    const response = await getElasticsearchClient().search<{ id: string }>({
+      index: vacanciesIndexName(),
+      from: (params.page - 1) * params.pageSize,
+      size: params.pageSize,
+      track_total_hits: true,
+      query: this.elasticsearchQuery(params),
+      sort: this.elasticsearchSort(params),
+      _source: ["id"],
+    });
+    const ids = response.hits.hits
+      .map((hit) => hit._source?.id)
+      .filter((id): id is string => Boolean(id));
+    const vacancies = await this.vacancies.findPublicActiveVacanciesByIds(ids, params.today);
+    const vacancyById = new Map(vacancies.map((vacancy) => [vacancy.id, vacancy]));
+    const items = ids.flatMap((id) => {
+      const vacancy = vacancyById.get(id);
+      return vacancy ? [vacancy] : [];
+    });
+    const totalItems = typeof response.hits.total === "number"
+      ? response.hits.total
+      : response.hits.total?.value ?? items.length;
+
+    return {
+      items,
+      page: params.page,
+      pageSize: params.pageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / params.pageSize)),
+    };
+  }
+
+  private elasticsearchQuery(params: PublicVacancyListParams): estypes.QueryDslQueryContainer {
+    const filter: estypes.QueryDslQueryContainer[] = [
+      { term: { status: ListingStatus.ACTIVE } },
+      { range: { closingDate: { gte: params.today.toISOString() } } },
+    ];
+
+    if (params.professionIds?.length) filter.push({ terms: { professionId: params.professionIds } });
+    else if (params.professionId) filter.push({ term: { professionId: params.professionId } });
+    if (params.companyIds?.length) filter.push({ terms: { companyId: params.companyIds } });
+    if (params.sphereIds?.length) filter.push({ terms: { sphereIds: params.sphereIds } });
+    if (params.countryIds?.length || params.regionIds?.length || params.cityIds?.length) {
+      filter.push({
+        bool: {
+          should: [
+            ...(params.countryIds?.length ? [{ terms: { countryIds: params.countryIds } }] : []),
+            ...(params.regionIds?.length ? [{ terms: { regionIds: params.regionIds } }] : []),
+            ...(params.cityIds?.length ? [{ terms: { cityIds: params.cityIds } }] : []),
+          ],
+          minimum_should_match: 1,
+        },
+      });
+    }
+    if (params.locationIds?.length) filter.push({ terms: { locationIds: params.locationIds } });
+    if (params.workFormatIds?.length) filter.push({ terms: { workFormats: params.workFormatIds } });
+    if (params.employmentTypeIds?.length) filter.push({ terms: { employmentTypes: params.employmentTypeIds } });
+    if (params.workScheduleIds?.length) filter.push({ terms: { workSchedules: params.workScheduleIds } });
+    if (params.minSalary !== null && params.minSalary !== undefined) {
+      filter.push({
+        bool: {
+          should: [
+            { range: { salaryFrom: { gte: params.minSalary } } },
+            { range: { salaryTo: { gte: params.minSalary } } },
+          ],
+          minimum_should_match: 1,
+        },
+      });
+    }
+    params.languageFilters?.forEach((languageFilter) => {
+      filter.push({
+        nested: {
+          path: "languageRequirements",
+          query: {
+            bool: {
+              filter: [
+                { term: { "languageRequirements.languageId": languageFilter.languageId } },
+                { range: { "languageRequirements.levelRank": { gte: this.languageLevelRank(languageFilter.levels[0] ?? LanguageLevel.A1) } } },
+              ],
+            },
+          },
+        },
+      });
+    });
+
+    const softTerms = params.softSearchTerms ?? [];
+    const requiredTerms = params.requiredSearchTerms ?? [];
+    if (softTerms.length === 0 && requiredTerms.length === 0) {
+      return { bool: { must: [{ match_all: {} }], filter } };
+    }
+
+    return {
+      bool: {
+        filter,
+        ...(requiredTerms.length ? { must: requiredTerms.map((term) => this.elasticsearchTermQuery(term)) } : {}),
+        ...(softTerms.length ? { should: softTerms.map((term) => this.elasticsearchTermQuery(term)) } : {}),
+        ...(softTerms.length && !requiredTerms.length ? { minimum_should_match: 1 } : {}),
+      },
+    };
+  }
+
+  private elasticsearchSort(params: PublicVacancyListParams): estypes.Sort {
+    if (params.sortBy === "relevance" && params.search) {
+      return [{ _score: { order: "desc" } }, { updatedAt: { order: "desc" } }];
+    }
+    const sortField = params.sortBy === "salaryFrom" ? "salaryFrom" : "updatedAt";
+    return [
+      { [sortField]: { order: params.sortDirection, missing: "_last" } } as estypes.SortCombinations,
+      ...(params.search ? [{ _score: { order: "desc" as const } }] : []),
+    ];
+  }
+
   private normalizeMode(value: unknown): SearchMode {
     return value === "personalized" ? "personalized" : "regular";
   }
 
-  private normalizeSortBy(value: unknown): PublicVacancySortBy {
-    const allowed: PublicVacancySortBy[] = ["updatedAt", "closingDate", "title", "salaryFrom"];
-    return typeof value === "string" && allowed.includes(value as PublicVacancySortBy)
-      ? value as PublicVacancySortBy
-      : "updatedAt";
+  private normalizeSortBy(value: unknown, hasSearch: boolean): PublicVacancySortBy {
+    const allowed: PublicVacancySortBy[] = ["relevance", "updatedAt", "salaryFrom"];
+    if (typeof value === "string" && allowed.includes(value as PublicVacancySortBy)) {
+      return value === "relevance" && !hasSearch ? "updatedAt" : value as PublicVacancySortBy;
+    }
+    return hasSearch ? "relevance" : "updatedAt";
   }
 
-  private optionalText(value: unknown) {
-    return typeof value === "string" && value.trim() ? value.trim() : null;
+  private parseSearchQuery(value: unknown): ParsedSearchQuery {
+    if (typeof value !== "string") return { normalizedText: null, softTerms: [], requiredTerms: [] };
+
+    const parsedTerms = value
+      .split(/[\s,+;]+/u)
+      .map((token) => {
+        const required = token.startsWith("*") && token.length > 1;
+        const term = required ? token.slice(1) : token;
+        return { required, term: term.trim() };
+      })
+      .filter(({ term }) => Boolean(term));
+    const effectiveTerms = parsedTerms.filter(({ term }) => !ignoredSearchTerms.has(term.toLocaleLowerCase()));
+    const deduplicated = new Map<string, { term: string; required: boolean }>();
+
+    effectiveTerms
+      .forEach(({ term, required }) => {
+        const key = term.toLocaleLowerCase();
+        const existing = deduplicated.get(key);
+        deduplicated.set(key, { term: existing?.term ?? term, required: Boolean(existing?.required || required) });
+      });
+
+    const terms = [...deduplicated.values()];
+    const requiredTerms = terms.filter(({ required }) => required).map(({ term }) => term);
+    const softTerms = terms.filter(({ required }) => !required).map(({ term }) => term);
+    const normalizedText = terms
+      .map(({ term, required }) => `${required ? "*" : ""}${term}`)
+      .join(" ");
+
+    return {
+      normalizedText: normalizedText || null,
+      softTerms,
+      requiredTerms,
+    };
+  }
+
+  private elasticsearchTermQuery(term: string): estypes.QueryDslQueryContainer {
+    return {
+      multi_match: {
+        query: term,
+        type: "best_fields",
+        fuzziness: "AUTO",
+        fields: [
+          "title^6",
+          "criticalSkillNames^5",
+          "importantSkillNames^4",
+          "plusSkillNames^3",
+          "skillNames^3",
+          "professionName^2.5",
+          "sphereNames^2",
+          "description^1",
+          "companyName^0.75",
+        ],
+      },
+    };
   }
 
   private optionalNumber(value: unknown): number | null {
@@ -199,8 +400,8 @@ export class VacancySearchService {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
-  private numberList(value: unknown) {
-    const raw = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  private numberList(...values: unknown[]) {
+    const raw = values.flatMap((value) => Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : []);
     return [...new Set(raw.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0))];
   }
 
@@ -234,6 +435,10 @@ export class VacancySearchService {
 
   private levelsAtLeast(level: LanguageLevel) {
     return languageRank.slice(languageRank.indexOf(level));
+  }
+
+  private languageLevelRank(level: LanguageLevel) {
+    return languageRank.indexOf(level) + 1;
   }
 
   private mergeNumbers(first: number[] = [], second: number[] = []) {

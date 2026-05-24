@@ -36,7 +36,7 @@ export type VacancyLanguageData = {
 };
 
 export type VacancyListSortBy = "title" | "status" | "closingDate" | "updatedAt" | "createdAt";
-export type PublicVacancySortBy = "title" | "closingDate" | "updatedAt" | "salaryFrom";
+export type PublicVacancySortBy = "relevance" | "updatedAt" | "salaryFrom";
 
 export type VacancyListParams = {
   page: number;
@@ -56,6 +56,8 @@ export type PublicVacancyListParams = {
   page: number;
   pageSize: number;
   search?: string | null;
+  softSearchTerms?: string[];
+  requiredSearchTerms?: string[];
   professionId?: number | null;
   professionIds?: number[];
   companyIds?: string[];
@@ -74,7 +76,7 @@ export type PublicVacancyListParams = {
   today: Date;
 };
 
-const vacancyInclude = {
+export const vacancyInclude = {
   profession: true,
   spheres: { include: { sphere: true } },
   employmentTypes: { include: { employmentType: true } },
@@ -160,8 +162,10 @@ export class VacancyRepository {
   async listPublicActiveVacancies(params: PublicVacancyListParams) {
     const where = this.buildPublicVacancyWhere(params);
     const skip = (params.page - 1) * params.pageSize;
-    const orderField = params.sortBy === "salaryFrom" ? "minSalary" : params.sortBy;
-    const orderBy = [{ [orderField]: params.sortDirection }, { updatedAt: "desc" }] as Prisma.VacancyOrderByWithRelationInput[];
+    const sortBy = params.sortBy === "relevance" ? "updatedAt" : params.sortBy;
+    const orderField = sortBy === "salaryFrom" ? "minSalary" : sortBy;
+    const sortDirection = params.sortBy === "relevance" ? "desc" : params.sortDirection;
+    const orderBy = [{ [orderField]: sortDirection }, { updatedAt: "desc" }] as Prisma.VacancyOrderByWithRelationInput[];
     const [items, totalItems] = await Promise.all([
       this.db.vacancy.findMany({
         where,
@@ -180,6 +184,27 @@ export class VacancyRepository {
       totalItems,
       totalPages: Math.max(1, Math.ceil(totalItems / params.pageSize)),
     };
+  }
+
+  /** Returns full vacancy records for search-index rebuilds. */
+  async listVacanciesForSearchIndex() {
+    return this.db.vacancy.findMany({
+      orderBy: { updatedAt: "desc" },
+      include: vacancyInclude,
+    });
+  }
+
+  /** Returns public vacancies by ids; caller can restore external ranking order. */
+  async findPublicActiveVacanciesByIds(vacancyIds: string[], today: Date) {
+    if (vacancyIds.length === 0) return [];
+    return this.db.vacancy.findMany({
+      where: {
+        id: { in: vacancyIds },
+        status: ListingStatus.ACTIVE,
+        closingDate: { gte: today },
+      },
+      include: vacancyInclude,
+    });
   }
 
   /** Повертає активні та призупинені вакансії для публічної сторінки компанії. */
@@ -243,17 +268,14 @@ export class VacancyRepository {
       { closingDate: { gte: params.today } },
     ];
 
-    if (params.search) {
+    if (params.softSearchTerms?.length && !params.requiredSearchTerms?.length) {
       andFilters.push({
-        OR: [
-          { title: { contains: params.search, mode: "insensitive" } },
-          { description: { contains: params.search, mode: "insensitive" } },
-          { profession: { name: { contains: params.search, mode: "insensitive" } } },
-          { company: { publicName: { contains: params.search, mode: "insensitive" } } },
-          { skills: { some: { skill: { name: { contains: params.search, mode: "insensitive" } } } } },
-        ],
+        OR: params.softSearchTerms.flatMap((term) => this.searchFieldConditions(term)),
       });
     }
+    params.requiredSearchTerms?.forEach((term) => {
+      andFilters.push({ OR: this.searchFieldConditions(term) });
+    });
 
     if (params.professionIds?.length) andFilters.push({ professionId: { in: params.professionIds } });
     else if (params.professionId) andFilters.push({ professionId: params.professionId });
@@ -298,6 +320,17 @@ export class VacancyRepository {
     });
 
     return { AND: andFilters };
+  }
+
+  private searchFieldConditions(term: string): Prisma.VacancyWhereInput[] {
+    return [
+      { title: { contains: term, mode: "insensitive" } },
+      { description: { contains: term, mode: "insensitive" } },
+      { profession: { name: { contains: term, mode: "insensitive" } } },
+      { company: { publicName: { contains: term, mode: "insensitive" } } },
+      { spheres: { some: { sphere: { name: { contains: term, mode: "insensitive" } } } } },
+      { skills: { some: { skill: { name: { contains: term, mode: "insensitive" } } } } },
+    ];
   }
 
   /** Архівує активні вакансії компанії, у яких минув closingDate. */

@@ -406,7 +406,8 @@
       "title": "Вакансії",
       "subtitle": "Спільний каталог активних вакансій з актуальним дедлайном.",
       "create": "Створити вакансію",
-      "searchPlaceholder": "Пошук за назвою, описом, компанією або навичкою",
+      "searchPlaceholder": "Пошук за назвою, навичками або описом",
+      "searchHint": "Для обов'язкового слова додайте *: React *Trainee",
       "search": "Шукати",
       "filters": "Фільтри",
       "clearFilters": "Очистити фільтри",
@@ -443,11 +444,11 @@
       "sortLabelAsc": "зрост.",
       "sortLabelDesc": "спад.",
       "sortFallback": "Сортування",
+      "relevanceFirst": "Найрелевантніші спочатку",
       "sort": {
+        "relevance": "Релевантність",
         "updatedAt": "Оновлено",
-        "closingDate": "Дедлайн",
-        "title": "Назва",
-        "salaryFrom": "Зарплата від"
+        "salaryFrom": "Зарплата"
       }
     },
     "card": {
