@@ -437,7 +437,6 @@
       "emptyDescription": "Спробуйте змінити пошук або зняти частину фільтрів.",
       "emptyHint": "Показуються тільки активні вакансії з актуальним дедлайном.",
       "profileNotice": "Персональний підбір доступний після заповнення профілю студента.",
-      "applyNotice": "Модуль відгуків буде реалізовано пізніше.",
       "found": "Знайдено: {{count}}",
       "sortDesc": "За спаданням",
       "sortAsc": "За зростанням",
@@ -479,6 +478,31 @@
       "spheres": "Сфери",
       "apply": "Відгукнутися",
       "nativeLanguage": "Носій"
+    },
+    "applications": {
+      "created": "Відгук успішно створено.",
+      "cannotApply": "Відгук зараз недоступний.",
+      "studentOnly": "Відгук можуть подати лише авторизовані студенти.",
+      "requestFailed": "Не вдалося подати відгук. Спробуйте ще раз.",
+      "blockingTitle": "Причини:",
+      "missingSkillsTitle": "Критичні навички:",
+      "missingLanguagesTitle": "Мовні вимоги:",
+      "warningsTitle": "Рекомендації:",
+      "locationMismatch": "Бажана локація не відповідає обов'язковій локації вакансії.",
+      "matchPreview": "Виконано базових обов'язкових вимог: {{percent}}%",
+      "blockingReasons": {
+        "VACANCY_NOT_ACTIVE": "Вакансія не має активного статусу.",
+        "VACANCY_EXPIRED": "Термін подання на вакансію завершився.",
+        "APPLICATION_ALREADY_EXISTS": "Ви вже відгукнулися на цю вакансію.",
+        "PROFILE_HIDDEN": "Профіль прихований у налаштуваннях видимості.",
+        "MISSING_CRITICAL_SKILLS": "Не вистачає критичних навичок вакансії.",
+        "MISSING_REQUIRED_LANGUAGES": "Не виконано мовні вимоги вакансії.",
+        "LOCATION_MISMATCH": "Не збігається обов'язкова локація."
+      },
+      "profileWarnings": {
+        "PROFILE_ABOUT_EMPTY": "Додайте короткий опис про себе.",
+        "PROFILE_LINKS_EMPTY": "Додайте портфоліо або професійне посилання."
+      }
     },
     "companyPage": {
       "loading": "Відкриваємо профіль компанії...",
@@ -569,6 +593,26 @@
         "applications": "Робота з відгуками",
         "preview": "Передперегляд вакансії",
         "edit": "Редагування"
+      },
+      "applications": {
+        "empty": "На цю вакансію ще немає відгуків.",
+        "loading": "Завантажуємо відгуки...",
+        "student": "Кандидат",
+        "status": "Статус",
+        "createdAt": "Подано",
+        "matchScore": "Match score",
+        "scorePending": "Ще не розраховано",
+        "updateError": "Не вдалося змінити статус відгуку.",
+        "statuses": {
+          "SENT": "Надіслано",
+          "VIEWED": "Переглянуто",
+          "SHORTLISTED": "У shortlist",
+          "INTERVIEW_INVITED": "Запрошено на співбесіду",
+          "OFFERED": "Надіслано офер",
+          "HIRED": "Найнято",
+          "REJECTED": "Відхилено",
+          "WITHDRAWN": "Відкликано"
+        }
       }
     },
     "createVacancy": {

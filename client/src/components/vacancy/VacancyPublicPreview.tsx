@@ -58,11 +58,13 @@ type Props = {
   companyHref?: string;
   recruiterSlot?: React.ReactNode;
   stickyAction?: "student-apply" | null;
-  notice?: string | null;
+  actionFeedback?: React.ReactNode;
+  actionLoading?: boolean;
+  actionDisabled?: boolean;
   onApply?: () => void;
 };
 
-export function VacancyPublicPreview({ vacancy, labels = {}, locationText, companyHref, recruiterSlot, stickyAction = null, notice, onApply }: Props) {
+export function VacancyPublicPreview({ vacancy, labels = {}, locationText, companyHref, recruiterSlot, stickyAction = null, actionFeedback, actionLoading = false, actionDisabled = false, onApply }: Props) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const skillGroups = groupSkills(vacancy.skills);
   const hasLanguages = vacancy.languages.length > 0;
@@ -117,8 +119,8 @@ export function VacancyPublicPreview({ vacancy, labels = {}, locationText, compa
 
         <aside className={classes.aside}>
           {stickyAction === "student-apply" && <div className={classes.stickyAction}>
-            <Button fullWidth onClick={onApply}>{ui.apply}</Button>
-            {notice && <div className={classes.notice}>{notice}</div>}
+            <Button fullWidth onClick={onApply} loading={actionLoading} disabled={actionDisabled}>{ui.apply}</Button>
+            {actionFeedback}
           </div>}
           <FormSection title={ui.about}>
             <InfoLine label={ui.profession} value={vacancy.profession?.name} emptyLabel={ui.notSpecified} />

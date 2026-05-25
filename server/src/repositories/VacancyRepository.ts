@@ -1,6 +1,7 @@
 import {
   ListingStatus,
   Prisma,
+  VacancyCloseReason,
   type LanguageLevel,
   type RequirementWeight,
   type SalaryPeriod,
@@ -257,6 +258,19 @@ export class VacancyRepository {
       data: {
         status,
         publishedAt: status === ListingStatus.ACTIVE ? new Date() : undefined,
+      },
+      include: vacancyInclude,
+    });
+  }
+
+  /** Закриває вакансію після найму кандидата та фіксує причину закриття. */
+  async closeVacancyAsHired(vacancyId: string) {
+    return this.db.vacancy.update({
+      where: { id: vacancyId },
+      data: {
+        status: ListingStatus.CLOSED,
+        closedAt: new Date(),
+        closeReason: VacancyCloseReason.HIRED,
       },
       include: vacancyInclude,
     });

@@ -706,7 +706,7 @@ export default function StudentDashboard() {
             onPageSizeChange={(pageSize) => { setVacancyPageSize(pageSize); setVacancyPage(1); void loadStudentVacancies({ page: 1, pageSize }); }}
             onOpen={(vacancyId) => void openVacancy(vacancyId)}
             onBack={() => { setSelectedVacancy(null); setApplicationNotice(null); }}
-            onApply={() => setApplicationNotice("Модуль відгуків буде реалізовано пізніше.")}
+            onApply={() => setApplicationNotice(null)}
           />
         )}
         {active === "personal" && (

@@ -614,6 +614,22 @@
   border-radius: var(--radius-md);
 }
 
+.applicationFeedback {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+  color: var(--color-dark-main);
+  background: var(--color-info-soft);
+  border-radius: var(--radius-sm);
+
+  ul {
+    display: grid;
+    gap: 0.25rem;
+    padding-left: 1.1rem;
+    margin: 0.25rem 0 0;
+  }
+}
+
 @media (max-width: 820px) {
   .page {
     width: min(100% - 1rem, 980px);

@@ -81,6 +81,20 @@ type SalaryPeriod = "PER_MONTH" | "PER_HOUR";
 type VacancyManagementTab = "applications" | "preview" | "edit";
 type VacancySortBy = "title" | "status" | "closingDate" | "updatedAt";
 type SortDirection = "asc" | "desc";
+type ApplicationStatus = "SENT" | "VIEWED" | "SHORTLISTED" | "INTERVIEW_INVITED" | "OFFERED" | "HIRED" | "REJECTED" | "WITHDRAWN";
+type VacancyApplication = {
+  id: string;
+  status: ApplicationStatus;
+  createdAt: string;
+  matchScore?: number | null;
+  studentProfile: {
+    user: {
+      firstName?: string | null;
+      lastName?: string | null;
+      middleName?: string | null;
+    };
+  };
+};
 
 type HrProfile = {
   id: string;
@@ -1637,21 +1651,24 @@ function VacancyManagementPage(
         </button>
       </div>
       {activeTab === "applications" && (
-        <FormSection title={ui.vacancies.pipelineTitle}>
-          <div className={classes.pipelineTabs}>
-            {stages.map((stage, index) => (
-              <button
-                key={stage}
-                className={
-                  index === 0 ? classes.pipelineTabActive : classes.pipelineTab
-                }
-              >
-                {stage}
-                <span>—</span>
-              </button>
-            ))}
-          </div>
-        </FormSection>
+        <>
+          <FormSection title={ui.vacancies.pipelineTitle}>
+            <div className={classes.pipelineTabs}>
+              {stages.map((stage, index) => (
+                <button
+                  key={stage}
+                  className={
+                    index === 0 ? classes.pipelineTabActive : classes.pipelineTab
+                  }
+                >
+                  {stage}
+                  <span>—</span>
+                </button>
+              ))}
+            </div>
+          </FormSection>
+          {vacancy && <VacancyApplicationsPanel vacancyId={vacancy.id} />}
+        </>
       )}
       {activeTab === "preview" && (
         <VacancyPreview vacancy={vacancy} options={options} />
@@ -1666,6 +1683,97 @@ function VacancyManagementPage(
       )}
     </>
   );
+}
+
+/** Показує та дозволяє вручну оновлювати відгуки для вакансії поточного HR. */
+function VacancyApplicationsPanel({ vacancyId }: { vacancyId: string }) {
+  const { getToken } = useAuth();
+  const [items, setItems] = useState<VacancyApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const applicationUi = ui.vacancies.applications;
+  const statusOptions = (Object.keys(applicationUi.statuses) as ApplicationStatus[]).map((status) => ({
+    value: status,
+    label: applicationUi.statuses[status],
+  }));
+
+  /** Завантажує applications вакансії через ownership-aware endpoint. */
+  const loadApplications = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      setItems(await apiRequest<VacancyApplication[]>(`/vacancies/${vacancyId}/applications`, token));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void Promise.resolve().then(loadApplications);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vacancyId]);
+
+  /** Змінює статус одного application і відображає оновлений запис без reload сторінки. */
+  const changeApplicationStatus = async (applicationId: string, status: string | null) => {
+    if (!status) return;
+    setSavingId(applicationId);
+    setError(null);
+    try {
+      const token = await getToken();
+      const updated = await apiRequest<VacancyApplication>(`/applications/${applicationId}/status`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setItems((current) => current.map((item) => item.id === applicationId ? updated : item));
+    } catch (updateError) {
+      setError(getErrorMessage(updateError) || applicationUi.updateError);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  return <FormSection title={ui.vacancies.managementTabs.applications}>
+    <ErrorBanner message={error} />
+    {loading ? <Text>{applicationUi.loading}</Text> : items.length === 0 ? <Text className={classes.muted}>{applicationUi.empty}</Text> : (
+      <Table>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>{applicationUi.student}</Table.Th>
+            <Table.Th>{applicationUi.status}</Table.Th>
+            <Table.Th>{applicationUi.createdAt}</Table.Th>
+            <Table.Th>{applicationUi.matchScore}</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {items.map((application) => (
+            <Table.Tr key={application.id}>
+              <Table.Td>{studentName(application)}</Table.Td>
+              <Table.Td>
+                <Select
+                  data={statusOptions}
+                  value={application.status}
+                  disabled={savingId === application.id}
+                  onChange={(status) => void changeApplicationStatus(application.id, status)}
+                />
+              </Table.Td>
+              <Table.Td>{dayjs(application.createdAt).format("DD.MM.YYYY")}</Table.Td>
+              <Table.Td>{application.matchScore ?? applicationUi.scorePending}</Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    )}
+  </FormSection>;
+}
+
+/** Формує читабельне ім'я студента для таблиці відгуків. */
+function studentName(application: VacancyApplication) {
+  const user = application.studentProfile.user;
+  return [user.lastName, user.firstName, user.middleName].filter(Boolean).join(" ");
 }
 
 function VacancyPreview({

@@ -111,6 +111,20 @@ type VacancySearchResponse = {
   totalPages: number;
 };
 
+type MatchSkill = { id: number; name: string };
+type MissingLanguage = { id: number; name: string; requiredLevel: LanguageLevel; currentLevel: LanguageLevel | null };
+type EligibilityResponse = {
+  canApply: boolean;
+  blockingReasons: string[];
+  missingCriticalSkills: MatchSkill[];
+  missingLanguages: MissingLanguage[];
+  locationMismatch: boolean;
+  profileWarnings: string[];
+  matchPreview?: {
+    baseRequirementsPercent: number | null;
+  } | null;
+};
+
 type FilterState = {
   search: string;
   mode: VacancySearchMode;
@@ -176,6 +190,10 @@ export default function VacanciesPage() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [eligibility, setEligibility] = useState<EligibilityResponse | null>(null);
+  const [applicationError, setApplicationError] = useState<string | null>(null);
+  const [applicationCreated, setApplicationCreated] = useState(false);
+  const [applicationLoading, setApplicationLoading] = useState(false);
   const [filtersOpened, setFiltersOpened] = useState(false);
   const [isProfilePresetActive, setIsProfilePresetActive] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -268,6 +286,9 @@ export default function VacanciesPage() {
     setError(null);
     setSearching(true);
     setNotice(null);
+    setEligibility(null);
+    setApplicationError(null);
+    setApplicationCreated(false);
     try {
       const token = await tokenLoader();
       const data = await apiRequest<VacancySearchEntry>(`/vacancies/student/${vacancyId}`, token);
@@ -283,6 +304,44 @@ export default function VacanciesPage() {
   const openVacancy = async (nextVacancyId: string) => {
     navigate(`/vacancies/${nextVacancyId}`);
     await loadVacancyDetails(nextVacancyId);
+  };
+
+  /** Перевіряє eligibility та створює відгук одним кліком у спільному перегляді вакансії. */
+  const applyToVacancy = async (targetVacancyId: string) => {
+    setApplicationError(null);
+    setApplicationCreated(false);
+    setEligibility(null);
+    if (effectiveRole !== "STUDENT") {
+      setApplicationError(ui.applications.studentOnly);
+      return;
+    }
+
+    setApplicationLoading(true);
+    try {
+      const token = await tokenLoader();
+      const check = await apiRequest<EligibilityResponse>("/applications/check-eligibility", token, {
+        method: "POST",
+        body: JSON.stringify({ vacancyId: targetVacancyId }),
+      });
+      setEligibility(check);
+      if (!check.canApply) return;
+
+      await apiRequest("/applications", token, {
+        method: "POST",
+        body: JSON.stringify({ vacancyId: targetVacancyId }),
+      });
+      setApplicationCreated(true);
+    } catch (applicationRequestError) {
+      if (applicationRequestError instanceof ApiError
+        && applicationRequestError.code === "APPLICATION_NOT_ELIGIBLE"
+        && applicationRequestError.details) {
+        setEligibility(applicationRequestError.details as EligibilityResponse);
+        return;
+      }
+      setApplicationError(ui.applications.requestFailed);
+    } finally {
+      setApplicationLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -405,7 +464,7 @@ export default function VacanciesPage() {
       </>}
 
       <ErrorBanner message={error} />
-      {notice && <div className={classes.notice}>{notice}</div>}
+      {!selected && notice && <div className={classes.notice}>{notice}</div>}
 
       <Drawer opened={filtersOpened} onClose={() => { setDraftFilters(filters); setFiltersOpened(false); }} title={<div className={classes.drawerTitle}><Text fw={900}>{ui.catalog.filters}</Text><div className={classes.filterActions}><Button variant="light" onClick={() => { setDraftFilters(filters); setFiltersOpened(false); }}>{ui.catalog.cancel}</Button><Button onClick={() => applyFilters()}>{ui.catalog.apply}</Button></div></div>} position="left" size="min(440px, 92vw)" classNames={{ header: classes.drawerHeader, body: classes.drawerBody }}>
         <Stack gap="xl" className={classes.filterStack}>
@@ -423,7 +482,17 @@ export default function VacanciesPage() {
       </Drawer>
 
       {selected ? (
-        <VacancyDetails entry={selected} catalogs={catalogs} role={effectiveRole} notice={notice} onBack={() => { setSelected(null); setNotice(null); navigate(-1); }} onApply={() => setNotice(ui.catalog.applyNotice)} />
+        <VacancyDetails
+          entry={selected}
+          catalogs={catalogs}
+          role={effectiveRole}
+          eligibility={eligibility}
+          applicationError={applicationError}
+          applicationCreated={applicationCreated}
+          applicationLoading={applicationLoading}
+          onBack={() => { setSelected(null); setNotice(null); setEligibility(null); setApplicationError(null); setApplicationCreated(false); navigate(-1); }}
+          onApply={() => void applyToVacancy(selected.vacancy.id)}
+        />
       ) : (
         <>
           {searching && <Stack gap="sm">{Array.from({ length: 3 }).map((_, index) => <Paper key={index} className={classes.skeleton} />)}</Stack>}
@@ -580,7 +649,7 @@ function LanguageFilterEditor({ languages, values, onChange }: { languages: Cata
 }
 
 /** Displays the full public preview for a selected vacancy. */
-function VacancyDetails({ entry, catalogs, role, notice, onBack, onApply }: { entry: VacancySearchEntry; catalogs: VacancyCatalogs | null; role?: string; notice?: string | null; onBack: () => void; onApply: () => void }) {
+function VacancyDetails({ entry, catalogs, role, eligibility, applicationError, applicationCreated, applicationLoading, onBack, onApply }: { entry: VacancySearchEntry; catalogs: VacancyCatalogs | null; role?: string; eligibility: EligibilityResponse | null; applicationError: string | null; applicationCreated: boolean; applicationLoading: boolean; onBack: () => void; onApply: () => void }) {
   const vacancy = entry.vacancy;
   const [isRecruiterOpen, setIsRecruiterOpen] = useState(false);
   const recruiterView = buildRecruiterPreviewFromVacancy(vacancy);
@@ -593,9 +662,43 @@ function VacancyDetails({ entry, catalogs, role, notice, onBack, onApply }: { en
       locationText={vacancyLocationLabels(vacancy, catalogs).join(", ")}
       recruiterSlot={recruiterView ? <div className={classes.recruiterSlot}><RecruiterPublicCard data={recruiterView} onClick={() => setIsRecruiterOpen(true)} /></div> : null}
       stickyAction={role === "HR" ? null : "student-apply"}
-      notice={notice}
+      actionLoading={applicationLoading}
+      actionDisabled={applicationCreated}
+      actionFeedback={<ApplicationFeedback eligibility={eligibility} error={applicationError} created={applicationCreated} />}
       onApply={onApply}
     />
+  </div>;
+}
+
+/** Показує результат eligibility/створення без дублювання повідомлення поза action-блоком. */
+function ApplicationFeedback({ eligibility, error, created }: { eligibility: EligibilityResponse | null; error: string | null; created: boolean }) {
+  const applicationsUi = ui.applications;
+  if (error) return <div className={classes.applicationFeedback}><Text>{error}</Text></div>;
+  if (!eligibility && !created) return null;
+  const reasonText = (reason: string) => applicationsUi.blockingReasons[reason as keyof typeof applicationsUi.blockingReasons] ?? reason;
+  const warningText = (warning: string) => applicationsUi.profileWarnings[warning as keyof typeof applicationsUi.profileWarnings] ?? warning;
+
+  return <div className={classes.applicationFeedback}>
+    <Text fw={900}>{created ? applicationsUi.created : applicationsUi.cannotApply}</Text>
+    {eligibility?.matchPreview?.baseRequirementsPercent !== null && eligibility?.matchPreview?.baseRequirementsPercent !== undefined
+      && <Text>{interpolate(applicationsUi.matchPreview, { percent: eligibility.matchPreview.baseRequirementsPercent })}</Text>}
+    {!created && eligibility?.blockingReasons.length ? <div>
+      <Text fw={900}>{applicationsUi.blockingTitle}</Text>
+      <ul>{eligibility.blockingReasons.map((reason) => <li key={reason}>{reasonText(reason)}</li>)}</ul>
+    </div> : null}
+    {!created && eligibility?.missingCriticalSkills.length ? <div>
+      <Text fw={900}>{applicationsUi.missingSkillsTitle}</Text>
+      <Text>{eligibility.missingCriticalSkills.map((skill) => skill.name).join(", ")}</Text>
+    </div> : null}
+    {!created && eligibility?.missingLanguages.length ? <div>
+      <Text fw={900}>{applicationsUi.missingLanguagesTitle}</Text>
+      <Text>{eligibility.missingLanguages.map((language) => `${language.name}: ${language.requiredLevel}`).join(", ")}</Text>
+    </div> : null}
+    {!created && eligibility?.locationMismatch ? <Text>{applicationsUi.locationMismatch}</Text> : null}
+    {eligibility?.profileWarnings.length ? <div>
+      <Text fw={900}>{applicationsUi.warningsTitle}</Text>
+      <ul>{eligibility.profileWarnings.map((warning) => <li key={warning}>{warningText(warning)}</li>)}</ul>
+    </div> : null}
   </div>;
 }
 

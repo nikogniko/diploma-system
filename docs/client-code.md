@@ -280,7 +280,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 #### `StudentDashboard()`
 
 - Призначення: кабінет студента: dashboard, персональні дані, preferences, resume sections.
-- Routing: підтримує відкриття вкладки через `/student?tab=vacancies`; верхнє посилання `/vacancies` для ролі STUDENT веде саме сюди.
+- Routing: видимого пункту каталогу в меню кабінету немає; верхнє посилання вакансій веде на спільну сторінку `/vacancies`.
 - UI behavior: меню кабінету не відкривається примусово при зміні вкладок; стан меню змінюється дією користувача.
 - Обмеження вводу: мінімальна зарплата у фільтрах каталогу й у preferences обмежена `0..9_999_999`, без від'ємних і дробових значень.
 - API calls: student profile, search preferences, resume CRUD endpoints, catalogs.
@@ -337,13 +337,13 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 `client/src` має зрозумілий MVP-поділ на pages/components/layouts/api/utils. Основний борг - надмірно великі dashboard-файли і відсутність domain-specific API service wrappers, але це не блокує дипломний MVP.
 
-## Студентський Каталог Вакансій
+## Legacy Компоненти Каталогу В Кабінеті
 
 ### `client/src/pages/student/StudentDashboard.tsx`
 
 #### `VacancyCatalogTab`
 
-- Призначення: вкладка “Вакансії” у кабінеті студента.
+- Призначення: наявний локальний компонент каталогу; він не доданий до видимої навігації кабінету.
 - Props: catalogs, result, selected vacancy, loading/error/notice, filters, setters, callbacks.
 - Приймає фільтри: search, profession, spheres, work formats, employment types, schedules, language + minimum level, min salary, sortBy, sortDirection, pageSize.
 - Поле `search` показує підказку про required-терм `*Trainee` тільки під час фокусу вводу.
@@ -364,7 +364,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Props: selected entry, notice, `onBack`, `onApply`.
 - Викликає: `GET /vacancies/student/:vacancyId` через parent callback.
 - Показує: назву, компанію, професію, сфери, HTML-опис, skills за категоріями, мови, умови роботи, зарплату, closingDate.
-- Placeholder: кнопка “Відгукнутися” показує повідомлення “Модуль відгуків буде реалізовано пізніше.”
+- Application flow сюди не підключений; актуальна інтеграція знаходиться на спільній сторінці `/vacancies`.
 
 #### Search Types
 
@@ -394,7 +394,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Призначення: окрема спільна сторінка `/vacancies` з верхньої навігації сайту.
 - Props: не приймає.
 - Повертає: каталог активних вакансій, бічну панель фільтрів, сортування, пагінацію та режим перегляду вакансії.
-- API calls: `GET /catalogs/student-cabinet`, `GET /vacancies/search`, `GET /vacancies/student/filter-options`, `GET /vacancies/student/:vacancyId`; для студента також `GET /students/my-cabinet`, щоб заповнити фільтри з профілю.
+- API calls: `GET /catalogs/student-cabinet`, `GET /vacancies/search`, `GET /vacancies/student/filter-options`, `GET /vacancies/student/:vacancyId`; для студента також `GET /students/my-cabinet`, `POST /applications/check-eligibility` і `POST /applications`.
 - Методи: `loadCatalogs()`, `buildPath(state, nextPage)`, `loadVacancies(state, nextPage)`, `openVacancy(vacancyId)`, `updateDraft(patch)`, `applyFilters(state)`, `clearFilters()`, `applyProfilePreset()`.
 - Фільтри: великі категорії мають власний пошук, плашки обраних значень і обмежений список зі скролом; компанії завантажуються з активних вакансій; локації показуються деревом область → міста, де область і кожне місто можна обирати незалежно; мови додаються парами `мова-рівень`.
 - Персональний підбір: тумблер одноразово заповнює професії, формати, типи зайнятості, графіки, мови та зарплату з профілю студента і запускає пошук; після ручного редагування наступний пошук стає regular.
@@ -402,8 +402,9 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Відкриття вакансії: уся картка є клікабельною дією перегляду.
 - Повернення з перегляду: кнопка `Повернутися` використовує browser history, тому зберігає контекст відкриття з каталогу або сторінки компанії.
 - Пагінація: селект кількості елементів використовує Mantine `Select` зі спільною шириною для каталогу і вакансій компанії.
-- Побічні ефекти: network requests, зміна local state, placeholder-повідомлення для майбутнього модуля відгуків.
-- Summary: каталог більше не є вкладкою кабінету; сторінка спільна для ролей, а рольові кнопки відрізняються в UI.
+- Application flow: кнопка `Відгукнутися` у detail view одним кліком виконує `POST /applications/check-eligibility`, а при позитивній відповіді одразу `POST /applications`.
+- Побічні ефекти: network requests і зміна local state; blocking reasons, warnings і match preview показуються лише в sticky action-блоці вакансії.
+- Summary: спільна сторінка `/vacancies` є єдиним підключеним UI-місцем ручної перевірки application flow.
 
 #### `FilterGroup`
 
@@ -431,10 +432,10 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 ### `VacancyPublicPreview.tsx`
 
-#### `VacancyPublicPreview({ vacancy, labels, locationText, recruiterSlot, stickyAction, notice, onApply })`
+#### `VacancyPublicPreview({ vacancy, labels, locationText, recruiterSlot, stickyAction, actionFeedback, actionLoading, actionDisabled, onApply })`
 
 - Призначення: спільний компонент перегляду вакансії для HR preview і студентської сторінки.
-- Props: вакансія, optional labels, текст локації, optional recruiter slot, sticky action для студентського `Відгукнутися`.
+- Props: вакансія, optional labels, текст локації, optional recruiter slot, sticky action для студентського `Відгукнутися`, локальний feedback і стан кнопки.
 - Повертає: hero вакансії, опис, блок `Необхідні навички`, окремий блок `Мови`, праву колонку з умовами та sticky action.
 - Методи всередині: групування skills за категоріями й важливістю, форматування зарплати з розрядами, форматування дат українською.
 - Summary: прибирає дублювання preview між кабінетом роботодавця і студентським каталогом.
@@ -477,3 +478,19 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Вакансії: список фільтрується по `Активні` / `Призупинені`, використовує reusable `VacancySearchCard`, показує локації через довідники, а додаткові фільтри відкриваються окремим рядком біля пошуку.
 - Reuse: цей самий component використовується в HR-вкладці компанії як embedded preview; при відкритті preview з кнопки HR меню одноразово згортається.
 - Summary: сторінка компанії стилістично узгоджена з переглядом вакансії та використовує спільні компоненти каталогу.
+
+## Application Debug UI
+
+### `VacanciesPage.tsx`
+
+- У спільному detail view збережено одну дію `Відгукнутися`.
+- Натискання спершу викликає `POST /api/applications/check-eligibility`; якщо `canApply=true`, сторінка одразу викликає `POST /api/applications`.
+- Якщо відповідність заблокована, у sticky action-блоці показуються blocking reasons, missing critical skills, missing languages, location mismatch, warnings і factual match preview.
+- Після успішного створення в цьому ж блоці показується підтвердження, а кнопка блокується від повторного надсилання.
+- Верхній notice для application flow прибрано; тексти й мапінг backend-кодів містяться у `client/src/locales/uk.json`.
+
+### `HrDashboard.tsx`
+
+- У вкладці роботи з відгуками вакансії додано мінімальну таблицю applications.
+- Таблиця викликає `GET /api/vacancies/:id/applications` і показує кандидата, статус, дату створення та `matchScore` або placeholder, коли фінальна формула ще не реалізована.
+- Selector статусу викликає `PATCH /api/applications/:id/status`; правила ownership і `HIRED` виконуються backend-сервісом.

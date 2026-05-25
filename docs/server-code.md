@@ -8,7 +8,7 @@ Backend - Express API. Основний потік: route → controller → ser
 
 - Призначення: bootstrap Express server.
 - Middleware: `cors`, `express.json`, `clerkMiddleware`.
-- Routes: монтує `/api/users`, `/api/students`, `/api/companies`, `/api/hr-profiles`, `/api/catalogs`, `/api/vacancies`.
+- Routes: монтує `/api/users`, `/api/students`, `/api/companies`, `/api/hr-profiles`, `/api/catalogs`, `/api/vacancies`, `/api/applications`.
 - Error handling: обробляє `BusinessLogicError`, Prisma `P2002/P2025`, fallback 500.
 - Побічні ефекти: запускає HTTP server.
 - Summary: центральна точка запуску backend.
@@ -403,3 +403,44 @@ Backend - Express API. Основний потік: route → controller → ser
 - Логіка локацій ієрархічна тільки зверху вниз: країна матчить усі локації країни, область матчить область і її міста, місто матчить тільки конкретне місто. Місто кандидата не матчить вакансію, де роботодавець вказав лише область.
 - `listPublicActiveVacancyCompanies(today)` повертає компанії, які мають активні вакансії з актуальним дедлайном, для UI-фільтра.
 - Summary: студентський/публічний каталог може фільтрувати вакансії за кількома професіями та компаніями без зміни існуючих HR endpoint-ів.
+
+## Application Flow Foundation
+
+### Routes Та Controller
+
+- `POST /api/applications/check-eligibility` - приймає `{ vacancyId }`, вимагає student actor і повертає eligibility response разом із `matchPreview`.
+- `POST /api/applications` - створює відгук поточного студента; при блокуванні повертає `400 APPLICATION_NOT_ELIGIBLE` з eligibility у `error.details`.
+- `GET /api/applications/my` - повертає тільки applications поточного студента.
+- `GET /api/vacancies/:id/applications` - повертає відгуки тільки HR з компанії-власника вакансії.
+- `PATCH /api/applications/:id/status` - виконує role/ownership-aware перехід статусу.
+- `ApplicationController.ts` - тонкий HTTP layer: читає Clerk actor/route params, викликає `ApplicationService`, нормалізує HTTP status.
+
+### `ApplicationService.ts`
+
+- `checkEligibility(clerkUserId, vacancyId)` - знаходить студентський профіль і делегує blocking rules в `EligibilityService`.
+- `createApplication(clerkUserId, body)` - після успішної перевірки створює `Application(status=SENT)`, initial `ApplicationStatusHistory` та `Application CREATED` outbox event в одній Prisma transaction.
+- `listMyApplications(clerkUserId)` - ізолює студентський список відгуків.
+- `listVacancyApplications(clerkUserId, vacancyId)` - перевіряє належність вакансії компанії поточного HR.
+- `changeStatus(clerkUserId, applicationId, status)` - студенту дозволяє лише `WITHDRAWN` власного відгуку; HR дозволяє статуси лише для application вакансії, створеної саме ним. При `HIRED` в одній transaction закриває вакансію з `closeReason=HIRED`.
+
+### `EligibilityService.ts`
+
+- `checkCanApply(studentProfileId, vacancyId)` повертає `{ canApply, blockingReasons, missingCriticalSkills, missingLanguages, locationMismatch, profileWarnings, matchPreview }`.
+- Blocking codes: `VACANCY_NOT_ACTIVE`, `VACANCY_EXPIRED`, `APPLICATION_ALREADY_EXISTS`, `PROFILE_HIDDEN`, `MISSING_CRITICAL_SKILLS`, `MISSING_REQUIRED_LANGUAGES`, `LOCATION_MISMATCH`.
+- Warning codes: `PROFILE_ABOUT_EMPTY`, `PROFILE_LINKS_EMPTY`; вони не забороняють подання.
+- Skills студента беруться з наявних relations `experiences.skills`, `projects.skills`, `courses.skills`; нових schema fields не додано.
+
+### `MatchingScoreService.ts`
+
+- `calculateApplicationMatch(vacancyId, studentProfileId)` завантажує вимоги та профіль із PostgreSQL/Prisma.
+- `buildMatchExplanation(vacancy, student)` повертає matched/missing skill groups, missing languages, strict location mismatch і прозорий `baseRequirementsPercent`.
+- `score` навмисно залишається `null`: фінальна scoring formula ще не погоджена. `matchDetails` зберігає фактологічний preview, але не Elasticsearch `_score`.
+
+### Repositories Та Outbox
+
+- `ApplicationRepository.ts` інкапсулює CRUD applications, status history, student/HR списки й перевірку іншого `HIRED`.
+- `StudentProfileRepository.findForApplicationMatchById()` додає вузьке читання relations для eligibility/matching.
+- `VacancyRepository.closeVacancyAsHired()` фіксує `CLOSED`, `closedAt`, `closeReason=HIRED`.
+- `OutboxEventRepository.ts` працює з реальною моделлю `OutboxEvent` без schema changes.
+- `OutboxEventService.ts` додає мінімальні payload events: `Application CREATED`, `Application UPDATED`, `Vacancy UPDATED` при закритті через найм.
+- `SearchOutboxWorker.ts` є worker skeleton: читає `PENDING` у порядку `createdAt`, синхронізує відомі `Vacancy` documents лише якщо Elasticsearch увімкнено, позначає `PROCESSED`/`FAILED`; application index у MVP не створюється.

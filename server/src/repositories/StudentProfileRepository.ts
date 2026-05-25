@@ -127,6 +127,21 @@ export class StudentProfileRepository {
     return this.db.studentProfile.findUnique({ where: { id: profileId } });
   }
 
+  /** Завантажує дані профілю, які беруть участь у перевірці вимог вакансії та match preview. */
+  async findForApplicationMatchById(profileId: string) {
+    return this.db.studentProfile.findUnique({
+      where: { id: profileId },
+      include: {
+        links: true,
+        languages: { include: { language: true } },
+        desiredLocations: { include: { location: true } },
+        courses: { include: { skills: { include: { skill: true } } } },
+        projects: { include: { skills: { include: { skill: true } } } },
+        experiences: { include: { skills: { include: { skill: true } } } },
+      },
+    });
+  }
+
   /** Оновлює базові контактні та анкетні дані профілю. */
   async updateBaseData(profileId: string, data: StudentProfileBaseData) {
     return this.db.studentProfile.update({
