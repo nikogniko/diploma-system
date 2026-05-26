@@ -46,7 +46,14 @@ export const router = createBrowserRouter([
       // Зона HR
       {
         element: <ProtectedRoute allowedRoles={["HR"]} />,
-        children: [{ path: "hr", element: <HrDashboard /> }],
+        children: [
+          { path: "hr", element: <HrDashboard /> },
+          { path: "hr/vacancies", element: <HrDashboard /> },
+          { path: "hr/vacancies/new", element: <HrDashboard /> },
+          { path: "hr/vacancies/:vacancyId/:view", element: <HrDashboard /> },
+          { path: "hr/profile", element: <HrDashboard /> },
+          { path: "hr/company", element: <HrDashboard /> },
+        ],
       },
 
       // Зона Адміна

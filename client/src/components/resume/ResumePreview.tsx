@@ -17,7 +17,7 @@ type LocationJoin = {
   };
 };
 
-type ResumeProfile = {
+export type ResumeProfile = {
   user: {
     firstName: string;
     lastName: string;
@@ -76,10 +76,11 @@ const languageLevelLabels: Record<string, string> = {
 
 type ResumePreviewProps = {
   profile: ResumeProfile | null;
+  contactAccess?: "OWNER" | "VISIBLE" | "AFTER_OFFER" | "HIDDEN";
 };
 
 /** Показує повне резюме кандидата у режимі читання для студента або рекрутера. */
-export function ResumePreview({ profile }: ResumePreviewProps) {
+export function ResumePreview({ profile, contactAccess = "OWNER" }: ResumePreviewProps) {
   const scrollRef = useRef<HTMLElement | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
 
@@ -102,7 +103,7 @@ export function ResumePreview({ profile }: ResumePreviewProps) {
   const groupedSkills = groupSkills(allSkills);
   const knownLinks = (profile.links ?? []).filter((link) => isQuickContact(link.linkName) || link.linkType === "MESSENGER" || link.linkType === "SOCIAL");
   const otherLinks = (profile.links ?? []).filter((link) => !knownLinks.includes(link));
-  const isContactsVisible = profile.visibility === "PUBLIC";
+  const isContactsVisible = contactAccess === "OWNER" || contactAccess === "VISIBLE";
 
   return (
     <article className={styles.resume} ref={scrollRef}>
@@ -197,7 +198,7 @@ export function ResumePreview({ profile }: ResumePreviewProps) {
                 <ContactLine label={ui.secondaryPhone} value={profile.secondaryPhone} normalizeCopy={normalizePhone} />
               </>
             ) : (
-              <ContactAccessNotice visibility={profile.visibility} />
+              <ContactAccessNotice access={contactAccess} />
             )}
           </PreviewSection>
 
@@ -285,9 +286,9 @@ function ContactLine({ label, value, openable, normalizeCopy }: { label: string;
   return <div className={styles.contactLine}><span>{label}</span><strong>{value}</strong>{openable && <AppTooltip label={ui.open}><a href={normalizeHref(value)} target="_blank" rel="noreferrer"><OpenIcon /></a></AppTooltip>}<AppTooltip label={ui.copy}><button type="button" onClick={() => copyToClipboard(copyValue)}><CopyIcon /></button></AppTooltip></div>;
 }
 
-function ContactAccessNotice({ visibility }: { visibility?: string | null }) {
-  const isHidden = visibility === "HIDDEN";
-  return <div className={isHidden ? styles.hiddenNotice : styles.confidentialNotice}><strong>{isHidden ? messages.studentDashboard.visibility.hiddenLabel : messages.studentDashboard.visibility.appliedLabel}</strong><span>{isHidden ? ui.contactsHidden : ui.contactsAfterInterview}</span></div>;
+function ContactAccessNotice({ access }: { access: "OWNER" | "VISIBLE" | "AFTER_OFFER" | "HIDDEN" }) {
+  const isHidden = access === "HIDDEN";
+  return <div className={isHidden ? styles.hiddenNotice : styles.confidentialNotice}><strong>{isHidden ? messages.studentDashboard.visibility.hiddenLabel : messages.studentDashboard.visibility.appliedLabel}</strong><span>{isHidden ? ui.contactsHidden : ui.contactsAfterOffer}</span></div>;
 }
 
 function RichHtml({ value }: { value: string }) {

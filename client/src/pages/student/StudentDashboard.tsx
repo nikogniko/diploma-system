@@ -8,6 +8,7 @@ import {
   Checkbox,
   Drawer,
   Group,
+  Modal,
   MultiSelect,
   NumberInput,
   Pagination,
@@ -22,7 +23,7 @@ import {
 import { DateInput, MonthPickerInput } from "@mantine/dates";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, apiRequest } from "../../api/apiClient";
 import { ErrorBanner } from "../../components/common/ErrorBanner";
 import { FormSection } from "../../components/common/FormSection";
@@ -31,6 +32,11 @@ import { AppTooltip } from "../../components/common/AppTooltip";
 import { RichTextEditor } from "../../components/common/RichTextEditor";
 import { ResumePreview } from "../../components/resume/ResumePreview";
 import { StatusBadge } from "../../components/common/StatusBadge";
+import { ApplicationStatusTimeline } from "../../components/application/ApplicationStatusTimeline";
+import { MatchAnalysisPanel } from "../../components/application/MatchAnalysisPanel";
+import { ApplicationStatusBadge } from "../../components/application/ApplicationStatusBadge";
+import { ApplicationPipelineToolbar, type ApplicationPipelineFilter } from "../../components/application/ApplicationPipelineToolbar";
+import type { ApplicationRecord, ApplicationStatus } from "../../components/application/applicationTypes";
 import { CabinetLayout } from "../../layouts/CabinetLayout";
 import { interpolate, messages } from "../../locales/localizedMessages";
 import {
@@ -662,7 +668,7 @@ export default function StudentDashboard() {
       <Stack gap="md">
         <ErrorBanner message={pageError} />
         {active === "dashboard" && <DashboardTab profile={profile} onOpenResume={() => setIsResumePreviewOpen(true)} />}
-        {active === "applications" && <SimpleTab title={ui.nav.applications} description={ui.simpleTab.description} />}
+        {active === "applications" && <MyApplicationsTab />}
         {active === "vacancies" && (
           <VacancyCatalogTab
             catalogs={catalogs}
@@ -777,6 +783,125 @@ function DashboardTab({ profile, onOpenResume }: { profile: StudentProfile | nul
       </FormSection>
     </>
   );
+}
+
+/** Показує студенту його відгуки, статусний timeline та аналіз відповідності. */
+function MyApplicationsTab() {
+  const { getToken } = useAuth();
+  const navigate = useNavigate();
+  const applicationUi = messages.applicationModule;
+  const [items, setItems] = useState<ApplicationRecord[]>([]);
+  const [filter, setFilter] = useState<ApplicationPipelineFilter>("ALL");
+  const [sortBy, setSortBy] = useState<"score" | "percent" | "date">("score");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ application: ApplicationRecord; status: ApplicationStatus } | null>(null);
+
+  /** Завантажує лише власні відгуки поточного студента. */
+  const loadApplications = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      setItems(await apiRequest<ApplicationRecord[]>("/applications/my", token));
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void Promise.resolve().then(loadApplications);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Відкликає власний нетермінальний відгук через дозволений студенту transition. */
+  const updateStatus = async (applicationId: string, status: ApplicationStatus) => {
+    setSavingId(applicationId);
+    setError(null);
+    try {
+      const token = await getToken();
+      const updated = await apiRequest<ApplicationRecord>(`/applications/${applicationId}/status`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setItems((current) => current.map((item) => item.id === applicationId ? updated : item));
+    } catch {
+      setError(status === "WITHDRAWN" ? applicationUi.student.withdrawError : applicationUi.student.restoreError);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const counts = (["SENT", "VIEWED", "SHORTLISTED", "INTERVIEW_INVITED", "OFFERED", "HIRED", "REJECTED", "WITHDRAWN"] as ApplicationStatus[])
+    .reduce<Record<ApplicationPipelineFilter, number>>((result, status) => {
+      result[status] = items.filter((item) => item.status === status).length;
+      return result;
+    }, { ALL: items.length } as Record<ApplicationPipelineFilter, number>);
+  const visible = items
+    .filter((item) => filter === "ALL" || item.status === filter)
+    .sort((first, second) => sortBy === "date"
+      ? new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+      : sortBy === "percent"
+        ? (second.matchDetails?.baseRequirementsPercent ?? -1) - (first.matchDetails?.baseRequirementsPercent ?? -1)
+        : (second.matchScore ?? -1) - (first.matchScore ?? -1));
+  return <>
+    <Modal centered opened={Boolean(confirmAction)} onClose={() => setConfirmAction(null)} title={confirmAction?.status === "WITHDRAWN" ? applicationUi.student.withdrawConfirmTitle : applicationUi.student.restoreConfirmTitle}>
+      <Text>{confirmAction?.status === "WITHDRAWN" ? applicationUi.student.withdrawConfirmText : applicationUi.student.restoreConfirmText}</Text>
+      <Group justify="flex-end" mt="md">
+        <Button variant="subtle" onClick={() => setConfirmAction(null)}>{applicationUi.actions.cancel}</Button>
+        <Button loading={Boolean(confirmAction && savingId === confirmAction.application.id)} onClick={() => {
+          if (!confirmAction) return;
+          void updateStatus(confirmAction.application.id, confirmAction.status).then(() => setConfirmAction(null));
+        }}>{confirmAction?.status === "WITHDRAWN" ? applicationUi.student.withdraw : applicationUi.student.restore}</Button>
+      </Group>
+    </Modal>
+    <TabHeader title={applicationUi.student.title} description={applicationUi.student.description} />
+    <FormSection title={applicationUi.student.title}>
+      <ErrorBanner message={error} />
+      <ApplicationPipelineToolbar counts={counts} selected={filter} onSelect={setFilter} sortBy={sortBy} onSortChange={setSortBy} />
+      {loading ? <Text>{applicationUi.student.loading}</Text> : visible.length === 0 ? <Text className={classes.muted}>{filter === "ALL" ? applicationUi.student.empty : applicationUi.student.emptyFiltered}</Text> : (
+        <div className={classes.applicationList}>{visible.map((application) => {
+          const expanded = expandedId === application.id;
+          const inactive = application.matchDetails?.requirementEligibility?.matchesBlockingRequirements === false;
+          const canWithdraw = !["HIRED", "REJECTED", "WITHDRAWN"].includes(application.status);
+          const restoreStatus = previousStatusBeforeWithdraw(application);
+          return <article className={classes.applicationCard} data-expanded={expanded || undefined} data-inactive={inactive || undefined} key={application.id} onDoubleClick={() => setExpandedId(expanded ? null : application.id)}>
+            <div className={classes.applicationCardMain}>
+              <div>
+                <Text fw={900}>{application.vacancy.title}</Text>
+                <Text className={classes.muted}>{application.vacancy.company?.publicName ?? applicationUi.student.company}</Text>
+              </div>
+              <div className={classes.applicationMetric}><span>{applicationUi.student.status}</span><ApplicationStatusBadge status={application.status} /></div>
+              <div className={classes.applicationMetric}><span>{applicationUi.student.createdAt}</span><strong>{new Date(application.createdAt).toLocaleDateString("uk-UA")}</strong></div>
+              <div className={classes.applicationMetric}><span>{applicationUi.student.baseRequirements}</span><strong>{application.matchDetails?.baseRequirementsPercent ?? 0}%</strong></div>
+              <div className={classes.applicationMetric}><span>{applicationUi.student.matchScore}</span><strong>{application.matchScore ?? 0}</strong></div>
+            </div>
+            <div className={classes.applicationActions} onDoubleClick={(event) => event.stopPropagation()}>
+              <Button variant="subtle" onClick={() => navigate(`/vacancies/${application.vacancy.id}`)}>{applicationUi.student.viewVacancy}</Button>
+              <Button variant="light" onClick={() => setExpandedId(expanded ? null : application.id)}>{expanded ? applicationUi.student.hideAnalysis : applicationUi.student.analysis}</Button>
+            </div>
+            {expanded && <div className={classes.applicationDetails}>
+              <ApplicationStatusTimeline currentStatus={application.status} statusHistory={application.statusHistory} variant="student" actions={<>
+                {canWithdraw && <Button color="red" size="xs" variant="light" loading={savingId === application.id} onClick={() => setConfirmAction({ application, status: "WITHDRAWN" })}>{applicationUi.student.withdraw}</Button>}
+                {application.status === "WITHDRAWN" && restoreStatus && <Button size="xs" variant="light" loading={savingId === application.id} onClick={() => setConfirmAction({ application, status: restoreStatus })}>{applicationUi.student.restore}</Button>}
+              </>} />
+              <MatchAnalysisPanel details={application.matchDetails} variant="student" />
+            </div>}
+          </article>;
+        })}</div>
+      )}
+    </FormSection>
+  </>;
+}
+
+/** Відновлює етап відгуку, на якому студент перебував безпосередньо перед відкликанням. */
+function previousStatusBeforeWithdraw(application: ApplicationRecord) {
+  return [...application.statusHistory].reverse()
+    .find((event) => event.toStatus === "WITHDRAWN")?.fromStatus ?? null;
 }
 
 /** Renders vacancy search controls, results, paging and the selected vacancy. */
@@ -1197,11 +1322,6 @@ function SkillChips({ skills }: { skills: Skill[] }) {
 /** Renders the heading and description of a cabinet tab. */
 function TabHeader({ title, description }: { title: string; description: string }) {
   return <div className={classes.tabHeader}><Title order={1} className={classes.tabTitle}>{title}</Title><Text className={classes.tabDescription}>{description}</Text></div>;
-}
-
-/** Renders a placeholder tab for cabinet sections without workflows yet. */
-function SimpleTab({ title, description }: { title: string; description: string }) {
-  return <><TabHeader title={title} description={description} /><FormSection title={ui.simpleTab.soon} description={ui.simpleTab.description}><Text className={classes.muted}>{ui.simpleTab.text}</Text></FormSection></>;
 }
 
 /** Renders an inline error only when a message is present. */

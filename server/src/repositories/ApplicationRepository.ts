@@ -16,8 +16,33 @@ export type CreateApplicationData = {
 
 export const applicationInclude = {
   vacancy: { include: vacancyInclude },
-  studentProfile: { include: { user: true } },
-  statusHistory: { orderBy: { createdAt: "asc" as const } },
+  studentProfile: {
+    select: {
+      id: true,
+      desiredPosition: true,
+      about: true,
+      user: {
+        select: {
+          firstName: true,
+          lastName: true,
+          middleName: true,
+          photoUrl: true,
+        },
+      },
+    },
+  },
+  statusHistory: {
+    orderBy: { createdAt: "asc" as const },
+    include: {
+      changedByUser: {
+        select: {
+          firstName: true,
+          lastName: true,
+          middleName: true,
+        },
+      },
+    },
+  },
 } satisfies Prisma.ApplicationInclude;
 
 export class ApplicationRepository {
@@ -68,6 +93,15 @@ export class ApplicationRepository {
     });
   }
 
+  /** Повертає applications вакансії для внутрішнього перерахунку matching snapshot. */
+  async listByVacancyId(vacancyId: string) {
+    return this.db.application.findMany({
+      where: { vacancyId },
+      orderBy: { createdAt: "desc" },
+      include: applicationInclude,
+    });
+  }
+
   /** Знаходить відгук із даними власності для перевірки переходу статусу. */
   async findApplicationById(applicationId: string) {
     return this.db.application.findUnique({
@@ -81,6 +115,23 @@ export class ApplicationRepository {
     return this.db.application.update({
       where: { id: applicationId },
       data: { status },
+      include: applicationInclude,
+    });
+  }
+
+  /** Одноразово переводить новий відгук у переглянутий під час відкриття HR-списку. */
+  async markSentAsViewed(applicationId: string) {
+    return this.db.application.updateMany({
+      where: { id: applicationId, status: ApplicationStatus.SENT },
+      data: { status: ApplicationStatus.VIEWED },
+    });
+  }
+
+  /** Оновлює збережений snapshot аналізу та абсолютний бал application після перерахунку. */
+  async updateMatchResult(applicationId: string, matchScore: number, matchDetails: Prisma.InputJsonValue) {
+    return this.db.application.update({
+      where: { id: applicationId },
+      data: { matchScore, matchDetails },
       include: applicationInclude,
     });
   }

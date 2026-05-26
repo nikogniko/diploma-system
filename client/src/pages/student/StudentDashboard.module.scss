@@ -626,6 +626,60 @@
   }
 }
 
+.applicationList,
+.applicationDetails {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.applicationCard {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+    box-shadow: var(--shadow-sm);
+  }
+
+  &[data-expanded] {
+    border-color: var(--color-primary);
+  }
+
+  &[data-inactive] {
+    opacity: 0.72;
+    border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+  }
+}
+
+.applicationCardMain {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.5fr) auto auto auto auto;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.applicationMetric {
+  display: grid;
+  gap: 0.25rem;
+
+  span {
+    color: var(--color-dark-muted);
+    font-size: 0.73rem;
+    font-weight: 800;
+  }
+}
+
+.applicationActions {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
 @media (max-width: $breakpoint-mobile) {
   .grid,
   .threeGrid,
@@ -638,6 +692,10 @@
   .languageFilterPair,
   .vacancyDetailsHero,
   .vacancyDetailsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .applicationCardMain {
     grid-template-columns: 1fr;
   }
 

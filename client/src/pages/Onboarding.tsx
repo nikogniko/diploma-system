@@ -321,10 +321,10 @@ export default function Onboarding() {
 
   return (
     <>
-      <Modal opened={isHrSubmittedOpen} onClose={() => navigate("/hr?tab=profile", { replace: true })} title={ui.hr.submittedTitle} centered>
+      <Modal opened={isHrSubmittedOpen} onClose={() => navigate("/hr/profile", { replace: true })} title={ui.hr.submittedTitle} centered>
         <Stack>
           <Text>{ui.hr.submittedText}</Text>
-          <Button onClick={() => navigate("/hr?tab=profile", { replace: true })}>{ui.hr.submittedButton}</Button>
+          <Button onClick={() => navigate("/hr/profile", { replace: true })}>{ui.hr.submittedButton}</Button>
         </Stack>
       </Modal>
 

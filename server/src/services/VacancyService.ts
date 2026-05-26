@@ -19,6 +19,7 @@ import {
   type VacancyUpdateData,
 } from "../repositories/VacancyRepository.js";
 import { normalizeVacancyRequirements } from "./VacancyMatchingService.js";
+import { ApplicationMatchRefreshService, applicationMatchRefreshService } from "./ApplicationMatchRefreshService.js";
 
 export type VacancySkillRequest = {
   skillId: number;
@@ -65,6 +66,7 @@ export class VacancyService {
     private readonly companies: CompanyRepository = companyRepository,
     private readonly catalogs: CatalogRepository = catalogRepository,
     private readonly skills: SkillRepository = skillRepository,
+    private readonly matchRefresh: ApplicationMatchRefreshService = applicationMatchRefreshService,
   ) {}
 
   /** Повертає довідники та офісні локації компанії для форми вакансії. */
@@ -142,13 +144,15 @@ export class VacancyService {
     await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.companyId);
     const normalized = await this.validateVacancyBody(body, hrProfile.companyId);
 
-    return prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx) => {
       const txVacancies = new VacancyRepository(tx);
       await txVacancies.updateVacancy(vacancyId, this.mapBaseUpdateData(normalized));
       await this.replaceRelations(txVacancies, vacancyId, normalized);
       const completeVacancy = await txVacancies.findVacancyById(vacancyId);
       return this.mapVacancy(completeVacancy);
     });
+    await this.matchRefresh.recalculateForVacancy(vacancyId);
+    return updated;
   }
 
   /** Змінює статус вакансії після перевірки права власності. */

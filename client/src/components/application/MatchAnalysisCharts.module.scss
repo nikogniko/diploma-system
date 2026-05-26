@@ -1,0 +1,78 @@
+.visualRow {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.82fr) minmax(27rem, 1.18fr);
+  gap: 0.7rem;
+  align-items: start;
+}
+
+.chartCard {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.coverageCard {
+  align-self: start;
+}
+
+.donutBody {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0.15rem;
+}
+
+.legend {
+  display: grid;
+  flex: 0 1 13rem;
+  gap: 0.4rem;
+  max-width: 13rem;
+}
+
+.legendLine {
+  display: grid;
+  grid-template-columns: 0.7rem minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+  color: var(--color-dark-muted);
+  font-size: 0.78rem;
+
+  i {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 999px;
+  }
+
+  strong {
+    color: var(--color-dark-main);
+  }
+}
+
+.barHeader {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.muted {
+  color: var(--color-dark-muted);
+}
+
+@media (max-width: 1050px) {
+  .visualRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .donutBody,
+  .barHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

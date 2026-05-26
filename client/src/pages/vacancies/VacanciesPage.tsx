@@ -113,15 +113,18 @@ type VacancySearchResponse = {
 
 type MatchSkill = { id: number; name: string };
 type MissingLanguage = { id: number; name: string; requiredLevel: LanguageLevel; currentLevel: LanguageLevel | null };
+type MissingBlockingRequirement = { key: string; label: string; category: string; details?: Record<string, unknown> };
 type EligibilityResponse = {
   canApply: boolean;
   blockingReasons: string[];
+  missingBlockingRequirements: MissingBlockingRequirement[];
   missingCriticalSkills: MatchSkill[];
   missingLanguages: MissingLanguage[];
   locationMismatch: boolean;
   profileWarnings: string[];
   matchPreview?: {
     baseRequirementsPercent: number | null;
+    estimatedScore?: number | null;
   } | null;
 };
 
@@ -194,6 +197,7 @@ export default function VacanciesPage() {
   const [applicationError, setApplicationError] = useState<string | null>(null);
   const [applicationCreated, setApplicationCreated] = useState(false);
   const [applicationLoading, setApplicationLoading] = useState(false);
+  const [applicationFeedbackDismissed, setApplicationFeedbackDismissed] = useState(false);
   const [filtersOpened, setFiltersOpened] = useState(false);
   const [isProfilePresetActive, setIsProfilePresetActive] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -289,6 +293,7 @@ export default function VacanciesPage() {
     setEligibility(null);
     setApplicationError(null);
     setApplicationCreated(false);
+    setApplicationFeedbackDismissed(false);
     try {
       const token = await tokenLoader();
       const data = await apiRequest<VacancySearchEntry>(`/vacancies/student/${vacancyId}`, token);
@@ -311,6 +316,7 @@ export default function VacanciesPage() {
     setApplicationError(null);
     setApplicationCreated(false);
     setEligibility(null);
+    setApplicationFeedbackDismissed(false);
     if (effectiveRole !== "STUDENT") {
       setApplicationError(ui.applications.studentOnly);
       return;
@@ -417,7 +423,7 @@ export default function VacanciesPage() {
           <Title order={1}>{ui.catalog.title}</Title>
           <Text className={classes.subtitle}>{ui.catalog.subtitle}</Text>
         </div>
-        {effectiveRole === "HR" && <Button component={Link} to="/hr?tab=create-vacancy">{ui.catalog.create}</Button>}
+        {effectiveRole === "HR" && <Button component={Link} to="/hr/vacancies/new">{ui.catalog.create}</Button>}
       </div>
 
       <div className={classes.toolbar}>
@@ -490,7 +496,9 @@ export default function VacanciesPage() {
           applicationError={applicationError}
           applicationCreated={applicationCreated}
           applicationLoading={applicationLoading}
-          onBack={() => { setSelected(null); setNotice(null); setEligibility(null); setApplicationError(null); setApplicationCreated(false); navigate(-1); }}
+          applicationFeedbackDismissed={applicationFeedbackDismissed}
+          onDismissFeedback={() => setApplicationFeedbackDismissed(true)}
+          onBack={() => { setSelected(null); setNotice(null); setEligibility(null); setApplicationError(null); setApplicationCreated(false); setApplicationFeedbackDismissed(false); navigate(-1); }}
           onApply={() => void applyToVacancy(selected.vacancy.id)}
         />
       ) : (
@@ -649,7 +657,7 @@ function LanguageFilterEditor({ languages, values, onChange }: { languages: Cata
 }
 
 /** Displays the full public preview for a selected vacancy. */
-function VacancyDetails({ entry, catalogs, role, eligibility, applicationError, applicationCreated, applicationLoading, onBack, onApply }: { entry: VacancySearchEntry; catalogs: VacancyCatalogs | null; role?: string; eligibility: EligibilityResponse | null; applicationError: string | null; applicationCreated: boolean; applicationLoading: boolean; onBack: () => void; onApply: () => void }) {
+function VacancyDetails({ entry, catalogs, role, eligibility, applicationError, applicationCreated, applicationLoading, applicationFeedbackDismissed, onDismissFeedback, onBack, onApply }: { entry: VacancySearchEntry; catalogs: VacancyCatalogs | null; role?: string; eligibility: EligibilityResponse | null; applicationError: string | null; applicationCreated: boolean; applicationLoading: boolean; applicationFeedbackDismissed: boolean; onDismissFeedback: () => void; onBack: () => void; onApply: () => void }) {
   const vacancy = entry.vacancy;
   const [isRecruiterOpen, setIsRecruiterOpen] = useState(false);
   const recruiterView = buildRecruiterPreviewFromVacancy(vacancy);
@@ -664,24 +672,29 @@ function VacancyDetails({ entry, catalogs, role, eligibility, applicationError, 
       stickyAction={role === "HR" ? null : "student-apply"}
       actionLoading={applicationLoading}
       actionDisabled={applicationCreated}
-      actionFeedback={<ApplicationFeedback eligibility={eligibility} error={applicationError} created={applicationCreated} />}
+      actionFeedback={applicationFeedbackDismissed ? null : <ApplicationFeedback eligibility={eligibility} error={applicationError} created={applicationCreated} onDismiss={onDismissFeedback} />}
       onApply={onApply}
     />
   </div>;
 }
 
 /** Показує результат eligibility/створення без дублювання повідомлення поза action-блоком. */
-function ApplicationFeedback({ eligibility, error, created }: { eligibility: EligibilityResponse | null; error: string | null; created: boolean }) {
+function ApplicationFeedback({ eligibility, error, created, onDismiss }: { eligibility: EligibilityResponse | null; error: string | null; created: boolean; onDismiss: () => void }) {
   const applicationsUi = ui.applications;
-  if (error) return <div className={classes.applicationFeedback}><Text>{error}</Text></div>;
+  if (error) return <div className={classes.applicationFeedback}><button type="button" className={classes.feedbackClose} aria-label={applicationsUi.dismiss} onClick={onDismiss}><CloseIcon /></button><Text>{error}</Text></div>;
   if (!eligibility && !created) return null;
   const reasonText = (reason: string) => applicationsUi.blockingReasons[reason as keyof typeof applicationsUi.blockingReasons] ?? reason;
   const warningText = (warning: string) => applicationsUi.profileWarnings[warning as keyof typeof applicationsUi.profileWarnings] ?? warning;
+  const missingConditions = eligibility?.missingBlockingRequirements
+    ?.filter((requirement) => !["SKILL", "LANGUAGE", "LOCATION"].includes(requirement.category)) ?? [];
 
   return <div className={classes.applicationFeedback}>
+    <button type="button" className={classes.feedbackClose} aria-label={applicationsUi.dismiss} onClick={onDismiss}><CloseIcon /></button>
     <Text fw={900}>{created ? applicationsUi.created : applicationsUi.cannotApply}</Text>
     {eligibility?.matchPreview?.baseRequirementsPercent !== null && eligibility?.matchPreview?.baseRequirementsPercent !== undefined
       && <Text>{interpolate(applicationsUi.matchPreview, { percent: eligibility.matchPreview.baseRequirementsPercent })}</Text>}
+    {eligibility?.matchPreview?.estimatedScore !== null && eligibility?.matchPreview?.estimatedScore !== undefined
+      && <Text>{interpolate(applicationsUi.estimatedScore, { score: eligibility.matchPreview.estimatedScore })}</Text>}
     {!created && eligibility?.blockingReasons.length ? <div>
       <Text fw={900}>{applicationsUi.blockingTitle}</Text>
       <ul>{eligibility.blockingReasons.map((reason) => <li key={reason}>{reasonText(reason)}</li>)}</ul>
@@ -694,12 +707,28 @@ function ApplicationFeedback({ eligibility, error, created }: { eligibility: Eli
       <Text fw={900}>{applicationsUi.missingLanguagesTitle}</Text>
       <Text>{eligibility.missingLanguages.map((language) => `${language.name}: ${language.requiredLevel}`).join(", ")}</Text>
     </div> : null}
+    {!created && missingConditions.length ? <div>
+      <Text fw={900}>{applicationsUi.missingConditionsTitle}</Text>
+      <ul>{missingConditions.map((condition) => <li key={condition.key}>{applicationConditionLabel(condition)}</li>)}</ul>
+    </div> : null}
     {!created && eligibility?.locationMismatch ? <Text>{applicationsUi.locationMismatch}</Text> : null}
     {eligibility?.profileWarnings.length ? <div>
       <Text fw={900}>{applicationsUi.warningsTitle}</Text>
       <ul>{eligibility.profileWarnings.map((warning) => <li key={warning}>{warningText(warning)}</li>)}</ul>
     </div> : null}
   </div>;
+}
+
+/** Формує зрозумілий підпис невиконаної обов'язкової умови у feedback відгуку. */
+function applicationConditionLabel(condition: MissingBlockingRequirement) {
+  const labels = ui.applications.conditionLabels;
+  const category = labels[condition.category as keyof typeof labels] ?? condition.category;
+  const details = condition.details ?? {};
+  const requiredValues = details.requiredValues as string[] | undefined;
+  const requiredValue = condition.category === "PROFESSION"
+    ? condition.label
+    : requiredValues?.join(", ");
+  return requiredValue ? `${category}: ${requiredValue}` : category;
 }
 
 /** Selects the highest-priority skills shown on a vacancy card. */

@@ -1,0 +1,39 @@
+@use "../../styles/chips" as chips;
+
+.badge {
+  @include chips.chip-base;
+  display: inline-flex;
+  width: fit-content;
+  min-width: max-content;
+
+  &[data-status="SENT"] {
+    @include chips.skill-hard;
+  }
+
+  &[data-status="VIEWED"] {
+    @include chips.location;
+  }
+
+  &[data-status="SHORTLISTED"] {
+    @include chips.skill-plus;
+  }
+
+  &[data-status="INTERVIEW_INVITED"],
+  &[data-status="OFFERED"] {
+    @include chips.skill-important;
+  }
+
+  &[data-status="HIRED"] {
+    @include chips.language;
+  }
+
+  &[data-status="REJECTED"] {
+    @include chips.skill-critical;
+  }
+
+  &[data-status="WITHDRAWN"] {
+    color: var(--color-dark-muted);
+    background: var(--color-bg-main);
+    border: 1px solid var(--color-border);
+  }
+}

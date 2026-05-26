@@ -615,6 +615,7 @@
 }
 
 .applicationFeedback {
+  position: relative;
   display: grid;
   gap: 0.55rem;
   padding: 0.75rem;
@@ -627,6 +628,32 @@
     gap: 0.25rem;
     padding-left: 1.1rem;
     margin: 0.25rem 0 0;
+  }
+}
+
+.feedbackClose {
+  position: absolute;
+  top: 0.42rem;
+  right: 0.42rem;
+  display: inline-grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--color-dark-muted);
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+
+  svg {
+    width: 0.9rem;
+    height: 0.9rem;
+    fill: currentColor;
+  }
+
+  &:hover {
+    color: var(--color-primary);
+    background: var(--color-surface);
   }
 }
 

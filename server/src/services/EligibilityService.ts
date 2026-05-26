@@ -46,18 +46,26 @@ export class EligibilityService {
     if (vacancy.closingDate < this.todayDateOnly()) blockingReasons.push("VACANCY_EXPIRED");
     if (existingApplication) blockingReasons.push("APPLICATION_ALREADY_EXISTS");
     if (student.visibility === ProfileVisibility.HIDDEN) blockingReasons.push("PROFILE_HIDDEN");
-    if (matchPreview.missingCriticalSkills.length > 0) blockingReasons.push("MISSING_CRITICAL_SKILLS");
-    if (matchPreview.missingLanguages.length > 0) blockingReasons.push("MISSING_REQUIRED_LANGUAGES");
-    if (matchPreview.locationMismatch) blockingReasons.push("LOCATION_MISMATCH");
+    blockingReasons.push(...matchPreview.requirementEligibility.blockingReasons);
+    const uniqueBlockingReasons = [...new Set(blockingReasons)];
 
     return {
-      canApply: blockingReasons.length === 0,
-      blockingReasons,
+      canApply: uniqueBlockingReasons.length === 0,
+      blockingReasons: uniqueBlockingReasons,
+      matchedCriticalSkills: matchPreview.matchedCriticalSkills,
       missingCriticalSkills: matchPreview.missingCriticalSkills,
+      matchedImportantSkills: matchPreview.matchedImportantSkills,
+      missingImportantSkills: matchPreview.missingImportantSkills,
+      matchedPlusSkills: matchPreview.matchedPlusSkills,
+      missingPlusSkills: matchPreview.missingPlusSkills,
       missingLanguages: matchPreview.missingLanguages,
       locationMismatch: matchPreview.locationMismatch,
+      missingBlockingRequirements: matchPreview.requirementEligibility.missingBlockingRequirements,
       profileWarnings: this.profileWarnings(student),
-      matchPreview,
+      matchPreview: {
+        ...matchPreview,
+        estimatedScore: matchPreview.score,
+      },
     };
   }
 

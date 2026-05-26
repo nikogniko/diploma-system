@@ -6,8 +6,10 @@ import {
   Badge,
   Button,
   Checkbox,
+  Drawer,
   Group,
   Menu,
+  Modal,
   MultiSelect,
   NumberInput,
   Pagination,
@@ -23,7 +25,7 @@ import {
 import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError, apiRequest } from "../../api/apiClient";
 import { AppLoader } from "../../components/common/AppLoader";
 import { AppTooltip } from "../../components/common/AppTooltip";
@@ -36,6 +38,12 @@ import { RecruiterPublicCard as RecruiterCard } from "../../components/hr/Recrui
 import { RecruiterPublicPreviewDrawer as RecruiterPreviewDrawer } from "../../components/hr/RecruiterPublicPreviewDrawer";
 import type { RecruiterPublicPreviewData } from "../../components/hr/RecruiterPublicPreviewDrawer";
 import { VacancyPublicPreview } from "../../components/vacancy/VacancyPublicPreview";
+import { ApplicationStatusTimeline } from "../../components/application/ApplicationStatusTimeline";
+import { ApplicationStatusBadge } from "../../components/application/ApplicationStatusBadge";
+import { ApplicationPipelineToolbar, type ApplicationPipelineFilter } from "../../components/application/ApplicationPipelineToolbar";
+import { MatchAnalysisPanel } from "../../components/application/MatchAnalysisPanel";
+import { ResumePreview, type ResumeProfile } from "../../components/resume/ResumePreview";
+import type { ApplicationRecord, ApplicationResumeResponse, ApplicationStatus } from "../../components/application/applicationTypes";
 import { CabinetLayout } from "../../layouts/CabinetLayout";
 import { messages } from "../../locales/localizedMessages";
 import { CompanyPublicPage as SharedCompanyPublicPage } from "../companies/CompanyPublicPage";
@@ -81,21 +89,12 @@ type SalaryPeriod = "PER_MONTH" | "PER_HOUR";
 type VacancyManagementTab = "applications" | "preview" | "edit";
 type VacancySortBy = "title" | "status" | "closingDate" | "updatedAt";
 type SortDirection = "asc" | "desc";
-type ApplicationStatus = "SENT" | "VIEWED" | "SHORTLISTED" | "INTERVIEW_INVITED" | "OFFERED" | "HIRED" | "REJECTED" | "WITHDRAWN";
-type VacancyApplication = {
-  id: string;
-  status: ApplicationStatus;
-  createdAt: string;
-  matchScore?: number | null;
-  studentProfile: {
-    user: {
-      firstName?: string | null;
-      lastName?: string | null;
-      middleName?: string | null;
-    };
-  };
+type VacancyApplication = ApplicationRecord;
+type HrNavigationState = {
+  tab?: string | null;
+  vacancyId?: string | null;
+  view?: VacancyManagementTab | null;
 };
-
 type HrProfile = {
   id: string;
   position: string;
@@ -391,12 +390,27 @@ const companyLinkResources: LinkResource[] = [
 /** Кабінет роботодавця з профілем рекрутера, профілем компанії та основою дошки вакансій. */
 export default function HrDashboard() {
   const { getToken } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab");
-  const initialVacancyId = searchParams.get("vacancyId");
-  const initialVacancyManagementTab = normalizeVacancyManagementTab(
-    searchParams.get("view"),
-  );
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { vacancyId: pathVacancyId, view: pathView } = useParams<{ vacancyId?: string; view?: string }>();
+  const [initialNavigation] = useState<HrNavigationState>(() => {
+    const legacyParams = new URLSearchParams(location.search);
+    const pathTab = location.pathname.endsWith("/profile")
+      ? "profile"
+      : location.pathname.endsWith("/company")
+        ? "company"
+        : location.pathname.endsWith("/vacancies/new")
+          ? "create-vacancy"
+          : "vacancies";
+    return {
+      tab: pathTab !== "vacancies" ? pathTab : legacyParams.get("tab") ?? pathTab,
+      vacancyId: pathVacancyId ?? legacyParams.get("vacancyId"),
+      view: normalizeVacancyManagementTab(pathView ?? legacyParams.get("view")),
+    };
+  });
+  const initialTab = initialNavigation.tab;
+  const initialVacancyId = initialNavigation.vacancyId;
+  const initialVacancyManagementTab = normalizeVacancyManagementTab(initialNavigation.view ?? null);
   const [active, setActive] = useState(
     initialVacancyId
       ? "vacancies"
@@ -609,9 +623,9 @@ export default function HrDashboard() {
         totalItems: vacancyData.totalItems,
         totalPages: vacancyData.totalPages,
       });
-      const routeVacancyId = searchParams.get("vacancyId");
+      const routeVacancyId = initialNavigation.vacancyId;
       if (routeVacancyId) {
-        const routeView = normalizeVacancyManagementTab(searchParams.get("view"));
+        const routeView = normalizeVacancyManagementTab(initialNavigation.view ?? null);
         const vacancy =
           vacancyData.items.find((item) => item.id === routeVacancyId) ??
           (await apiRequest<VacancyRow>(
@@ -669,13 +683,6 @@ export default function HrDashboard() {
     }
   };
 
-  const setVacancyManagementRoute = (
-    vacancyId: string,
-    view: VacancyManagementTab = "preview",
-  ) => {
-    setSearchParams({ tab: "vacancies", vacancyId, view });
-  };
-
   const openVacancyManagement = (
     vacancy: VacancyRow,
     view: VacancyManagementTab = "preview",
@@ -685,19 +692,94 @@ export default function HrDashboard() {
     setVacancyManagementTab(view);
     setIsCompanyPreviewOpen(false);
     setActive("vacancies");
-    setVacancyManagementRoute(vacancy.id, view);
+    navigate(`/hr/vacancies/${vacancy.id}/${view}`);
   };
 
-  const setRoutedVacancyManagementTab = (tab: VacancyManagementTab) => {
+  const setLocalVacancyManagementTab = (tab: VacancyManagementTab) => {
     setVacancyManagementTab(tab);
     const vacancyId = editingVacancyId ?? selectedVacancy?.id;
-    if (vacancyId) setVacancyManagementRoute(vacancyId, tab);
+    if (vacancyId) navigate(`/hr/vacancies/${vacancyId}/${tab}`);
   };
 
   useEffect(() => {
+    if (location.search) {
+      const legacyPath = initialNavigation.vacancyId
+        ? `/hr/vacancies/${initialNavigation.vacancyId}/${initialNavigation.view ?? "applications"}`
+        : initialNavigation.tab === "profile"
+          ? "/hr/profile"
+          : initialNavigation.tab === "company"
+            ? "/hr/company"
+            : initialNavigation.tab === "create-vacancy"
+              ? "/hr/vacancies/new"
+              : "/hr/vacancies";
+      navigate(legacyPath, { replace: true });
+    }
     void loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Синхронізує видимий екран кабінету з path route при browser navigation. */
+  useEffect(() => {
+    if (isLoading || location.search) return;
+    if (location.pathname.endsWith("/profile")) {
+      setActive("profile");
+      setSelectedVacancy(null);
+      setEditingVacancyId(null);
+      return;
+    }
+    if (location.pathname.endsWith("/company")) {
+      setActive("company");
+      setSelectedVacancy(null);
+      setEditingVacancyId(null);
+      return;
+    }
+    if (location.pathname.endsWith("/vacancies/new")) {
+      setActive("create-vacancy");
+      setSelectedVacancy(null);
+      setEditingVacancyId(null);
+      return;
+    }
+    if (!pathVacancyId) {
+      setActive("vacancies");
+      setSelectedVacancy(null);
+      setEditingVacancyId(null);
+      return;
+    }
+    const view = normalizeVacancyManagementTab(pathView ?? null);
+    /** Відкриває потрібне представлення вакансії після відновлення route. */
+    const setRouteVacancy = (vacancy: VacancyRow) => {
+      setActive("vacancies");
+      setVacancyManagementTab(view);
+      if (view === "edit") {
+        setEditingVacancyId(vacancy.id);
+        setVacancyForm(vacancyToForm(vacancy));
+        setSelectedVacancy(null);
+      } else {
+        setEditingVacancyId(null);
+        setSelectedVacancy(vacancy);
+      }
+    };
+    const vacancy = vacancies.find((item) => item.id === pathVacancyId)
+      ?? (selectedVacancy?.id === pathVacancyId ? selectedVacancy : null);
+    if (vacancy) {
+      setRouteVacancy(vacancy);
+      return;
+    }
+    let isCurrentRoute = true;
+    void (async () => {
+      try {
+        const token = await getToken();
+        const loadedVacancy = await apiRequest<VacancyRow>(`/vacancies/my-cabinet/${pathVacancyId}`, token);
+        if (isCurrentRoute) setRouteVacancy(loadedVacancy);
+      } catch (error) {
+        if (isCurrentRoute) setPageError(getErrorMessage(error));
+      }
+    })();
+    return () => {
+      isCurrentRoute = false;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isLoading]);
 
   /** Запускає збереження окремого блоку з локальним loader та помилкою. */
   const runBlock = async (block: string, action: () => Promise<void>) => {
@@ -911,7 +993,7 @@ export default function HrDashboard() {
     setVacancyManagementTab("edit");
     setIsCompanyPreviewOpen(false);
     setActive("vacancies");
-    setSearchParams({ tab: "vacancies", vacancyId: vacancy.id, view: "edit" });
+    navigate(`/hr/vacancies/${vacancy.id}/edit`);
     setBlockErrors((current) => ({ ...current, vacancy: null }));
   };
 
@@ -929,7 +1011,7 @@ export default function HrDashboard() {
     clearVacancyForm();
     setSelectedVacancy(null);
     setVacancyManagementTab("applications");
-    setSearchParams({});
+    navigate("/hr/vacancies");
   };
 
   /** Створює або оновлює вакансію через backend API. */
@@ -946,7 +1028,7 @@ export default function HrDashboard() {
       });
       clearVacancyForm();
       setActive("vacancies");
-      setSearchParams({});
+      navigate("/hr/vacancies");
     });
 
   /** Змінює статус вакансії з таблиці управління. */
@@ -994,7 +1076,11 @@ export default function HrDashboard() {
         if (key === "create-vacancy") clearVacancyForm();
         if (key !== "vacancies") setEditingVacancyId(null);
         setActive(key);
-        setSearchParams(key === "vacancies" ? {} : { tab: key });
+        navigate(key === "create-vacancy"
+          ? "/hr/vacancies/new"
+          : key === "vacancies"
+            ? "/hr/vacancies"
+            : `/hr/${key}`);
       }}
     >
       <Stack gap="md">
@@ -1041,7 +1127,7 @@ export default function HrDashboard() {
                     ) ?? null
                   }
                   activeTab={vacancyManagementTab}
-                  setActiveTab={setRoutedVacancyManagementTab}
+                  setActiveTab={setLocalVacancyManagementTab}
                   form={vacancyForm}
                   setForm={setVacancyForm}
                   options={options}
@@ -1064,7 +1150,7 @@ export default function HrDashboard() {
                 <VacancyManagementPage
                   vacancy={selectedVacancy}
                   activeTab={vacancyManagementTab}
-                  setActiveTab={setRoutedVacancyManagementTab}
+                  setActiveTab={setLocalVacancyManagementTab}
                   form={vacancyForm}
                   setForm={setVacancyForm}
                   options={options}
@@ -1128,7 +1214,7 @@ export default function HrDashboard() {
                   onCreate={() => {
                     clearVacancyForm();
                     setActive("create-vacancy");
-                    setSearchParams({ tab: "create-vacancy" });
+                    navigate("/hr/vacancies/new");
                   }}
                   onSelect={(vacancy) => {
                     openVacancyManagement(vacancy, "preview");
@@ -1203,7 +1289,7 @@ function VacancyBoard(props: {
   onPageSizeChange: (pageSize: number) => void;
   onSortChange: (sortBy: VacancySortBy) => void;
   onCreate: () => void;
-  onSelect: (vacancy: VacancyRow) => void;
+  onSelect: (vacancy: VacancyRow, view?: VacancyManagementTab) => void;
   onEdit: (vacancy: VacancyRow) => void;
   onStatusChange: (vacancyId: string, status: VacancyStatus) => void;
   onArchive: (vacancyId: string) => void;
@@ -1316,7 +1402,7 @@ function VacancyBoard(props: {
                   <Table.Tr
                     key={vacancy.id}
                     className={classes.vacancyRow}
-                    onDoubleClick={() => onSelect(vacancy)}
+                    onDoubleClick={() => onSelect(vacancy, "applications")}
                   >
                     <Table.Td>
                       <Text fw={900} className={classes.vacancyTitleCell}>
@@ -1556,7 +1642,6 @@ function VacancyManagementPage(
     options,
     ...formProps
   } = props;
-  const stages = Object.values(ui.vacancies.tabs);
   const primaryAction = vacancy
     ? getVacancyPrimaryAction(vacancy.status)
     : null;
@@ -1565,53 +1650,55 @@ function VacancyManagementPage(
       <button type="button" className={classes.backButton} onClick={onBack}>
         <ArrowIcon /> {ui.vacancies.back}
       </button>
-      <TabHeader
-        title={vacancy?.title ?? ui.createVacancy.editTitle}
-        description={ui.vacancies.pipelineDescription}
-      />
-      {vacancy && (
-        <div className={classes.vacancyQuickActions}>
-          {primaryAction && (
-            <Button
-              onClick={() =>
-                primaryAction.type === "archive"
-                  ? onArchive(vacancy.id)
-                  : onStatusChange(vacancy.id, primaryAction.status)
-              }
-            >
-              {primaryAction.label}
-            </Button>
-          )}
-          <Menu shadow="md" width={220} position="bottom-end">
-            <Menu.Target>
-              <Button variant="subtle" rightSection={<MoreIcon />}>
-                {ui.vacancies.moreActions}
+      <div className={classes.managementHeading}>
+        <TabHeader
+          title={vacancy?.title ?? ui.createVacancy.editTitle}
+          description={ui.vacancies.pipelineDescription}
+        />
+        {vacancy && (
+          <div className={classes.vacancyQuickActions}>
+            {primaryAction && (
+              <Button
+                onClick={() =>
+                  primaryAction.type === "archive"
+                    ? onArchive(vacancy.id)
+                    : onStatusChange(vacancy.id, primaryAction.status)
+                }
+              >
+                {primaryAction.label}
               </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {getVacancyStatusActions(vacancy.status)
-                .filter(
-                  (action) =>
-                    action.key !== primaryAction?.key && action.key !== "edit",
-                )
-                .map((action) => (
-                  <Menu.Item
-                    key={action.key}
-                    leftSection={action.icon}
-                    color={action.danger ? "red" : undefined}
-                    onClick={() => {
-                      if (action.type === "status")
-                        onStatusChange(vacancy.id, action.status);
-                      if (action.type === "archive") onArchive(vacancy.id);
-                    }}
-                  >
-                    {action.label}
-                  </Menu.Item>
-                ))}
-            </Menu.Dropdown>
-          </Menu>
-        </div>
-      )}
+            )}
+            <Menu shadow="md" width={220} position="bottom-end">
+              <Menu.Target>
+                <Button variant="subtle" rightSection={<MoreIcon />}>
+                  {ui.vacancies.moreActions}
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {getVacancyStatusActions(vacancy.status)
+                  .filter(
+                    (action) =>
+                      action.key !== primaryAction?.key && action.key !== "edit",
+                  )
+                  .map((action) => (
+                    <Menu.Item
+                      key={action.key}
+                      leftSection={action.icon}
+                      color={action.danger ? "red" : undefined}
+                      onClick={() => {
+                        if (action.type === "status")
+                          onStatusChange(vacancy.id, action.status);
+                        if (action.type === "archive") onArchive(vacancy.id);
+                      }}
+                    >
+                      {action.label}
+                    </Menu.Item>
+                  ))}
+              </Menu.Dropdown>
+            </Menu>
+          </div>
+        )}
+      </div>
       <div className={classes.managementTabs}>
         <button
           type="button"
@@ -1652,21 +1739,6 @@ function VacancyManagementPage(
       </div>
       {activeTab === "applications" && (
         <>
-          <FormSection title={ui.vacancies.pipelineTitle}>
-            <div className={classes.pipelineTabs}>
-              {stages.map((stage, index) => (
-                <button
-                  key={stage}
-                  className={
-                    index === 0 ? classes.pipelineTabActive : classes.pipelineTab
-                  }
-                >
-                  {stage}
-                  <span>—</span>
-                </button>
-              ))}
-            </div>
-          </FormSection>
           {vacancy && <VacancyApplicationsPanel vacancyId={vacancy.id} />}
         </>
       )}
@@ -1692,11 +1764,15 @@ function VacancyApplicationsPanel({ vacancyId }: { vacancyId: string }) {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<ApplicationPipelineFilter>("ALL");
+  const [sortBy, setSortBy] = useState<"score" | "percent" | "date">("score");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [resumeData, setResumeData] = useState<ApplicationResumeResponse<ResumeProfile> | null>(null);
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [rejectApplicationId, setRejectApplicationId] = useState<string | null>(null);
   const applicationUi = ui.vacancies.applications;
-  const statusOptions = (Object.keys(applicationUi.statuses) as ApplicationStatus[]).map((status) => ({
-    value: status,
-    label: applicationUi.statuses[status],
-  }));
+  const moduleUi = messages.applicationModule;
 
   /** Завантажує applications вакансії через ownership-aware endpoint. */
   const loadApplications = async () => {
@@ -1736,44 +1812,117 @@ function VacancyApplicationsPanel({ vacancyId }: { vacancyId: string }) {
     }
   };
 
-  return <FormSection title={ui.vacancies.managementTabs.applications}>
+  /** Відкриває резюме кандидата через endpoint, що застосовує правила видимості контактів. */
+  const openResume = async (applicationId: string) => {
+    setResumeOpen(true);
+    setResumeData(null);
+    setResumeLoading(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      setResumeData(await apiRequest<ApplicationResumeResponse<ResumeProfile>>(`/applications/${applicationId}/resume`, token));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+      setResumeOpen(false);
+    } finally {
+      setResumeLoading(false);
+    }
+  };
+
+  const counts = (["SENT", "VIEWED", "SHORTLISTED", "INTERVIEW_INVITED", "OFFERED", "HIRED", "REJECTED", "WITHDRAWN"] as ApplicationStatus[])
+    .reduce<Record<ApplicationPipelineFilter, number>>((result, status) => {
+      result[status] = items.filter((item) => item.status === status).length;
+      return result;
+    }, { ALL: items.length } as Record<ApplicationPipelineFilter, number>);
+
+  const visibleItems = [...items]
+    .filter((application) => statusFilter === "ALL" || application.status === statusFilter)
+    .sort((first, second) => {
+      const firstActive = first.matchDetails?.requirementEligibility?.matchesBlockingRequirements !== false;
+      const secondActive = second.matchDetails?.requirementEligibility?.matchesBlockingRequirements !== false;
+      if (firstActive !== secondActive) return firstActive ? -1 : 1;
+      if (sortBy === "date") return new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
+      if (sortBy === "percent") {
+        return (second.matchDetails?.baseRequirementsPercent ?? -1) - (first.matchDetails?.baseRequirementsPercent ?? -1)
+          || (second.matchScore ?? -1) - (first.matchScore ?? -1)
+          || new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
+      }
+      return (second.matchScore ?? -1) - (first.matchScore ?? -1)
+        || new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
+    });
+
+  return <>
+    <Drawer
+      opened={resumeOpen}
+      onClose={() => setResumeOpen(false)}
+      title={messages.studentDashboard.resumePreview.drawerTitle}
+      position="right"
+      size="min(980px, 92vw)"
+    >
+      {resumeLoading ? <AppLoader text={moduleUi.hr.resumeLoading} /> : resumeData && (
+        <ResumePreview profile={resumeData.profile} contactAccess={resumeData.contactAccess} />
+      )}
+    </Drawer>
+    <Modal centered opened={Boolean(rejectApplicationId)} onClose={() => setRejectApplicationId(null)} title={moduleUi.hr.rejectConfirmTitle}>
+      <Text>{moduleUi.hr.rejectConfirmText}</Text>
+      <Group justify="flex-end" mt="md">
+        <Button variant="subtle" onClick={() => setRejectApplicationId(null)}>{moduleUi.actions.cancel}</Button>
+        <Button color="red" loading={Boolean(rejectApplicationId && savingId === rejectApplicationId)} onClick={() => {
+          if (!rejectApplicationId) return;
+          void changeApplicationStatus(rejectApplicationId, "REJECTED").then(() => setRejectApplicationId(null));
+        }}>{moduleUi.hr.reject}</Button>
+      </Group>
+    </Modal>
+    <FormSection title={ui.vacancies.managementTabs.applications}>
     <ErrorBanner message={error} />
-    {loading ? <Text>{applicationUi.loading}</Text> : items.length === 0 ? <Text className={classes.muted}>{applicationUi.empty}</Text> : (
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{applicationUi.student}</Table.Th>
-            <Table.Th>{applicationUi.status}</Table.Th>
-            <Table.Th>{applicationUi.createdAt}</Table.Th>
-            <Table.Th>{applicationUi.matchScore}</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {items.map((application) => (
-            <Table.Tr key={application.id}>
-              <Table.Td>{studentName(application)}</Table.Td>
-              <Table.Td>
-                <Select
-                  data={statusOptions}
-                  value={application.status}
-                  disabled={savingId === application.id}
-                  onChange={(status) => void changeApplicationStatus(application.id, status)}
-                />
-              </Table.Td>
-              <Table.Td>{dayjs(application.createdAt).format("DD.MM.YYYY")}</Table.Td>
-              <Table.Td>{application.matchScore ?? applicationUi.scorePending}</Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+    <ApplicationPipelineToolbar counts={counts} selected={statusFilter} onSelect={setStatusFilter} sortBy={sortBy} onSortChange={setSortBy} />
+    {loading ? <Text>{applicationUi.loading}</Text> : visibleItems.length === 0 ? <Text className={classes.muted}>{statusFilter === "ALL" ? applicationUi.empty : applicationUi.emptyFiltered}</Text> : (
+      <div className={classes.applicationList}>{visibleItems.map((application) => {
+        const expanded = expandedId === application.id;
+        const inactive = application.matchDetails?.requirementEligibility?.matchesBlockingRequirements === false;
+        return <article className={classes.applicationCard} data-expanded={expanded || undefined} data-inactive={inactive || undefined} key={application.id} onDoubleClick={() => setExpandedId(expanded ? null : application.id)}>
+          <div className={classes.applicationRow}>
+            <div className={classes.applicationCandidate}>
+              <Text fw={900}>{studentName(application)}</Text>
+              {inactive && <Text size="xs" c="red">{moduleUi.hr.inactive}</Text>}
+            </div>
+            <div className={`${classes.applicationMetric} ${classes.applicationDate}`}><span>{moduleUi.student.createdAt}</span><strong>{dayjs(application.createdAt).format("DD.MM.YYYY")}</strong></div>
+            <div className={`${classes.applicationMetric} ${classes.applicationRequirements}`}><span>{moduleUi.hr.baseRequirements}</span><strong>{application.matchDetails?.baseRequirementsPercent ?? 0}%</strong></div>
+            <div className={`${classes.applicationMetric} ${classes.applicationScore}`}><span>{moduleUi.student.matchScore}</span><strong>{application.matchScore ?? applicationUi.scorePending}</strong></div>
+            <div className={`${classes.applicationMetric} ${classes.applicationStatus}`}><span>{moduleUi.student.status}</span><ApplicationStatusBadge status={application.status} /></div>
+            <div className={classes.applicationActions} onDoubleClick={(event) => event.stopPropagation()}>
+              <Button size="xs" variant="subtle" onClick={() => void openResume(application.id)}>{moduleUi.hr.resume}</Button>
+              <Button size="xs" variant="light" onClick={() => setExpandedId(expanded ? null : application.id)}>{expanded ? moduleUi.hr.hideAnalysis : moduleUi.hr.analysis}</Button>
+            </div>
+          </div>
+          {expanded && <div className={classes.applicationDetails}>
+            <ApplicationStatusTimeline
+              currentStatus={application.status}
+              onStatusChange={(status) => void changeApplicationStatus(application.id, status)}
+              onReject={() => setRejectApplicationId(application.id)}
+              saving={savingId === application.id}
+              statusHistory={application.statusHistory}
+              variant="hr"
+            />
+            <MatchAnalysisPanel details={application.matchDetails} variant="hr" />
+          </div>}
+        </article>;
+      })}</div>
     )}
-  </FormSection>;
+    </FormSection>
+  </>;
 }
 
 /** Формує читабельне ім'я студента для таблиці відгуків. */
 function studentName(application: VacancyApplication) {
-  const user = application.studentProfile.user;
+  const user = application.studentProfile?.user;
+  if (!user) return applicationUiFallback();
   return [user.lastName, user.firstName, user.middleName].filter(Boolean).join(" ");
+}
+
+/** Повертає нейтральний fallback для кандидата без публічного імені. */
+function applicationUiFallback() {
+  return messages.hrDashboard.vacancies.applications.student;
 }
 
 function VacancyPreview({

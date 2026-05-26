@@ -13,6 +13,7 @@
     "@clerk/localizations": "^4.6.2",
     "@clerk/react": "^6.6.2",
     "@fontsource-variable/manrope": "^5.2.8",
+    "@mantine/charts": "^9.2.1",
     "@mantine/core": "^9.2.1",
     "@mantine/dates": "^9.2.1",
     "@mantine/hooks": "^9.2.1",
@@ -24,7 +25,8 @@
     "dayjs": "^1.11.20",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^7.15.0"
+    "react-router-dom": "^7.15.0",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -40,5 +42,10 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10"
+  },
+  "overrides": {
+    "recharts": {
+      "es-toolkit": "1.39.3"
+    }
   }
 }

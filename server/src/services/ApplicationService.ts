@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   Prisma,
+  ProfileVisibility,
   UserRole,
 } from "../../prisma/generated/client/index.js";
 import { BusinessLogicError, HttpStatus } from "../errors/BusinessLogicError.js";
@@ -25,11 +26,26 @@ import {
 import { EligibilityService, eligibilityService } from "./EligibilityService.js";
 import { MatchingScoreService, matchingScoreService } from "./MatchingScoreService.js";
 import { OutboxEventService, outboxEventService } from "./OutboxEventService.js";
+import { ApplicationMatchRefreshService, applicationMatchRefreshService } from "./ApplicationMatchRefreshService.js";
 
 export type ApplicationCreateRequest = {
   vacancyId?: string;
   coverLetter?: string | null;
 };
+
+const processStatuses: ApplicationStatus[] = [
+  ApplicationStatus.SENT,
+  ApplicationStatus.VIEWED,
+  ApplicationStatus.SHORTLISTED,
+  ApplicationStatus.INTERVIEW_INVITED,
+  ApplicationStatus.OFFERED,
+  ApplicationStatus.HIRED,
+];
+const terminalStatuses: ApplicationStatus[] = [
+  ApplicationStatus.HIRED,
+  ApplicationStatus.REJECTED,
+  ApplicationStatus.WITHDRAWN,
+];
 
 export class ApplicationService {
   /** Створює сервіс application flow із залежностями репозиторіїв і транзакцій. */
@@ -41,6 +57,7 @@ export class ApplicationService {
     private readonly users: UserRepository = userRepository,
     private readonly eligibility: EligibilityService = eligibilityService,
     private readonly matching: MatchingScoreService = matchingScoreService,
+    private readonly matchRefresh: ApplicationMatchRefreshService = applicationMatchRefreshService,
     private readonly transactions: TransactionManager = transactionManager,
     private readonly outbox: OutboxEventService = outboxEventService,
   ) {}
@@ -75,8 +92,7 @@ export class ApplicationService {
         vacancyId,
         studentProfileId: student.profile.id,
         coverLetter,
-        // TODO: записувати matchScore після погодження фінальної прозорої формули.
-        matchScore: null,
+        matchScore: matchPreview.score,
         matchDetails: matchPreview as Prisma.InputJsonValue,
       });
       await applications.createStatusHistory({
@@ -93,7 +109,7 @@ export class ApplicationService {
   /** Повертає лише відгуки поточного студента. */
   async listMyApplications(clerkUserId: string) {
     const student = await this.getStudentActorOrThrow(clerkUserId);
-    return this.applications.listStudentApplications(student.profile.id);
+    return this.matchRefresh.recalculateForStudent(student.profile.id);
   }
 
   /** Повертає applications вакансії лише HR з компанії-власника вакансії. */
@@ -103,7 +119,50 @@ export class ApplicationService {
     if (!vacancy || vacancy.companyId !== hr.profile.companyId) {
       throw new BusinessLogicError("Vacancy not found", HttpStatus.NOT_FOUND, "VACANCY_NOT_FOUND");
     }
-    return this.applications.listVacancyApplicationsForCompany(vacancyId, hr.profile.companyId);
+    await this.matchRefresh.recalculateForVacancy(vacancyId);
+    const applications = await this.applications.listVacancyApplicationsForCompany(vacancyId, hr.profile.companyId);
+    const sentApplications = applications.filter((application) => application.status === ApplicationStatus.SENT);
+    if (sentApplications.length === 0) return applications;
+
+    return this.transactions.run(async (tx) => {
+      const repository = new ApplicationRepository(tx);
+      for (const application of sentApplications) {
+        const updated = await repository.markSentAsViewed(application.id);
+        if (updated.count === 0) continue;
+        await repository.createStatusHistory({
+          applicationId: application.id,
+          fromStatus: ApplicationStatus.SENT,
+          toStatus: ApplicationStatus.VIEWED,
+          changedByUserId: hr.user.id,
+        });
+        await this.outbox.applicationUpdated(tx, application.id, ApplicationStatus.VIEWED);
+      }
+      return repository.listVacancyApplicationsForCompany(vacancyId, hr.profile.companyId);
+    });
+  }
+
+  /** Повертає HR повне резюме кандидата та відкриває контакти лише згідно з visibility policy. */
+  async getApplicationResume(clerkUserId: string, applicationId: string) {
+    const hr = await this.getHrActorOrThrow(clerkUserId);
+    const application = await this.getApplicationOrThrow(applicationId);
+    if (application.vacancy.companyId !== hr.profile.companyId) {
+      throw new BusinessLogicError("Application not found", HttpStatus.NOT_FOUND, "APPLICATION_NOT_FOUND");
+    }
+    const profile = await this.students.findResumeById(application.studentProfileId);
+    if (!profile) {
+      throw new BusinessLogicError("Student profile not found", HttpStatus.NOT_FOUND, "STUDENT_PROFILE_NOT_FOUND");
+    }
+    const contactsVisible = this.canViewResumeContacts(profile.visibility, application.statusHistory);
+    return {
+      contactAccess: contactsVisible ? "VISIBLE" : profile.visibility === ProfileVisibility.APPLIED_ONLY ? "AFTER_OFFER" : "HIDDEN",
+      profile: contactsVisible ? profile : {
+        ...profile,
+        contactEmail: null,
+        primaryPhone: null,
+        secondaryPhone: null,
+        links: [],
+      },
+    };
   }
 
   /** Змінює статус Application із role-based доступом, history та outbox-подіями. */
@@ -111,8 +170,8 @@ export class ApplicationService {
     const actor = await this.getActorOrThrow(clerkUserId);
     const status = this.normalizeApplicationStatus(requestedStatus);
     const current = await this.getApplicationOrThrow(applicationId);
-    this.assertCanChangeStatus(actor, current, status);
     if (current.status === status) return current;
+    this.assertCanChangeStatus(actor, current, status);
 
     return this.transactions.run(async (tx) => {
       const applications = new ApplicationRepository(tx);
@@ -121,8 +180,8 @@ export class ApplicationService {
       if (!lockedCurrent) {
         throw new BusinessLogicError("Application not found", HttpStatus.NOT_FOUND, "APPLICATION_NOT_FOUND");
       }
-      this.assertCanChangeStatus(actor, lockedCurrent, status);
       if (lockedCurrent.status === status) return lockedCurrent;
+      this.assertCanChangeStatus(actor, lockedCurrent, status);
 
       if (status === ApplicationStatus.HIRED
         && await applications.hasOtherHiredApplication(lockedCurrent.vacancyId, lockedCurrent.id)) {
@@ -202,13 +261,50 @@ export class ApplicationService {
     status: ApplicationStatus,
   ) {
     if (actor.role === UserRole.STUDENT) {
-      if (actor.studentProfile?.id !== application.studentProfileId || status !== ApplicationStatus.WITHDRAWN) {
+      const ownsApplication = actor.studentProfile?.id === application.studentProfileId;
+      const restoresWithdrawn = application.status === ApplicationStatus.WITHDRAWN
+        && status === this.statusBeforeWithdrawal(application.statusHistory);
+      const withdrawsActive = status === ApplicationStatus.WITHDRAWN
+        && !terminalStatuses.includes(application.status);
+      if (!ownsApplication || (!withdrawsActive && !restoresWithdrawn)) {
         throw new BusinessLogicError("Student can only withdraw own application", HttpStatus.FORBIDDEN, "STATUS_CHANGE_FORBIDDEN");
       }
       return;
     }
-    if (actor.role === UserRole.HR && actor.hrProfile?.id === application.vacancy.hrProfileId) return;
+    if (actor.role === UserRole.HR && actor.hrProfile?.id === application.vacancy.hrProfileId) {
+      this.assertHrTransition(application.status, status);
+      return;
+    }
     throw new BusinessLogicError("Application status change is forbidden", HttpStatus.FORBIDDEN, "STATUS_CHANGE_FORBIDDEN");
+  }
+
+  /** Повертає останній статус application перед його відкликанням студентом. */
+  private statusBeforeWithdrawal(history: Array<{ fromStatus: ApplicationStatus | null; toStatus: ApplicationStatus }>) {
+    return [...history].reverse()
+      .find((event) => event.toStatus === ApplicationStatus.WITHDRAWN)?.fromStatus ?? null;
+  }
+
+  /** Дозволяє HR лише просування вперед або завершення кандидата відхиленням. */
+  private assertHrTransition(current: ApplicationStatus, next: ApplicationStatus) {
+    if (terminalStatuses.includes(current)) {
+      throw new BusinessLogicError("Terminal application status cannot be changed", HttpStatus.CONFLICT, "INVALID_STATUS_TRANSITION");
+    }
+    if (next === ApplicationStatus.REJECTED) return;
+    const currentIndex = processStatuses.indexOf(current);
+    const nextIndex = processStatuses.indexOf(next);
+    if (currentIndex < 0 || nextIndex <= currentIndex) {
+      throw new BusinessLogicError("Application status transition is not allowed", HttpStatus.CONFLICT, "INVALID_STATUS_TRANSITION");
+    }
+  }
+
+  /** Визначає, чи настав етап, на якому HR дозволено побачити контактні дані кандидата. */
+  private canViewResumeContacts(
+    visibility: ProfileVisibility,
+    history: Array<{ toStatus: ApplicationStatus }>,
+  ) {
+    if (visibility === ProfileVisibility.PUBLIC) return true;
+    if (visibility === ProfileVisibility.HIDDEN) return false;
+    return history.some((item) => item.toStatus === ApplicationStatus.OFFERED || item.toStatus === ApplicationStatus.HIRED);
   }
 
   /** Валідує id вакансії у body eligibility/create запиту. */

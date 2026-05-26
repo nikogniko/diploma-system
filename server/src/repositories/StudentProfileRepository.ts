@@ -78,6 +78,40 @@ export type LocationKey = {
   cityId?: number | null;
 };
 
+const studentResumeInclude = {
+  user: true,
+  links: true,
+  education: { include: { university: true } },
+  languages: { include: { language: true } },
+  courses: { include: { skills: { include: { skill: true } } } },
+  projects: { include: { skills: { include: { skill: true } } } },
+  experiences: {
+    include: {
+      profession: true,
+      sphere: true,
+      skills: { include: { skill: true } },
+    },
+  },
+  desiredProfessions: { include: { profession: true } },
+  employmentTypes: { include: { employmentType: true } },
+  workSchedules: { include: { workSchedule: true } },
+  workFormats: { include: { workFormat: true } },
+  desiredLocations: { include: { location: true } },
+} satisfies Prisma.StudentProfileInclude;
+
+const hrApplicationResumeInclude = {
+  ...studentResumeInclude,
+  user: {
+    select: {
+      firstName: true,
+      lastName: true,
+      middleName: true,
+      photoUrl: true,
+      createdAt: true,
+    },
+  },
+} satisfies Prisma.StudentProfileInclude;
+
 export class StudentProfileRepository {
   constructor(private readonly db: DbClient = prisma) {}
 
@@ -99,26 +133,15 @@ export class StudentProfileRepository {
   async findByClerkUserId(clerkUserId: string) {
     return this.db.studentProfile.findFirst({
       where: { user: { clerkUserId } },
-      include: {
-        user: true,
-        links: true,
-        education: { include: { university: true } },
-        languages: { include: { language: true } },
-        courses: { include: { skills: { include: { skill: true } } } },
-        projects: { include: { skills: { include: { skill: true } } } },
-        experiences: {
-          include: {
-            profession: true,
-            sphere: true,
-            skills: { include: { skill: true } },
-          },
-        },
-        desiredProfessions: { include: { profession: true } },
-        employmentTypes: { include: { employmentType: true } },
-        workSchedules: { include: { workSchedule: true } },
-        workFormats: { include: { workFormat: true } },
-        desiredLocations: { include: { location: true } },
-      },
+      include: studentResumeInclude,
+    });
+  }
+
+  /** Повертає повне резюме студента для авторизованого сценарію перегляду application. */
+  async findResumeById(profileId: string) {
+    return this.db.studentProfile.findUnique({
+      where: { id: profileId },
+      include: hrApplicationResumeInclude,
     });
   }
 
@@ -133,11 +156,20 @@ export class StudentProfileRepository {
       where: { id: profileId },
       include: {
         links: true,
+        education: true,
         languages: { include: { language: true } },
+        desiredProfessions: { include: { profession: true } },
+        employmentTypes: { include: { employmentType: true } },
+        workSchedules: { include: { workSchedule: true } },
+        workFormats: { include: { workFormat: true } },
         desiredLocations: { include: { location: true } },
         courses: { include: { skills: { include: { skill: true } } } },
         projects: { include: { skills: { include: { skill: true } } } },
-        experiences: { include: { skills: { include: { skill: true } } } },
+        experiences: {
+          include: {
+            skills: { include: { skill: true } },
+          },
+        },
       },
     });
   }

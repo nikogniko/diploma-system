@@ -32,10 +32,10 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 - Призначення: декларація реальних frontend routes.
 - Тип: `createBrowserRouter([...])`.
-- Routes: `/`, `/start`, `/sign-up`, `/sign-in`, `/onboarding`, `/auth/redirect`, `/student`, `/hr`, `/admin`.
+- Routes: `/`, `/start`, `/sign-up`, `/sign-in`, `/onboarding`, `/auth/redirect`, `/student`, `/hr/vacancies`, `/hr/vacancies/new`, `/hr/vacancies/:vacancyId/:view`, `/hr/profile`, `/hr/company`, `/admin`.
 - Викликає: `RootLayout`, `ProtectedRoute`, page-компоненти.
 - Побічні ефекти: немає.
-- Summary: централізує route tree; HR tabs залишаються query/state-based, не nested routes.
+- Summary: централізує route tree; HR tabs і vacancy subviews мають читабельні path routes замість технічних query-параметрів.
 
 ## `client/src/api`
 
@@ -203,7 +203,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 - Призначення: preview резюме студента.
 - Props: `profile` з user, personalInfo, preferences, education, languages, courses, projects, experiences, links.
-- Повертає: resume UI з секціями досвіду, освіти, skills, контактів.
+- Повертає: resume UI з секціями досвіду, освіти, skills, контактів; prop `contactAccess` дозволяє власнику бачити свої контакти, а HR - лише дані, відкриті backend policy.
 - Helper methods: `PreviewSection`, `ResumeCard`, `CardList`, `SkillCloud`, `GroupedSkillCloud`, `LinkList`, `QuickContactList`, `InfoLine`, `ContactLine`, format/sort helpers.
 - Побічні ефекти: copy to clipboard для контактів.
 - Summary: незалежний preview-компонент резюме.
@@ -247,7 +247,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Призначення: головний HR-кабінет: вакансії, створення/редагування вакансії, профіль рекрутера, профіль/preview компанії.
 - State: active tab, selected/editing vacancy, HR profile, company, companyHrs, catalogs, vacancy table filters/pagination/sort, forms, saving/errors.
 - UI behavior: ліве меню не відкривається примусово під час переходів між вкладками; при переході на вкладку вакансій воно може одноразово згорнутися через `autoCollapseKeys`.
-- Routing: відкрита сторінка взаємодії з вакансією зберігається в query params `tab=vacancies&vacancyId=...&view=...`, тому reload повертає користувача до тієї самої вакансії та вкладки.
+- Routing: активний екран і взаємодія з вакансією зберігаються у читабельному path: `/hr/vacancies`, `/hr/vacancies/new`, `/hr/vacancies/:vacancyId/applications|preview|edit`, `/hr/profile`, `/hr/company`. Старі query-посилання одноразово переводяться у відповідний path.
 - Обмеження вводу: зарплата у формі вакансії обмежена `0..9_999_999`, без від'ємних і дробових значень, з `clampBehavior="strict"`.
 - API calls: `GET /hr-profiles/my-cabinet`, `GET/PATCH /companies/my-cabinet`, `GET /companies/my-cabinet/hr-profiles`, `GET /vacancies/catalogs`, `GET/POST/PATCH /vacancies/my-cabinet`, `PATCH /vacancies/my-cabinet/:id/status`, `POST /vacancies/my-cabinet/:id/archive`.
 - Methods:
@@ -485,12 +485,32 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 - У спільному detail view збережено одну дію `Відгукнутися`.
 - Натискання спершу викликає `POST /api/applications/check-eligibility`; якщо `canApply=true`, сторінка одразу викликає `POST /api/applications`.
-- Якщо відповідність заблокована, у sticky action-блоці показуються blocking reasons, missing critical skills, missing languages, location mismatch, warnings і factual match preview.
+- Якщо відповідність заблокована, у sticky action-блоці показуються blocking reasons, missing critical skills, missing mandatory vacancy conditions, missing languages, location mismatch, warnings і factual match preview.
 - Після успішного створення в цьому ж блоці показується підтвердження, а кнопка блокується від повторного надсилання.
+- Feedback у sticky action-блоці має кнопку закриття; після успішного application закриття повідомлення не дозволяє повторно надіслати відгук.
 - Верхній notice для application flow прибрано; тексти й мапінг backend-кодів містяться у `client/src/locales/uk.json`.
 
 ### `HrDashboard.tsx`
 
-- У вкладці роботи з відгуками вакансії додано мінімальну таблицю applications.
-- Таблиця викликає `GET /api/vacancies/:id/applications` і показує кандидата, статус, дату створення та `matchScore` або placeholder, коли фінальна формула ще не реалізована.
-- Selector статусу викликає `PATCH /api/applications/:id/status`; правила ownership і `HIRED` виконуються backend-сервісом.
+- Вкладки й вибрана вакансія синхронізуються з читабельними routes: `/hr/vacancies`, `/hr/vacancies/:id/applications`, `/hr/vacancies/:id/preview`, `/hr/vacancies/:id/edit`, `/hr/vacancies/new`, `/hr/profile`, `/hr/company`. Застарілий query URL конвертується у відповідний path; quick actions вакансії розташовані вертикально праворуч від заголовка management view.
+- У вкладці роботи з відгуками вакансії panel викликає `GET /api/vacancies/:id/applications`, показує компактні рядки кандидата, дату, `baseRequirementsPercent`, `matchScore` і статичну плашку поточного статусу; перше відкриття списку фіксує перегляд нових applications на backend. Статусні фільтри займають один адаптивний рядок: плашки, що не вміщуються, доступні в меню `...`, а сортування відкривається компактною кнопкою з іконкою.
+- Над списком є компактний segmented pipeline-фільтр з пунктом `Усі` та кожним application status окремо; кольорові лічильники зберігають семантику статусів, а невміщені сегменти переходять у dropdown `...` без появи другого рядка. Поруч доступне icon-menu сортування за комплексним балом, базовою відповідністю або датою; default order спершу ставить `matchesBlockingRequirements=true`, далі `matchScore desc` і `createdAt desc`.
+- Рядок має підписані metric blocks для дати, статусу, базової відповідності й комплексного бала. На проміжних та мобільних ширинах ім'я кандидата і дії залишаються у верхньому рядку, а метрики переносяться нижче без горизонтального виходу за контейнер. Кандидати, що перестали виконувати blocking-вимоги після редагування вакансії, мають badge `Не відповідає оновленим критичним вимогам`.
+- Компактна кнопка `Резюме` викликає `GET /api/applications/:id/resume` і відкриває reusable `ResumePreview`; `PUBLIC` контакти доступні HR одразу після відгуку, `APPLIED_ONLY` - тільки після переходу application до `OFFERED`/`HIRED`, а приховані contacts сервер не включає у response.
+- `Показати деталі` або подвійний клік application card розгортає reusable `ApplicationStatusTimeline` і `MatchAnalysisPanel`; selector дозволених наступних статусів розміщено у timeline і використовує `PATCH /api/applications/:id/status`. `Відхилити` знаходиться під кроками timeline і вимагає підтвердження. Подвійний клік рядка у таблиці вакансій одразу відкриває applications view.
+
+### `StudentDashboard.tsx`
+
+- Наявна вкладка `Відгуки на вакансії` реалізована через `GET /api/applications/my`; картки мають таку саму адаптивну pipeline-панель і сортування, як HR view, а кнопка `Переглянути вакансію` веде на публічну сторінку відповідної вакансії.
+- Картка показує вакансію, компанію та підписані metrics для дати, статусу, базової відповідності й комплексного бала; frontend-only status filter звужує список.
+- `Переглянути аналіз` або подвійний клік картки розгортає timeline і score details; timeline кандидата розгорнутий початково. `Відкликати` розміщено під кроками timeline й вимагає підтвердження, а для `WITHDRAWN` доступне `Скасувати відкликання`, що повертає application на попередній статус.
+
+### `ApplicationStatusTimeline.tsx` Та `MatchAnalysisPanel.tsx`
+
+- `ApplicationStatusTimeline` є спільним для `student` і `hr`: для студента він початково розгорнутий, для HR відкривається за кнопкою; всередині показує горизонтальний process timeline з labels під цифрами, перекресленням пропущених етапів, terminal marker та історію переходів. Для HR там же розміщено control наступного етапу й підтверджувану дію відхилення, для студента - підтверджуване відкликання або його скасування.
+- `MatchAnalysisPanel` у верхньому рівні показує `Покрито вимог`, `Критичні вимоги`, `Базова відповідність` і `Комплексний бал`; з двох останніх карток незалежно відкриваються таблиця формули та вирівняний праворуч внесок `Бали за глибину компетенцій`/`Додаткові бали` з цілим відсотком. Короткий текстовий висновок розміщений перед діаграмами у ненав'язливій інформаційній плашці. Окремого блоку технічних деталей більше немає.
+- `matchAnalysisGroups.ts` є спільною класифікацією чотирьох груп: критичні навички, обов'язкові умови вакансії, важливі й бажані навички; локація відображається у групі умов. У деталях секція обов'язкових умов виводиться перед критичними навичками, але всі accordion-секції стартують згорнутими. Секції показують дві м'яко забарвлені колонки `Виконано`/`Не виконано`; навички виводяться чистим списком, професія пояснюється рядком з даними кандидата без status-плашки, а додаткові бали містять пояснення фактичних даних кандидата.
+- `MatchAnalysisCharts` використовує Mantine `DonutChart` для кількісного покриття чотирьох груп (насичений/пастельний сектор виконаних і невиконаних пунктів) та горизонтальний `BarChart` із перемикачем балів за навичками або кількості записів джерел. Картка donut займає меншу частину горизонтального ряду і не розтягується до висоти bar chart; таблиця джерел skill score має підсумковий рядок, а badge секцій джерел і додаткових балів одразу показують їх значення.
+- `client/package.json` фіксує транзитивний `recharts -> es-toolkit` на заявленій Recharts сумісній версії `1.39.3` через `overrides`: `es-toolkit@1.47.0` експортує `compat/*` через CJS-обгортки, які Vite 8 dev optimizer перетворює на самозатираючі виклики (`require_isUnsafeProperty`, `require_ary`) і через це зупиняє завантаження застосунку.
+- `ApplicationStatusBadge` є спільною кольоровою плашкою для application status у HR, student і terminal marker timeline.
+- Усі видимі labels, summaries та рекомендації цих компонентів беруться з `client/src/locales/uk.json`.

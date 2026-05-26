@@ -6,6 +6,7 @@ import { MantineProvider, createTheme } from "@mantine/core";
 import "@fontsource-variable/manrope/index.css";
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
+import "@mantine/charts/styles.css";
 import "dayjs/locale/uk";
 import "./styles/global.scss";
 import App from "./App.tsx";

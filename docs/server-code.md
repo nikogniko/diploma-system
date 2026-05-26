@@ -412,35 +412,53 @@ Backend - Express API. Основний потік: route → controller → ser
 - `POST /api/applications` - створює відгук поточного студента; при блокуванні повертає `400 APPLICATION_NOT_ELIGIBLE` з eligibility у `error.details`.
 - `GET /api/applications/my` - повертає тільки applications поточного студента.
 - `GET /api/vacancies/:id/applications` - повертає відгуки тільки HR з компанії-власника вакансії.
+- `GET /api/applications/:id/resume` - повертає HR компанії-власника повне резюме кандидата; контактні поля та links включаються лише відповідно до visibility policy.
 - `PATCH /api/applications/:id/status` - виконує role/ownership-aware перехід статусу.
 - `ApplicationController.ts` - тонкий HTTP layer: читає Clerk actor/route params, викликає `ApplicationService`, нормалізує HTTP status.
 
 ### `ApplicationService.ts`
 
 - `checkEligibility(clerkUserId, vacancyId)` - знаходить студентський профіль і делегує blocking rules в `EligibilityService`.
-- `createApplication(clerkUserId, body)` - після успішної перевірки створює `Application(status=SENT)`, initial `ApplicationStatusHistory` та `Application CREATED` outbox event в одній Prisma transaction.
-- `listMyApplications(clerkUserId)` - ізолює студентський список відгуків.
-- `listVacancyApplications(clerkUserId, vacancyId)` - перевіряє належність вакансії компанії поточного HR.
-- `changeStatus(clerkUserId, applicationId, status)` - студенту дозволяє лише `WITHDRAWN` власного відгуку; HR дозволяє статуси лише для application вакансії, створеної саме ним. При `HIRED` в одній transaction закриває вакансію з `closeReason=HIRED`.
+- `createApplication(clerkUserId, body)` - після успішної перевірки рахує matching, створює `Application(status=SENT, matchScore=totalScore, matchDetails=result)`, initial `ApplicationStatusHistory` та `Application CREATED` outbox event в одній Prisma transaction.
+- `listMyApplications(clerkUserId)` - ізолює студентський список відгуків і перед видачею актуалізує score snapshots.
+- `listVacancyApplications(clerkUserId, vacancyId)` - перевіряє належність вакансії компанії поточного HR, актуалізує snapshots і при першому відкритті переводить `SENT -> VIEWED` з history/outbox event; потім повертає список для сортування/аналізу.
+- `changeStatus(clerkUserId, applicationId, status)` - студенту дозволяє `WITHDRAWN` власного нетермінального відгуку, а після відкликання - повернення лише до статусу безпосередньо перед `WITHDRAWN`; HR дозволяє лише просування вперед у pipeline або `REJECTED` для application вакансії, створеної саме ним. При `HIRED` в одній transaction закриває вакансію з `closeReason=HIRED`.
+- `getApplicationResume(clerkUserId, applicationId)` - перевіряє, що HR належить компанії вакансії; `PUBLIC` відкриває контакти після відгуку, `APPLIED_ONLY` тільки після наявності `OFFERED`/`HIRED` у history, а до цього приватні контакти й links вирізаються на сервері.
 
 ### `EligibilityService.ts`
 
-- `checkCanApply(studentProfileId, vacancyId)` повертає `{ canApply, blockingReasons, missingCriticalSkills, missingLanguages, locationMismatch, profileWarnings, matchPreview }`.
-- Blocking codes: `VACANCY_NOT_ACTIVE`, `VACANCY_EXPIRED`, `APPLICATION_ALREADY_EXISTS`, `PROFILE_HIDDEN`, `MISSING_CRITICAL_SKILLS`, `MISSING_REQUIRED_LANGUAGES`, `LOCATION_MISMATCH`.
+- `checkCanApply(studentProfileId, vacancyId)` повертає `{ canApply, blockingReasons, missingBlockingRequirements, matchedCriticalSkills, missingCriticalSkills, matchedImportantSkills, missingImportantSkills, matchedPlusSkills, missingPlusSkills, missingLanguages, locationMismatch, profileWarnings, matchPreview }`.
+- Blocking codes: `VACANCY_NOT_ACTIVE`, `VACANCY_EXPIRED`, `APPLICATION_ALREADY_EXISTS`, `PROFILE_HIDDEN`, `MISSING_CRITICAL_SKILLS`, `MISSING_REQUIRED_CONDITIONS`, `MISSING_REQUIRED_LANGUAGES`, `LOCATION_MISMATCH`.
+- Для вимог вакансії сервіс не обчислює правила повторно: `canApply` читає ті самі `requirementItems`, де `isBlocking=true` і `matched=false`, що зберігаються у matching snapshot.
 - Warning codes: `PROFILE_ABOUT_EMPTY`, `PROFILE_LINKS_EMPTY`; вони не забороняють подання.
 - Skills студента беруться з наявних relations `experiences.skills`, `projects.skills`, `courses.skills`; нових schema fields не додано.
 
 ### `MatchingScoreService.ts`
 
-- `calculateApplicationMatch(vacancyId, studentProfileId)` завантажує вимоги та профіль із PostgreSQL/Prisma.
-- `buildMatchExplanation(vacancy, student)` повертає matched/missing skill groups, missing languages, strict location mismatch і прозорий `baseRequirementsPercent`.
-- `score` навмисно залишається `null`: фінальна scoring formula ще не погоджена. `matchDetails` зберігає фактологічний preview, але не Elasticsearch `_score`.
+- `calculateApplicationMatch(vacancyId, studentProfileId)` завантажує vacancy requirements і студентські desired settings/resume evidence із PostgreSQL/Prisma.
+- `baseRequirementsPercent` рахується за weighted requirement items: `CRITICAL=3`, `IMPORTANT=2`, `NICE_TO_HAVE=1`; у details зберігаються загальна кількість вимог, кількість збігів і окремий coverage фактичних blocking-вимог.
+- Кожний `requirementItem` містить `key`, `label`, `category`, `weight`, `matched`, `isBlocking`, `blockingReason` і `details`. Критичні вимоги поділено на critical skills та mandatory vacancy conditions: profession, language requirements, задані employment type/schedule/work format і salary; локація належить до умов вакансії та є blocking лише при `isLocationCritical=true`.
+- Необов'язкова location лишається пунктом покриття/додаткового бала, але не eligibility-блокером. Якщо `student.minSalary=null`, salary requirement вважається matched, бо кандидат не задав нижню межу очікувань. Для grouped-параметрів і profession у `details` зберігаються required/student values, щоб UI міг показати інформацію кандидата.
+- `skillDepthScore` рахує підтвердження skills лише з вимог вакансії: course `2/4`, project `6/8`, experience `max(1, fullMonths*2)`; сума джерел множиться на вагу skill.
+- `additionalCriteriaScore` складається з bonus за відповідні мови, необов'язковий location match, найвищу освіту/диплом та активний пошук; у UI ця складова називається `Додаткові бали`. Критична локація є умовою допуску і не додає балів.
+- `score` дорівнює `totalScore = skillDepthScore + additionalCriteriaScore`; пояснення повертає deterministic codes для frontend-локалізації, matched/missing groups і `requirementEligibility.matchesBlockingRequirements`.
+
+### `ApplicationMatchRefreshService.ts`
+
+- `recalculateForStudent(studentProfileId)` оновлює `matchScore`/`matchDetails` applications після змін резюме або параметрів пошуку студента.
+- `recalculateForVacancy(vacancyId)` оновлює snapshots після редагування вимог вакансії та перед HR-переглядом.
+- Snapshot не видаляє application: якщо після зміни blocking-вимог кандидат більше не проходить допуск, `requirementEligibility.matchesBlockingRequirements=false` дозволяє UI показати його неактивним і сортувати нижче.
 
 ### Repositories Та Outbox
 
-- `ApplicationRepository.ts` інкапсулює CRUD applications, status history, student/HR списки й перевірку іншого `HIRED`.
-- `StudentProfileRepository.findForApplicationMatchById()` додає вузьке читання relations для eligibility/matching.
+- `ApplicationRepository.ts` інкапсулює CRUD applications, status history, public-safe student projection, оновлення matching snapshot, одноразовий conditional `SENT -> VIEWED`, student/HR списки й перевірку іншого `HIRED`.
+- `StudentProfileRepository.findForApplicationMatchById()` читає education, languages, desired preferences, locations та evidence skills для matching.
 - `VacancyRepository.closeVacancyAsHired()` фіксує `CLOSED`, `closedAt`, `closeReason=HIRED`.
 - `OutboxEventRepository.ts` працює з реальною моделлю `OutboxEvent` без schema changes.
 - `OutboxEventService.ts` додає мінімальні payload events: `Application CREATED`, `Application UPDATED`, `Vacancy UPDATED` при закритті через найм.
 - `SearchOutboxWorker.ts` є worker skeleton: читає `PENDING` у порядку `createdAt`, синхронізує відомі `Vacancy` documents лише якщо Elasticsearch увімкнено, позначає `PROCESSED`/`FAILED`; application index у MVP не створюється.
+
+### Response Shape Applications
+
+- `GET /api/applications/my` повертає application id/status/dates, `matchScore`, `matchDetails`, vacancy з company і `statusHistory` з доступним публічним автором переходу.
+- `GET /api/vacancies/:id/applications` повертає ті самі score/history поля, а також публічні дані кандидата (`firstName`, `lastName`, `middleName`, `photoUrl`, короткі поля profile); приватні контакти не включаються.

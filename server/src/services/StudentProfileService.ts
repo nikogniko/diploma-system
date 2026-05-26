@@ -20,6 +20,7 @@ import { SkillRepository, skillRepository } from "../repositories/SkillRepositor
 import { transactionManager, TransactionManager } from "../repositories/TransactionManager.js";
 import { UserRepository } from "../repositories/UserRepository.js";
 import { EmailValidator } from "../utils/EmailValidator.js";
+import { ApplicationMatchRefreshService, applicationMatchRefreshService } from "./ApplicationMatchRefreshService.js";
 
 type LinkInput = {
   linkType: LinkType;
@@ -100,6 +101,7 @@ export class StudentProfileService {
     private readonly profiles: StudentProfileRepository = studentProfileRepository,
     private readonly skills: SkillRepository = skillRepository,
     private readonly txManager: TransactionManager = transactionManager,
+    private readonly matchRefresh: ApplicationMatchRefreshService = applicationMatchRefreshService,
   ) {}
 
   /** Повертає студентський профіль поточного користувача. */
@@ -133,7 +135,7 @@ export class StudentProfileService {
         ? profile.primaryPhone
         : this.requiredString(body.primaryPhone, "primaryPhone");
 
-    return this.txManager.run(async (tx) => {
+    const updated = await this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       const txUsers = new UserRepository(tx);
 
@@ -174,6 +176,8 @@ export class StudentProfileService {
 
       return updatedProfile;
     });
+    await this.matchRefresh.recalculateForStudent(profile.id);
+    return updated;
   }
 
   /** Оновлює видимість, активний пошук і бажані параметри пошуку роботи. */
@@ -183,7 +187,7 @@ export class StudentProfileService {
   ) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
 
-    return this.txManager.run(async (tx) => {
+    return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       const updatedProfile = await txProfiles.updateSearchSettings(profile.id, {
         desiredPosition: body.desiredPosition,
@@ -231,33 +235,33 @@ export class StudentProfileService {
       }
 
       return updatedProfile;
-    });
+    }));
   }
 
   /** Створює запис формальної освіти у резюме студента. */
   async createEducation(clerkUserId: string, body: EducationRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    return this.profiles.createEducation(profile.id, this.mapEducation(body));
+    return this.refreshAfter(profile.id, this.profiles.createEducation(profile.id, this.mapEducation(body)));
   }
 
   /** Оновлює запис освіти після перевірки, що він належить студенту. */
   async updateEducation(clerkUserId: string, educationId: string, body: EducationRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     await this.ensureEducationOwned(profile.id, educationId);
-    return this.profiles.updateEducation(educationId, this.mapEducation(body));
+    return this.refreshAfter(profile.id, this.profiles.updateEducation(educationId, this.mapEducation(body)));
   }
 
   /** Видаляє запис освіти після перевірки власності. */
   async deleteEducation(clerkUserId: string, educationId: string) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     await this.ensureEducationOwned(profile.id, educationId);
-    return this.profiles.deleteEducation(educationId);
+    return this.refreshAfter(profile.id, this.profiles.deleteEducation(educationId));
   }
 
   /** Створює або оновлює запис іноземної мови у резюме. */
   async upsertLanguageSkill(clerkUserId: string, body: LanguageSkillRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    return this.profiles.upsertLanguageSkill(profile.id, this.mapLanguageSkill(body));
+    return this.refreshAfter(profile.id, this.profiles.upsertLanguageSkill(profile.id, this.mapLanguageSkill(body)));
   }
 
   /** Оновлює запис мови після перевірки власності. */
@@ -268,14 +272,14 @@ export class StudentProfileService {
   ) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     await this.ensureLanguageSkillOwned(profile.id, languageSkillId);
-    return this.profiles.updateLanguageSkill(languageSkillId, this.mapLanguageSkill(body));
+    return this.refreshAfter(profile.id, this.profiles.updateLanguageSkill(languageSkillId, this.mapLanguageSkill(body)));
   }
 
   /** Видаляє запис мови після перевірки власності. */
   async deleteLanguageSkill(clerkUserId: string, languageSkillId: string) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     await this.ensureLanguageSkillOwned(profile.id, languageSkillId);
-    return this.profiles.deleteLanguageSkill(languageSkillId);
+    return this.refreshAfter(profile.id, this.profiles.deleteLanguageSkill(languageSkillId));
   }
 
   /** Створює курс і прив'язує до нього навички у transaction. */
@@ -283,13 +287,13 @@ export class StudentProfileService {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     const skillIds = this.uniqueNumbers(body.skillIds);
 
-    return this.txManager.run(async (tx) => {
+    return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       await this.ensureSkillsExist(skillIds, new SkillRepository(tx));
       const course = await txProfiles.createCourse(profile.id, this.mapCourse(body));
       await txProfiles.replaceCourseSkills(course.id, skillIds);
       return course;
-    });
+    }));
   }
 
   /** Оновлює курс і повністю замінює його навички у transaction. */
@@ -297,21 +301,21 @@ export class StudentProfileService {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     const skillIds = this.uniqueNumbers(body.skillIds);
 
-    return this.txManager.run(async (tx) => {
+    return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       await this.ensureCourseOwned(profile.id, courseId, txProfiles);
       await this.ensureSkillsExist(skillIds, new SkillRepository(tx));
       const course = await txProfiles.updateCourse(courseId, this.mapCourse(body));
       await txProfiles.replaceCourseSkills(courseId, skillIds);
       return course;
-    });
+    }));
   }
 
   /** Видаляє курс після перевірки власності. */
   async deleteCourse(clerkUserId: string, courseId: string) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     await this.ensureCourseOwned(profile.id, courseId);
-    return this.profiles.deleteCourse(courseId);
+    return this.refreshAfter(profile.id, this.profiles.deleteCourse(courseId));
   }
 
   /** Створює проєкт і прив'язує до нього навички у transaction. */
@@ -319,13 +323,13 @@ export class StudentProfileService {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     const skillIds = this.uniqueNumbers(body.skillIds);
 
-    return this.txManager.run(async (tx) => {
+    return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       await this.ensureSkillsExist(skillIds, new SkillRepository(tx));
       const project = await txProfiles.createProject(profile.id, this.mapProject(body));
       await txProfiles.replaceProjectSkills(project.id, skillIds);
       return project;
-    });
+    }));
   }
 
   /** Оновлює проєкт і повністю замінює його навички у transaction. */
@@ -333,21 +337,21 @@ export class StudentProfileService {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     const skillIds = this.uniqueNumbers(body.skillIds);
 
-    return this.txManager.run(async (tx) => {
+    return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       await this.ensureProjectOwned(profile.id, projectId, txProfiles);
       await this.ensureSkillsExist(skillIds, new SkillRepository(tx));
       const project = await txProfiles.updateProject(projectId, this.mapProject(body));
       await txProfiles.replaceProjectSkills(projectId, skillIds);
       return project;
-    });
+    }));
   }
 
   /** Видаляє проєкт після перевірки власності. */
   async deleteProject(clerkUserId: string, projectId: string) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     await this.ensureProjectOwned(profile.id, projectId);
-    return this.profiles.deleteProject(projectId);
+    return this.refreshAfter(profile.id, this.profiles.deleteProject(projectId));
   }
 
   /** Створює досвід роботи і прив'язує до нього навички у transaction. */
@@ -355,13 +359,13 @@ export class StudentProfileService {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     const skillIds = this.uniqueNumbers(body.skillIds);
 
-    return this.txManager.run(async (tx) => {
+    return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       await this.ensureSkillsExist(skillIds, new SkillRepository(tx));
       const experience = await txProfiles.createExperience(profile.id, this.mapExperience(body));
       await txProfiles.replaceExperienceSkills(experience.id, skillIds);
       return experience;
-    });
+    }));
   }
 
   /** Оновлює досвід роботи і повністю замінює його навички у transaction. */
@@ -369,21 +373,21 @@ export class StudentProfileService {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     const skillIds = this.uniqueNumbers(body.skillIds);
 
-    return this.txManager.run(async (tx) => {
+    return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       await this.ensureExperienceOwned(profile.id, experienceId, txProfiles);
       await this.ensureSkillsExist(skillIds, new SkillRepository(tx));
       const experience = await txProfiles.updateExperience(experienceId, this.mapExperience(body));
       await txProfiles.replaceExperienceSkills(experienceId, skillIds);
       return experience;
-    });
+    }));
   }
 
   /** Видаляє досвід роботи після перевірки власності. */
   async deleteExperience(clerkUserId: string, experienceId: string) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
     await this.ensureExperienceOwned(profile.id, experienceId);
-    return this.profiles.deleteExperience(experienceId);
+    return this.refreshAfter(profile.id, this.profiles.deleteExperience(experienceId));
   }
 
   /** Готує місце для майбутнього створення ProposedSkill зі статусом PENDING. */
@@ -410,6 +414,13 @@ export class StudentProfileService {
     }
 
     return profile;
+  }
+
+  /** Повертає результат mutation після оновлення match snapshots усіх відгуків студента. */
+  private async refreshAfter<T>(profileId: string, operation: Promise<T>) {
+    const result = await operation;
+    await this.matchRefresh.recalculateForStudent(profileId);
+    return result;
   }
 
   /** Перевіряє, що всі передані skillIds існують у довіднику. */

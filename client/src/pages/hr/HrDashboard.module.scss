@@ -6,6 +6,14 @@
   padding-inline: 1.25rem;
 }
 
+.managementHeading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+  margin-bottom: 0;
+}
+
 .tabTitle {
   margin: 0;
   color: var(--color-dark-main);
@@ -1254,11 +1262,15 @@
 }
 
 .vacancyQuickActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  align-items: center;
-  padding-inline: 1.25rem;
+  display: grid;
+  gap: 0.45rem;
+  align-items: start;
+  min-width: 11.5rem;
+  padding-inline: 0 1.25rem;
+
+  button {
+    width: 100%;
+  }
 }
 
 .backButton {
@@ -1291,43 +1303,90 @@
   }
 }
 
-.pipelineTabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.applicationList,
+.applicationDetails {
+  display: grid;
+  gap: 0.85rem;
 }
 
-.pipelineTab,
-.pipelineTabActive {
-  display: inline-flex;
-  gap: 0.55rem;
-  align-items: center;
-  padding: 0.6rem 0.85rem;
-  color: var(--color-dark-main);
-  font-weight: 900;
-  background: var(--color-bg-main);
+.applicationCard {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 999px;
-  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 
-  span {
-    display: inline-grid;
-    min-width: 1.4rem;
-    height: 1.4rem;
-    place-items: center;
-    color: var(--color-primary);
-    background: var(--color-primary-soft);
-    border-radius: 999px;
+  &:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+    box-shadow: var(--shadow-sm);
+  }
+
+  &[data-expanded] {
+    border-color: var(--color-primary);
+  }
+
+  &[data-inactive] {
+    opacity: 0.72;
+    border-color: color-mix(in srgb, var(--color-danger) 34%, var(--color-border));
   }
 }
 
-.pipelineTabActive {
-  color: var(--color-surface);
-  background: var(--color-primary);
+.applicationRow {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.2fr) repeat(3, minmax(105px, auto)) minmax(175px, 0.65fr) auto;
+  grid-template-areas: "candidate date requirements score status actions";
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.applicationCandidate {
+  grid-area: candidate;
+  min-width: 0;
+}
+
+.applicationDate {
+  grid-area: date;
+}
+
+.applicationRequirements {
+  grid-area: requirements;
+}
+
+.applicationScore {
+  grid-area: score;
+}
+
+.applicationStatus {
+  grid-area: status;
+}
+
+.applicationActions {
+  display: inline-flex;
+  grid-area: actions;
+  gap: 0.35rem;
+  align-items: center;
+  justify-self: end;
+}
+
+.applicationMetric {
+  display: grid;
+  gap: 0.25rem;
 
   span {
-    color: var(--color-primary);
-    background: var(--color-surface);
+    color: var(--color-dark-muted);
+    font-size: 0.73rem;
+    font-weight: 800;
+  }
+}
+
+@media (max-width: 1150px) {
+  .applicationRow {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+      "candidate candidate candidate actions"
+      "date requirements score status";
   }
 }
 
@@ -1350,10 +1409,24 @@
   .companyPreviewGrid,
   .vacancyPreviewGrid,
   .headerRow,
+  .managementHeading,
   .vacancyToolbar,
   .companyVacancyFilterRow,
   .tablePagination {
     grid-template-columns: 1fr;
+  }
+
+  .applicationRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "candidate actions"
+      "date requirements"
+      "score status";
+  }
+
+  .vacancyQuickActions {
+    min-width: 0;
+    padding-inline: 1.25rem;
   }
 
   .editorActions {
@@ -1362,5 +1435,12 @@
 
   .vacancyActions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 460px) {
+  .applicationActions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

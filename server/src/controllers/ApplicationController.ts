@@ -72,6 +72,16 @@ export const listVacancyApplications = async (req: Request, res: Response, next:
   }
 };
 
+/** Повертає резюме кандидата HR компанії-власника application з policy-доступом до контактів. */
+export const getApplicationResume = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await applicationService.getApplicationResume(requireActorId(req), applicationIdParam(req));
+    res.status(HttpStatus.OK).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /** Оновлює статус application із перевіркою ролі та ownership. */
 export const changeApplicationStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
