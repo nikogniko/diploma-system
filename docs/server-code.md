@@ -4,6 +4,18 @@
 
 Backend - Express API. Основний потік: route → controller → service → repository → Prisma → response DTO.
 
+### Поточна структура
+
+- `config/` - інфраструктура доступу до БД.
+- `controllers/` - тонкий HTTP layer для route params/body/query і виклику services.
+- `errors/` - `BusinessLogicError` та HTTP status constants.
+- `repositories/` - Prisma persistence layer, include/select конфігурації, transaction helpers.
+- `routes/` - Express routers для API endpoints.
+- `scripts/` - ручні/службові скрипти для Elasticsearch індексів і reindex.
+- `search/` - Elasticsearch client та vacancy index mapping/query helpers.
+- `services/` - бізнес-логіка, matching, eligibility, outbox, search і синхронізація Clerk.
+- `utils/` - чисті утиліти, зараз email validation.
+
 ### `index.ts`
 
 - Призначення: bootstrap Express server.

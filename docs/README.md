@@ -13,3 +13,4 @@
 - `docs/project-analysis.md` - горизонтальний і вертикальний аналіз архітектури, routing/API та MVP-рекомендації.
 - `docs/client-code.md` - опис frontend-коду з `client/src`.
 - `docs/server-code.md` - опис backend-коду з `server/src`.
+- `docs/elasticsearch.md` - опис Elasticsearch індексу вакансій, searchable fields і search/reindex сценаріїв.

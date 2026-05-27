@@ -4,6 +4,21 @@
 
 Frontend - React SPA. Основний потік даних: route/page component → `apiRequest` → backend API → локальний state → Mantine/UI components.
 
+### Поточна структура
+
+- `api/` - спільний HTTP-клієнт `apiClient.ts`.
+- `components/application/` - reusable UI для відгуків, pipeline-фільтрів, статусного timeline і match-аналізу.
+- `components/auth/` - auth shell і `ProtectedRoute`.
+- `components/common/` - базові UI-компоненти: loader, tooltip, form section, header, rich text editor, banners і badges.
+- `components/hr/`, `components/resume/`, `components/vacancy/` - доменні reusable preview/card-компоненти.
+- `layouts/` - `RootLayout` і `CabinetLayout`.
+- `locales/` - українські тексти та helper `interpolate`.
+- `pages/auth/` - `Start`, `SignInPage`, `SignUpPage`, `AuthRedirect`, `Onboarding`, `AdminDashboard`.
+- `pages/home/` - публічна головна сторінка `Home`.
+- `pages/student/`, `pages/hr/`, `pages/vacancies/`, `pages/companies/` - route-level екрани основних доменів.
+- `styles/` - глобальні стилі, змінні та chip mixins.
+- `utils/` - чисті helper-функції для масок і валідації форм.
+
 ### `App.tsx`
 
 #### `App()`
@@ -32,7 +47,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 - Призначення: декларація реальних frontend routes.
 - Тип: `createBrowserRouter([...])`.
-- Routes: `/`, `/start`, `/sign-up`, `/sign-in`, `/onboarding`, `/auth/redirect`, `/student`, `/hr/vacancies`, `/hr/vacancies/new`, `/hr/vacancies/:vacancyId/:view`, `/hr/profile`, `/hr/company`, `/admin`.
+- Routes: `/`, `/start`, `/sign-up`, `/sign-in`, `/vacancies`, `/vacancies/:vacancyId`, `/companies/:companyId`, `/onboarding`, `/auth/redirect`, `/student`, `/hr`, `/hr/vacancies`, `/hr/vacancies/new`, `/hr/vacancies/:vacancyId/:view`, `/hr/profile`, `/hr/company`.
 - Викликає: `RootLayout`, `ProtectedRoute`, page-компоненти.
 - Побічні ефекти: немає.
 - Summary: централізує route tree; HR tabs і vacancy subviews мають читабельні path routes замість технічних query-параметрів.
@@ -60,6 +75,10 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 ## `client/src/components`
 
+Спільні компоненти згруповані за доменами. `ProtectedRoute` належить до `components/auth`, а `Header` - до `components/common`.
+
+## `client/src/components/auth`
+
 ### `ProtectedRoute.tsx`
 
 #### `ProtectedRoute({ allowedRoles }: ProtectedRouteProps)`
@@ -69,19 +88,7 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Повертає: loader, redirect або `Outlet`.
 - Викликає: Clerk hooks, React Router navigation helpers.
 - Побічні ефекти: redirects.
-- Summary: gatekeeper для `/student`, `/hr`, `/admin`, `/onboarding`.
-
-### `Header.tsx`
-
-#### `Header()`
-
-- Призначення: верхня навігація root layout.
-- Props: не приймає.
-- Повертає: header JSX.
-- Викликає: Clerk auth UI/navigation.
-- Summary: спільний header публічної оболонки.
-
-## `client/src/components/auth`
+- Summary: gatekeeper для `/student`, `/hr/*`, `/onboarding` і `/auth/redirect`.
 
 ### `AuthShell.tsx`
 
@@ -94,6 +101,16 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Summary: прибирає дублювання auth layout.
 
 ## `client/src/components/common`
+
+### `Header.tsx`
+
+#### `Header()`
+
+- Призначення: верхня навігація root layout.
+- Props: не приймає.
+- Повертає: header JSX.
+- Викликає: Clerk auth UI/navigation.
+- Summary: спільний header публічної оболонки.
 
 ### `AppLoader.tsx`
 
@@ -208,6 +225,40 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Побічні ефекти: copy to clipboard для контактів.
 - Summary: незалежний preview-компонент резюме.
 
+## `client/src/components/application`
+
+### `ApplicationPipelineToolbar.tsx`
+
+- Призначення: спільна адаптивна панель фільтрації applications за статусами та сортуванням.
+- Props: `counts`, `selected`, `onSelect`, `sortBy`, `onSortChange`.
+- Повертає: один рядок округлих статусних плашок, overflow-меню `...` для невміщених статусів і icon-меню сортування.
+- Summary: використовується у student та HR application views замість дублювання toolbar-логіки.
+
+### `ApplicationStatusBadge.tsx`
+
+- Призначення: спільна кольорова плашка `ApplicationStatus`.
+- Props: `status`.
+- Повертає: status badge.
+- Summary: однакове представлення статусів у timeline, HR і student applications.
+
+### `ApplicationStatusTimeline.tsx`
+
+- Призначення: reusable timeline руху кандидата application pipeline.
+- Props: `currentStatus`, `statusHistory`, `variant`, optional status/action handlers.
+- Повертає: останнє оновлення, process steps, terminal marker, журнал історії та role-specific actions.
+- Summary: для студента стартує розгорнутим; для HR відкривається кнопкою і містить контроль наступного етапу.
+
+### `MatchAnalysisPanel.tsx`, `MatchAnalysisCharts.tsx`, `matchAnalysisGroups.ts`
+
+- Призначення: спільний UI детального аналізу відповідності application.
+- Повертає: метрики, таблицю формули, score breakdown, donut/bar charts і accordion-секції вимог.
+- Summary: групує вимоги в `criticalSkills`, `conditions`, `important`, `desirable`; усі секції стартують згорнутими.
+
+### `applicationTypes.ts`
+
+- Призначення: frontend-типи applications, match details і response DTO для resume preview.
+- Summary: спільний контракт для student/HR сторінок та application components.
+
 ## `client/src/layouts`
 
 ### `RootLayout.tsx`
@@ -231,12 +282,34 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 ## `client/src/pages`
 
-### `Home.tsx`, `Start.tsx`, `SignInPage.tsx`, `SignUpPage.tsx`, `AuthRedirect.tsx`, `Onboarding.tsx`
+Route-level сторінки тепер розкладені за доменними підпапками: `home`, `auth`, `student`, `hr`, `vacancies`, `companies`.
+
+## `client/src/pages/home`
+
+### `Home.tsx`
+
+- Призначення: публічна головна сторінка.
+- Повертає: route-level UI для `/`.
+- Summary: стартова публічна сторінка root route.
+
+## `client/src/pages/auth`
+
+### `Start.tsx`, `SignInPage.tsx`, `SignUpPage.tsx`, `AuthRedirect.tsx`, `Onboarding.tsx`
 
 - Призначення: публічні та auth/onboarding сторінки.
 - Основні виклики: Clerk auth, `apiRequest` для onboarding/auth snapshot.
 - Повертають: route-level UI.
 - Summary: підтримують старт користувача та вибір ролі.
+
+### `AdminDashboard.tsx`
+
+#### `AdminDashboard()`
+
+- Призначення: placeholder/початковий кабінет адміністратора.
+- Поточний routing status: файл існує в `pages/auth`, але admin route у `router.tsx` закоментований.
+- Props: не приймає.
+- Повертає: admin UI.
+- Summary: потребує розширення й підключення route в окремій задачі.
 
 ## `client/src/pages/hr`
 
@@ -287,17 +360,6 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Локальні компоненти: `DashboardTab`, `PersonalTab`, `SearchTab`, `ResumeTab`, section editors, `RecordList`, `LinkEditor`, `VisibilitySelector`.
 - Побічні ефекти: network requests, form state, resume preview state.
 - Summary: route-level студентський кабінет із локальними tab-компонентами.
-
-## `client/src/pages/admin`
-
-### `AdminDashboard.tsx`
-
-#### `AdminDashboard()`
-
-- Призначення: placeholder/початковий кабінет адміністратора.
-- Props: не приймає.
-- Повертає: admin UI.
-- Summary: потребує розширення в окремих задачах.
 
 ## `client/src/locales`
 

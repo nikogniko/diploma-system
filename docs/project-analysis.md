@@ -7,14 +7,14 @@
 Frontend побудований як React SPA з React Router, Mantine UI, Clerk auth та SCSS modules.
 
 - `api` - спільний HTTP-шар. `apiClient.ts` містить `apiRequest<T>()`, базовий `API_URL` і `ApiError`. Окремих domain-specific services на клієнті немає, тому сторінки напряму викликають `apiRequest`.
-- `components` - повторно використовувані UI-блоки. `common` містить tooltip, loader, form section, rich text editor, badges; `auth` містить оболонку auth-сторінок; `hr` містить стандартну картку і drawer preview рекрутера; `resume` містить preview резюме.
+- `components` - повторно використовувані UI-блоки. `application` містить toolbar, timeline, status badge і match-аналіз applications; `common` містить tooltip, loader, form section, header, rich text editor, banners і badges; `auth` містить оболонку auth-сторінок і `ProtectedRoute`; `hr` містить стандартну картку і drawer preview рекрутера; `resume` містить preview резюме; `vacancy` містить public preview і search card.
 - `layouts` - композиція сторінок. `RootLayout` дає загальну оболонку з header/outlet, `CabinetLayout` дає ліве меню кабінету і контент.
 - `locales` - українські тексти і helper `interpolate`.
-- `pages` - route-level екрани. `Home`, `Start`, auth/onboarding, `student/StudentDashboard`, `hr/HrDashboard`, `admin/AdminDashboard`.
+- `pages` - route-level екрани, розкладені за доменами: `home/Home`, `auth/Start`, `auth/SignInPage`, `auth/SignUpPage`, `auth/AuthRedirect`, `auth/Onboarding`, `auth/AdminDashboard`, `student/StudentDashboard`, `hr/HrDashboard`, `vacancies/VacanciesPage`, `companies/CompanyPublicPage`.
 - `styles` - глобальні стилі, змінні, chip mixins.
 - `utils` - чисті helper-функції для масок і валідації форм.
 
-Основні frontend routes реально існують у `client/src/router.tsx`: `/`, `/start`, `/sign-up`, `/sign-in`, `/onboarding`, `/auth/redirect`, `/student` та читабельні HR routes `/hr/vacancies`, `/hr/vacancies/new`, `/hr/vacancies/:vacancyId/:view`, `/hr/profile`, `/hr/company`.
+Основні frontend routes реально існують у `client/src/router.tsx`: `/`, `/start`, `/sign-up`, `/sign-in`, `/vacancies`, `/vacancies/:vacancyId`, `/companies/:companyId`, `/onboarding`, `/auth/redirect`, `/student`, `/hr` та читабельні HR routes `/hr/vacancies`, `/hr/vacancies/new`, `/hr/vacancies/:vacancyId/:view`, `/hr/profile`, `/hr/company`. Admin route зараз закоментований, хоча placeholder `pages/auth/AdminDashboard.tsx` є у структурі.
 
 Дублювання:
 
@@ -315,7 +315,7 @@ Reusable `ApplicationStatusTimeline` у картці спершу показує
 ## Поточні уточнення routing та UI
 
 - Верхнє посилання `/vacancies` підключене до окремої спільної сторінки каталогу вакансій, а не до вкладки кабінету.
-- Поточний підхід із внутрішнім state вкладок кабінету лишається достатнім для MVP: він не вимагає розбивати кабінет на окремі nested routes й не показує технічний state у URL.
+- Поточний підхід із внутрішнім state вкладок лишається у Student dashboard. HR dashboard уже має читабельні path routes для основних екранів і vacancy subviews, тому технічний state взаємодії з вакансією не ховається у query.
 - Меню кабінету зберігає стан, який задав користувач. Автоматична дія обмежена тільки одноразовим згортанням для HR-вкладки управління вакансіями.
 - Поля зарплати у формі вакансії та студентських фільтрах мають однакове frontend-обмеження `0..9_999_999`, без дробових і від'ємних значень; backend-правила варто винести в окрему валідаційну задачу.
 - Ручна перевірка eligibility/application flow підключена на спільній сторінці `/vacancies`: кнопка `Відгукнутися` сама виконує eligibility check перед створенням application.
