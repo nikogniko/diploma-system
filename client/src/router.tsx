@@ -1,17 +1,17 @@
 import { createBrowserRouter } from "react-router-dom";
 import RootLayout from "./layouts/RootLayout";
-import Home from "./pages/Home";
+import Home from "./pages/home/Home";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import HrDashboard from "./pages/hr/HrDashboard";
 //import AdminDashboard from "./pages/admin/AdminDashboard";
-import Onboarding from "./pages/Onboarding";
-import Start from "./pages/Start";
-import SignUpPage from "./pages/SignUpPage";
-import SignInPage from "./pages/SignInPage";
-import AuthRedirect from "./pages/AuthRedirect";
+import Onboarding from "./pages/auth/Onboarding";
+import Start from "./pages/auth/Start";
+import SignUpPage from "./pages/auth/SignUpPage";
+import SignInPage from "./pages/auth/SignInPage";
+import AuthRedirect from "./pages/auth/AuthRedirect";
 import VacanciesPage from "./pages/vacancies/VacanciesPage";
 import CompanyPublicPage from "./pages/companies/CompanyPublicPage";
-import ProtectedRoute from "./components/ProtectedRoute";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {

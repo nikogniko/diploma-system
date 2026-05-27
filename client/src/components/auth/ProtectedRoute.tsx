@@ -1,6 +1,6 @@
 import { useUser } from "@clerk/react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { AppLoader } from "./common/AppLoader";
+import { AppLoader } from "../common/AppLoader";
 
 type AllowedRoles = "STUDENT" | "HR" | "SYS_ADMIN";
 
@@ -26,7 +26,9 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
       ? (localStorage.getItem(`currentRole:${user.id}`) as AllowedRoles | null)
       : null;
   const userRole =
-    (user?.publicMetadata?.role as AllowedRoles | undefined) ?? localRole ?? undefined;
+    (user?.publicMetadata?.role as AllowedRoles | undefined) ??
+    localRole ??
+    undefined;
 
   if (
     !userRole &&

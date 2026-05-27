@@ -1,5 +1,5 @@
 import { SignUp } from "@clerk/react";
-import { AuthShell } from "../components/auth/AuthShell";
+import { AuthShell } from "../../components/auth/AuthShell";
 
 /** Сторінка реєстрації з підказками для кандидатів і роботодавців. */
 export default function SignUpPage() {
@@ -10,7 +10,11 @@ export default function SignUpPage() {
 
   return (
     <AuthShell
-      title={isEmployer ? "Створіть профіль роботодавця" : "Створіть профіль кандидата"}
+      title={
+        isEmployer
+          ? "Створіть профіль роботодавця"
+          : "Створіть профіль кандидата"
+      }
       subtitle={
         isEmployer
           ? "Після реєстрації ви зможете прив'язати або додати компанію, заповнити профіль і підготувати основу для вакансій."

@@ -1,5 +1,5 @@
 import { SignIn } from "@clerk/react";
-import { AuthShell } from "../components/auth/AuthShell";
+import { AuthShell } from "../../components/auth/AuthShell";
 
 /** Сторінка входу з єдиним оформленням auth-флоу. */
 export default function SignInPage() {
@@ -10,7 +10,11 @@ export default function SignInPage() {
 
   return (
     <AuthShell
-      title={isEmployer ? "Поверніться до кабінету роботодавця" : "Поверніться до свого кар'єрного простору"}
+      title={
+        isEmployer
+          ? "Поверніться до кабінету роботодавця"
+          : "Поверніться до свого кар'єрного простору"
+      }
       subtitle={
         isEmployer
           ? "Увійдіть, щоб працювати з профілем компанії, вакансіями та відгуками кандидатів."

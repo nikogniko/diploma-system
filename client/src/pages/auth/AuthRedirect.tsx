@@ -1,8 +1,8 @@
 import { useAuth, useUser } from "@clerk/react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../api/apiClient";
-import { AppLoader } from "../components/common/AppLoader";
+import { apiRequest } from "../../api/apiClient";
+import { AppLoader } from "../../components/common/AppLoader";
 
 type UserRole = "STUDENT" | "HR" | "SYS_ADMIN";
 
@@ -38,8 +38,12 @@ export default function AuthRedirect() {
 
       try {
         const token = await getToken();
-        const snapshot = await apiRequest<AuthSnapshot>("/users/my-cabinet/auth", token);
-        if (user?.id) localStorage.setItem(`currentRole:${user.id}`, snapshot.role);
+        const snapshot = await apiRequest<AuthSnapshot>(
+          "/users/my-cabinet/auth",
+          token,
+        );
+        if (user?.id)
+          localStorage.setItem(`currentRole:${user.id}`, snapshot.role);
         navigate(cabinetPathByRole(snapshot.role), { replace: true });
       } catch {
         navigate("/onboarding", { replace: true });
