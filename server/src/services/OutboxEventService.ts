@@ -35,6 +35,16 @@ export class OutboxEventService {
   async vacancyClosedByHire(tx: DbClient, vacancyId: string) {
     return this.record(tx, "Vacancy", vacancyId, OutboxEventType.UPDATED, { reason: "HIRED" });
   }
+
+  /** Створює подію створення Vacancy для асинхронної синхронізації пошукового індексу. */
+  async vacancyCreated(tx: DbClient, vacancyId: string) {
+    return this.record(tx, "Vacancy", vacancyId, OutboxEventType.CREATED);
+  }
+
+  /** Створює подію оновлення Vacancy для асинхронної синхронізації пошукового індексу. */
+  async vacancyUpdated(tx: DbClient, vacancyId: string, reason: string) {
+    return this.record(tx, "Vacancy", vacancyId, OutboxEventType.UPDATED, { reason });
+  }
 }
 
 export const outboxEventService = new OutboxEventService();

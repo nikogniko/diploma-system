@@ -88,6 +88,7 @@ export const vacancyInclude = {
   languages: { include: { language: true } },
   hrProfile: { include: { user: true, links: true } },
   company: true,
+  _count: { select: { applications: true } },
 } satisfies Prisma.VacancyInclude;
 
 export class VacancyRepository {
@@ -323,16 +324,18 @@ export class VacancyRepository {
         ],
       });
     }
-    params.languageFilters?.forEach((filter) => {
+    if (params.languageFilters?.length) {
       andFilters.push({
-        languages: {
-          some: {
-            languageId: filter.languageId,
-            level: { in: filter.levels },
+        OR: params.languageFilters.map((filter) => ({
+          languages: {
+            some: {
+              languageId: filter.languageId,
+              level: { in: filter.levels },
+            },
           },
-        },
+        })),
       });
-    });
+    }
 
     return { AND: andFilters };
   }

@@ -26,6 +26,7 @@ export function MatchAnalysisCharts({ details, groups }: Props) {
   const [mode, setMode] = useState<ChartMode>("skills");
   const donutData = buildCoverageData(groups);
   const bars = mode === "skills" ? buildSkillScoreData(details) : buildSourceCountData(details);
+  const shouldScrollSkillBars = mode === "skills" && bars.length > 10;
 
   return <div className={classes.visualRow}>
     <article className={`${classes.chartCard} ${classes.coverageCard}`}>
@@ -66,18 +67,20 @@ export function MatchAnalysisCharts({ details, groups }: Props) {
         />
       </div>
       {bars.length > 0
-        ? <BarChart
-          data={bars}
-          dataKey="label"
-          h={Math.max(180, bars.length * 38)}
-          orientation="vertical"
-          series={[{ name: "value", label: mode === "skills" ? ui.pointsSeries : ui.recordsSeries, color: "violet.6" }]}
-          withBarValueLabel
-          withLegend={false}
-          tickLine="none"
-          gridAxis="none"
-          yAxisProps={{ width: 110 }}
-        />
+        ? <div className={shouldScrollSkillBars ? classes.scrollableBars : undefined}>
+          <BarChart
+            data={bars}
+            dataKey="label"
+            h={Math.max(180, bars.length * 38)}
+            orientation="vertical"
+            series={[{ name: "value", label: mode === "skills" ? ui.pointsSeries : ui.recordsSeries, color: "violet.6" }]}
+            withBarValueLabel
+            withLegend={false}
+            tickLine="none"
+            gridAxis="none"
+            yAxisProps={{ width: 110 }}
+          />
+        </div>
         : <Text size="sm" className={classes.muted}>{ui.noData}</Text>}
     </article>
   </div>;
@@ -99,6 +102,7 @@ function buildCoverageData(groups: RequirementGroupData[]) {
 /** Формує відсортований розподіл балів, отриманих за кожну навичку. */
 function buildSkillScoreData(details: ApplicationMatchDetails) {
   return [...details.details.skillBreakdown]
+    .filter((skill) => skill.skillScore > 0)
     .sort((first, second) => second.skillScore - first.skillScore || first.skillName.localeCompare(second.skillName))
     .map((skill) => ({ label: skill.skillName, value: skill.skillScore }));
 }

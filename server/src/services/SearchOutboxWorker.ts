@@ -13,30 +13,71 @@ import {
   vacanciesIndexName,
 } from "../search/elasticsearchClient.js";
 import {
-  buildVacancySearchDocument,
   ensureVacanciesIndex,
+  upsertVacancySearchDocument,
 } from "../search/vacancySearchIndex.js";
 
+class SearchOutboxTransientError extends Error {}
+
 export class SearchOutboxWorker {
+  private timer: NodeJS.Timeout | null = null;
+  private isProcessing = false;
+
   /** Створює worker, який обробляє outbox без участі бізнес-транзакцій API. */
   constructor(
     private readonly events: OutboxEventRepository = outboxEventRepository,
     private readonly vacancies: VacancyRepository = vacancyRepository,
   ) {}
 
+  /** Запускає періодичну фонову обробку outbox-подій для пошукового індексу. */
+  start(intervalMs = 5_000) {
+    if (this.timer || !isElasticsearchEnabled()) return;
+
+    this.timer = setInterval(() => {
+      void this.processPendingEvents().catch((error) => {
+        console.error("Помилка циклу search outbox worker", error);
+      });
+    }, intervalMs);
+
+    void this.processPendingEvents().catch((error) => {
+      console.error("Помилка першого циклу search outbox worker", error);
+    });
+  }
+
+  /** Зупиняє фонову обробку outbox-подій, якщо процес завершується контрольовано. */
+  stop() {
+    if (!this.timer) return;
+
+    clearInterval(this.timer);
+    this.timer = null;
+  }
+
   /** Обробляє одну пачку PENDING подій і ізолює помилки зовнішнього search сервісу. */
   async processPendingEvents(limit = 25) {
-    const events = await this.events.listPendingEvents(limit);
-    for (const event of events) {
-      try {
-        await this.processEvent(event.aggregateType, event.aggregateId);
-        await this.events.markProcessed(event.id);
-      } catch (error) {
-        console.error(`Outbox event ${event.id} failed`, error);
-        await this.events.markFailed(event.id);
+    if (this.isProcessing || !isElasticsearchEnabled()) return 0;
+
+    this.isProcessing = true;
+
+    try {
+      const events = await this.events.listPendingEvents(limit);
+      for (const event of events) {
+        try {
+          await this.processEvent(event.aggregateType, event.aggregateId);
+          await this.events.markProcessed(event.id);
+        } catch (error) {
+          if (error instanceof SearchOutboxTransientError) {
+            console.warn(`Outbox-подія ${event.id} буде повторена`, error.message);
+            continue;
+          }
+
+          console.error(`Outbox-подія ${event.id} завершилась помилкою`, error);
+          await this.events.markFailed(event.id);
+        }
       }
+      return events.length;
+    } finally {
+      this.isProcessing = false;
     }
-    return events.length;
   }
 
   /** Обробляє підтримуваний aggregate type або відхиляє невідомий тип події. */
@@ -56,22 +97,20 @@ export class SearchOutboxWorker {
   private async syncVacancy(vacancyId: string) {
     if (!isElasticsearchEnabled()) return;
     if (!await isElasticsearchAvailable()) {
-      throw new Error("Elasticsearch is unavailable");
+      throw new SearchOutboxTransientError("Elasticsearch недоступний");
     }
+
     const vacancy = await this.vacancies.findVacancyById(vacancyId);
     if (!vacancy) {
+      await ensureVacanciesIndex();
       await getElasticsearchClient().delete({
         index: vacanciesIndexName(),
         id: vacancyId,
       }, { ignore: [404] });
       return;
     }
-    await ensureVacanciesIndex();
-    await getElasticsearchClient().index({
-      index: vacanciesIndexName(),
-      id: vacancy.id,
-      document: buildVacancySearchDocument(vacancy),
-    });
+
+    await upsertVacancySearchDocument(vacancy);
   }
 }
 

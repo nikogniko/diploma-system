@@ -20,6 +20,7 @@ import {
 } from "../repositories/VacancyRepository.js";
 import { normalizeVacancyRequirements } from "./VacancyMatchingService.js";
 import { ApplicationMatchRefreshService, applicationMatchRefreshService } from "./ApplicationMatchRefreshService.js";
+import { OutboxEventService, outboxEventService } from "./OutboxEventService.js";
 
 export type VacancySkillRequest = {
   skillId: number;
@@ -67,6 +68,7 @@ export class VacancyService {
     private readonly catalogs: CatalogRepository = catalogRepository,
     private readonly skills: SkillRepository = skillRepository,
     private readonly matchRefresh: ApplicationMatchRefreshService = applicationMatchRefreshService,
+    private readonly outbox: OutboxEventService = outboxEventService,
   ) {}
 
   /** Повертає довідники та офісні локації компанії для форми вакансії. */
@@ -133,6 +135,7 @@ export class VacancyService {
       });
 
       await this.replaceRelations(txVacancies, vacancy.id, normalized);
+      await this.outbox.vacancyCreated(tx, vacancy.id);
       const completeVacancy = await txVacancies.findVacancyById(vacancy.id);
       return this.mapVacancy(completeVacancy);
     });
@@ -148,6 +151,7 @@ export class VacancyService {
       const txVacancies = new VacancyRepository(tx);
       await txVacancies.updateVacancy(vacancyId, this.mapBaseUpdateData(normalized));
       await this.replaceRelations(txVacancies, vacancyId, normalized);
+      await this.outbox.vacancyUpdated(tx, vacancyId, "VACANCY_EDITED");
       const completeVacancy = await txVacancies.findVacancyById(vacancyId);
       return this.mapVacancy(completeVacancy);
     });
@@ -160,7 +164,12 @@ export class VacancyService {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
     await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.companyId);
     this.ensureAllowedStatus(status);
-    const updated = await this.vacancies.updateVacancyStatus(vacancyId, status);
+    const updated = await prisma.$transaction(async (tx) => {
+      const txVacancies = new VacancyRepository(tx);
+      const vacancy = await txVacancies.updateVacancyStatus(vacancyId, status);
+      await this.outbox.vacancyUpdated(tx, vacancyId, "STATUS_CHANGED");
+      return vacancy;
+    });
     return this.mapVacancy(updated);
   }
 

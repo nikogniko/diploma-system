@@ -139,9 +139,21 @@
   min-height: 100%;
   overflow: hidden;
   background:
-    radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--color-primary) 15%, transparent) 0 16rem, transparent 16.5rem),
-    radial-gradient(circle at 84% 26%, color-mix(in srgb, var(--color-info) 14%, transparent) 0 13rem, transparent 13.5rem),
-    radial-gradient(circle at 34% 86%, color-mix(in srgb, var(--color-secondary) 12%, transparent) 0 12rem, transparent 12.5rem),
+    radial-gradient(
+      circle at 16% 10%,
+      color-mix(in srgb, var(--color-primary) 15%, transparent) 0 16rem,
+      transparent 16.5rem
+    ),
+    radial-gradient(
+      circle at 84% 26%,
+      color-mix(in srgb, var(--color-info) 14%, transparent) 0 13rem,
+      transparent 13.5rem
+    ),
+    radial-gradient(
+      circle at 34% 86%,
+      color-mix(in srgb, var(--color-secondary) 12%, transparent) 0 12rem,
+      transparent 12.5rem
+    ),
     var(--color-bg-main);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -153,7 +165,8 @@
   z-index: 2;
   padding: 0.75rem;
   background: color-mix(in srgb, var(--color-surface) 72%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--color-border) 82%, transparent);
   backdrop-filter: blur(18px);
 }
 
@@ -329,7 +342,11 @@
   border-radius: 999px;
 
   &[data-status="APPROVED"] {
-    color: color-mix(in srgb, var(--color-secondary) 62%, var(--color-dark-main));
+    color: color-mix(
+      in srgb,
+      var(--color-secondary) 62%,
+      var(--color-dark-main)
+    );
     background: var(--color-secondary-soft);
     border-color: color-mix(in srgb, var(--color-secondary) 45%, transparent);
   }
@@ -360,7 +377,10 @@
 
 .linkGrid {
   display: grid;
-  grid-template-columns: minmax(130px, 0.8fr) minmax(150px, 1fr) minmax(220px, 1.4fr) auto;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(150px, 1fr) minmax(
+      220px,
+      1.4fr
+    ) auto;
   gap: 0.9rem;
   align-items: end;
 }
@@ -375,7 +395,10 @@
 }
 
 .requirementInputRow {
-  grid-template-columns: minmax(9.5rem, 9.5rem) minmax(0, 1fr) minmax(9.5rem, 9.5rem);
+  grid-template-columns: minmax(9.5rem, 9.5rem) minmax(0, 1fr) minmax(
+      9.5rem,
+      9.5rem
+    );
 
   button {
     width: 100%;
@@ -507,7 +530,11 @@
 .managementTabActive {
   color: var(--color-primary);
   background: var(--color-surface);
-  border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 48%,
+    var(--color-border)
+  );
   box-shadow: 0 -0.2rem 0 var(--color-primary) inset;
   z-index: 1;
 }
@@ -1153,7 +1180,10 @@
 
 .vacancyToolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.3fr) minmax(6rem, 0.18fr);
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.3fr) minmax(
+      6rem,
+      0.18fr
+    );
   gap: 0.75rem;
   align-items: end;
   margin-bottom: 0.8rem;
@@ -1205,7 +1235,11 @@
   }
 
   &[data-status="ACTIVE"] {
-    color: color-mix(in srgb, var(--color-secondary) 55%, var(--color-dark-main));
+    color: color-mix(
+      in srgb,
+      var(--color-secondary) 55%,
+      var(--color-dark-main)
+    );
     background: var(--color-secondary-soft);
   }
 
@@ -1221,7 +1255,11 @@
 
   &[data-status="ARCHIVED"] {
     color: var(--color-dark-muted);
-    background: color-mix(in srgb, var(--color-border) 70%, var(--color-surface));
+    background: color-mix(
+      in srgb,
+      var(--color-border) 70%,
+      var(--color-surface)
+    );
   }
 }
 
@@ -1316,10 +1354,16 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+    border-color: color-mix(
+      in srgb,
+      var(--color-primary) 42%,
+      var(--color-border)
+    );
     box-shadow: var(--shadow-sm);
   }
 
@@ -1329,13 +1373,20 @@
 
   &[data-inactive] {
     opacity: 0.72;
-    border-color: color-mix(in srgb, var(--color-danger) 34%, var(--color-border));
+    border-color: color-mix(
+      in srgb,
+      var(--color-danger) 34%,
+      var(--color-border)
+    );
   }
 }
 
 .applicationRow {
   display: grid;
-  grid-template-columns: minmax(170px, 1.2fr) repeat(3, minmax(105px, auto)) minmax(175px, 0.65fr) auto;
+  grid-template-columns: minmax(170px, 1.2fr) repeat(
+      3,
+      minmax(105px, auto)
+    ) minmax(175px, 0.65fr) auto;
   grid-template-areas: "candidate date requirements score status actions";
   gap: 0.75rem;
   align-items: center;

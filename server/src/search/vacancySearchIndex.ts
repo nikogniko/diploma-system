@@ -133,6 +133,19 @@ export const ensureVacanciesIndex = async () => {
   return index;
 };
 
+/** Індексує або замінює один документ вакансії у пошуковому індексі. */
+export const upsertVacancySearchDocument = async (vacancy: VacancyForSearchIndex) => {
+  const index = await ensureVacanciesIndex();
+  await getElasticsearchClient().index({
+    index,
+    id: vacancy.id,
+    document: buildVacancySearchDocument(vacancy),
+    refresh: "wait_for",
+  });
+
+  return { indexed: true };
+};
+
 /** Converts a relational Prisma vacancy record into one search-index document. */
 export const buildVacancySearchDocument = (vacancy: VacancyForSearchIndex): VacancySearchDocument => {
   const skillNames = vacancy.skills.map((item) => item.skill.name);

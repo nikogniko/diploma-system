@@ -11,6 +11,7 @@ import vacancyRoutes from "./routes/vacancyRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import { BusinessLogicError, HttpStatus } from "./errors/BusinessLogicError.js";
 import { Prisma } from "../prisma/generated/client/index.js";
+import { searchOutboxWorker } from "./services/SearchOutboxWorker.js";
 
 dotenv.config();
 
@@ -87,6 +88,18 @@ app.use(
         });
         return;
       }
+
+      if (error.code === "P2000") {
+        res.status(HttpStatus.BAD_REQUEST).json({
+          success: false,
+          error: {
+            code: "FIELD_TOO_LONG",
+            message: "Одне з полів перевищує дозволену довжину",
+            details: error.meta,
+          },
+        });
+        return;
+      }
     }
 
     console.error("Unhandled server error", error);
@@ -101,5 +114,6 @@ app.use(
 );
 
 app.listen(PORT, () => {
+  searchOutboxWorker.start();
   console.log(`🚀 Сервер UniJob запущено на http://localhost:${PORT}`);
 });

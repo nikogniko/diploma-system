@@ -445,6 +445,7 @@ export default function Onboarding() {
               <TextInput
                 required
                 label={ui.common.firstName}
+                maxLength={100}
                 value={firstName}
                 onChange={(e) => {
                   setFirstName(sanitizeNameInput(e.currentTarget.value));
@@ -454,6 +455,7 @@ export default function Onboarding() {
               {intendedRole === "HR" && (
                 <TextInput
                   label={ui.common.middleName}
+                  maxLength={100}
                   value={middleName}
                   onChange={(e) => {
                     setMiddleName(sanitizeNameInput(e.currentTarget.value));
@@ -464,6 +466,7 @@ export default function Onboarding() {
               <TextInput
                 required
                 label={ui.common.lastName}
+                maxLength={100}
                 value={lastName}
                 onChange={(e) => {
                   setLastName(sanitizeNameInput(e.currentTarget.value));
@@ -489,6 +492,7 @@ export default function Onboarding() {
               <>
                 <TextInput
                   label={ui.common.middleName}
+                  maxLength={100}
                   value={middleName}
                   onChange={(e) => {
                     setMiddleName(sanitizeNameInput(e.currentTarget.value));
@@ -517,6 +521,7 @@ export default function Onboarding() {
                   required
                   label={ui.student.phone}
                   type="tel"
+                  maxLength={50}
                   value={primaryPhone}
                   onChange={(e) => {
                     setPrimaryPhone(
@@ -529,6 +534,7 @@ export default function Onboarding() {
                 <TextInput
                   required
                   label={ui.student.about}
+                  maxLength={500}
                   value={about}
                   onChange={(e) => {
                     setAbout(e.currentTarget.value);

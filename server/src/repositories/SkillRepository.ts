@@ -19,7 +19,6 @@ export class SkillRepository {
     return this.db.skill.findMany({
       where: query ? { name: { contains: query, mode: "insensitive" } } : undefined,
       orderBy: [{ category: "asc" }, { name: "asc" }],
-      take: 50,
     });
   }
 }

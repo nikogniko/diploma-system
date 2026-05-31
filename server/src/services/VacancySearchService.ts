@@ -291,41 +291,34 @@ export class VacancySearchService {
         },
       });
     }
-    params.languageFilters?.forEach((languageFilter) => {
-      filter.push({
-        nested: {
-          path: "languageRequirements",
-          query: {
-            bool: {
-              filter: [
-                { term: { "languageRequirements.languageId": languageFilter.languageId } },
-                { range: { "languageRequirements.levelRank": { gte: this.languageLevelRank(languageFilter.levels[0] ?? LanguageLevel.A1) } } },
-              ],
-            },
-          },
-        },
-      });
-    });
-
     const softTerms = params.softSearchTerms ?? [];
     const requiredTerms = params.requiredSearchTerms ?? [];
-    if (softTerms.length === 0 && requiredTerms.length === 0) {
-      return { bool: { must: [{ match_all: {} }], filter } };
-    }
+    const languageClauses = this.elasticsearchLanguageClauses(params.languageFilters);
+    const mustClauses: estypes.QueryDslQueryContainer[] = [
+      ...requiredTerms.map((term) => this.elasticsearchTermQuery(term)),
+      ...(languageClauses.length
+        ? [{ bool: { should: languageClauses, minimum_should_match: 1 } }]
+        : []),
+      ...(!requiredTerms.length && softTerms.length
+        ? [{ bool: { should: softTerms.map((term) => this.elasticsearchTermQuery(term)), minimum_should_match: 1 } }]
+        : []),
+    ];
+    const shouldClauses = requiredTerms.length
+      ? softTerms.map((term) => this.elasticsearchTermQuery(term))
+      : [];
 
     return {
       bool: {
         filter,
-        ...(requiredTerms.length ? { must: requiredTerms.map((term) => this.elasticsearchTermQuery(term)) } : {}),
-        ...(softTerms.length ? { should: softTerms.map((term) => this.elasticsearchTermQuery(term)) } : {}),
-        ...(softTerms.length && !requiredTerms.length ? { minimum_should_match: 1 } : {}),
+        must: mustClauses.length ? mustClauses : [{ match_all: {} }],
+        ...(shouldClauses.length ? { should: shouldClauses } : {}),
       },
     };
   }
 
   /** Builds relevance-first or explicitly requested Elasticsearch sorting. */
   private elasticsearchSort(params: PublicVacancyListParams): estypes.Sort {
-    if (params.sortBy === "relevance" && params.search) {
+    if ((params.sortBy === "relevance" && params.search) || params.languageFilters?.length) {
       return [{ _score: { order: "desc" } }, { updatedAt: { order: "desc" } }];
     }
     const sortField = params.sortBy === "salaryFrom" ? "salaryFrom" : "updatedAt";
@@ -405,6 +398,24 @@ export class VacancySearchService {
         ],
       },
     };
+  }
+
+  /** Формує scoring-умови мов, щоб вакансії з більшою кількістю збігів піднімалися вище. */
+  private elasticsearchLanguageClauses(languageFilters: PublicVacancyListParams["languageFilters"] = []): estypes.QueryDslQueryContainer[] {
+    return languageFilters.map((languageFilter) => ({
+      nested: {
+        path: "languageRequirements",
+        query: {
+          bool: {
+            filter: [
+              { term: { "languageRequirements.languageId": languageFilter.languageId } },
+              { range: { "languageRequirements.levelRank": { gte: this.languageLevelRank(languageFilter.levels[0] ?? LanguageLevel.A1) } } },
+            ],
+          },
+        },
+        score_mode: "sum" as const,
+      },
+    }));
   }
 
   /** Parses an optional positive integer query parameter. */

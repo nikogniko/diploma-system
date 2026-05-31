@@ -227,6 +227,9 @@ type VacancyRow = {
     level: LanguageLevel;
     language?: CatalogItem;
   }>;
+  _count?: {
+    applications?: number;
+  };
 };
 
 type PaginatedResponse<T> = {
@@ -1416,7 +1419,7 @@ function VacancyBoard(props: {
                       <VacancyStatusBadge status={vacancy.status} />
                     </Table.Td>
                     <Table.Td>
-                      <span className={classes.muted}>—</span>
+                      <Text fw={800}>{vacancy._count?.applications ?? 0}</Text>
                     </Table.Td>
                     <Table.Td>{dateShort(vacancy.updatedAt)}</Table.Td>
                     <Table.Td>{dateShort(vacancy.closingDate)}</Table.Td>

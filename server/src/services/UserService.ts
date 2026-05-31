@@ -61,6 +61,16 @@ export type OnboardingRequest =
   | ExistingCompanyHrOnboardingRequest
   | NewCompanyHrOnboardingRequest;
 
+const userFieldLimits = {
+  firstName: 100,
+  lastName: 100,
+  middleName: 100,
+  photoUrl: 255,
+  contactEmail: 255,
+  phone: 50,
+  about: 500,
+} as const;
+
 export class UserService {
   constructor(
     private readonly users: UserRepository = userRepository,
@@ -151,16 +161,28 @@ export class UserService {
 
     this.ensureUserCanOnboard(user);
     this.ensureNoProfileExists(user.studentProfile, "Student profile already exists");
+    const firstName = this.requiredStringMax(body.firstName, "firstName", userFieldLimits.firstName);
+    const lastName = this.requiredStringMax(body.lastName, "lastName", userFieldLimits.lastName);
+    const middleName = this.optionalStringMax(body.middleName, "middleName", userFieldLimits.middleName);
+    const photoUrl = this.optionalStringMax(body.photoUrl ?? user.photoUrl, "photoUrl", userFieldLimits.photoUrl);
+    const contactEmail = this.requiredStringMax(
+      EmailValidator.normalizeEmail(body.contactEmail ?? email),
+      "contactEmail",
+      userFieldLimits.contactEmail,
+    );
+    const primaryPhone = this.requiredStringMax(body.primaryPhone, "primaryPhone", userFieldLimits.phone);
+    const secondaryPhone = this.optionalStringMax(body.secondaryPhone, "secondaryPhone", userFieldLimits.phone);
+    const about = this.optionalStringMax(body.about, "about", userFieldLimits.about);
 
     const result = await this.txManager.run(async (tx) => {
       const txUsers = new UserRepository(tx);
       const txStudents = new StudentProfileRepository(tx);
 
       const updatedUser = await txUsers.updateUserIdentity(user.id, {
-        firstName: this.requiredString(body.firstName, "firstName"),
-        lastName: this.requiredString(body.lastName, "lastName"),
-        middleName: body.middleName ?? null,
-        photoUrl: body.photoUrl ?? user.photoUrl,
+        firstName,
+        lastName,
+        middleName,
+        photoUrl,
       });
 
       await txUsers.updateUserRole(user.id, UserRole.STUDENT);
@@ -169,10 +191,10 @@ export class UserService {
       const studentProfile = await txStudents.createProfile({
         userId: user.id,
         birthDate: this.parseDate(body.birthDate, "birthDate"),
-        contactEmail: EmailValidator.normalizeEmail(body.contactEmail ?? email),
-        primaryPhone: this.requiredString(body.primaryPhone, "primaryPhone"),
-        secondaryPhone: body.secondaryPhone ?? null,
-        about: body.about ?? null,
+        contactEmail,
+        primaryPhone,
+        secondaryPhone,
+        about,
       });
 
       return { user: updatedUser, studentProfile };
@@ -398,6 +420,43 @@ export class UserService {
     }
 
     return value.trim();
+  }
+
+  /** Повертає обов'язковий рядок і перевіряє ліміт, який заданий у Prisma schema. */
+  private requiredStringMax(value: unknown, fieldName: string, maxLength: number): string {
+    const normalized = this.requiredString(value, fieldName);
+    this.ensureMaxLength(normalized, fieldName, maxLength);
+    return normalized;
+  }
+
+  /** Повертає необов'язковий рядок або null і перевіряє ліміт, який заданий у Prisma schema. */
+  private optionalStringMax(value: unknown, fieldName: string, maxLength: number): string | null {
+    if (value === undefined || value === null) return null;
+    if (typeof value !== "string") {
+      throw new BusinessLogicError(
+        `${fieldName} має бути текстовим значенням`,
+        HttpStatus.BAD_REQUEST,
+        "INVALID_STRING_FIELD",
+        { fieldName },
+      );
+    }
+
+    const normalized = value.trim();
+    if (!normalized) return null;
+    this.ensureMaxLength(normalized, fieldName, maxLength);
+    return normalized;
+  }
+
+  /** Перетворює перевищення VARCHAR-лімітів на зрозумілу помилку валідації, а не Prisma P2000. */
+  private ensureMaxLength(value: string, fieldName: string, maxLength: number) {
+    if (value.length <= maxLength) return;
+
+    throw new BusinessLogicError(
+      `${fieldName} не може містити більше ${maxLength} символів`,
+      HttpStatus.BAD_REQUEST,
+      "FIELD_TOO_LONG",
+      { fieldName, maxLength },
+    );
   }
 
   /** Повертає число або кидає бізнес-помилку для обов'язкового числового поля. */
