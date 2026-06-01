@@ -13,28 +13,75 @@ import {
   vacancyRepository,
 } from "../repositories/VacancyRepository.js";
 
+const NO_SCORE = 0;
+const MIN_POSITIVE_SCORE = 0;
+const FULL_PERCENT = 100;
+const PARTIAL_BASE_REQUIREMENTS_THRESHOLD = 70;
+const ROUNDING_PRECISION = 100;
+const FIRST_ITEM_INDEX = 0;
+const MONTHS_PER_YEAR = 12;
+const MONTH_STEP = 1;
+
+const REQUIREMENT_WEIGHT_CRITICAL = 3;
+const REQUIREMENT_WEIGHT_IMPORTANT = 2;
+const REQUIREMENT_WEIGHT_NICE_TO_HAVE = 1;
+
+const LANGUAGE_LEVEL_A1_RANK = 1;
+const LANGUAGE_LEVEL_A2_RANK = 2;
+const LANGUAGE_LEVEL_B1_RANK = 3;
+const LANGUAGE_LEVEL_B2_RANK = 4;
+const LANGUAGE_LEVEL_C1_RANK = 5;
+const LANGUAGE_LEVEL_C2_RANK = 6;
+const LANGUAGE_LEVEL_NATIVE_RANK = 7;
+
+const EDUCATION_BONUS_JUNIOR_BACHELOR = 4;
+const EDUCATION_BONUS_BACHELOR = 6;
+const EDUCATION_BONUS_MASTER = 8;
+const EDUCATION_BONUS_PHD = 10;
+const EDUCATION_BONUS_OTHER = NO_SCORE;
+const EDUCATION_DOCUMENT_BONUS = 2;
+
+const ACTIVE_SEARCH_BONUS = 5;
+const COURSE_CERTIFICATE_POINTS = 4;
+const COURSE_BASE_POINTS = 2;
+const PROJECT_WITH_URL_POINTS = 8;
+const PROJECT_BASE_POINTS = 6;
+const SHORT_EXPERIENCE_POINTS = 1;
+const EXPERIENCE_MONTH_MULTIPLIER = 2;
+const MIN_MONTHS_FOR_EXPERIENCE_MULTIPLIER = 1;
+
+const LANGUAGE_SAME_LEVEL_BONUS = 2;
+const LANGUAGE_ONE_LEVEL_HIGHER_BONUS = 4;
+const LANGUAGE_TWO_OR_MORE_LEVELS_HIGHER_BONUS = 6;
+const LANGUAGE_CERTIFICATE_BONUS = 2;
+const LANGUAGE_SAME_LEVEL_DELTA = 0;
+const LANGUAGE_ONE_LEVEL_HIGHER_DELTA = 1;
+
+const LOCATION_EXACT_BONUS = 4;
+const LOCATION_BROAD_BONUS = 2;
+
 export const requirementWeightRank: Record<RequirementWeight, number> = {
-  CRITICAL: 3,
-  IMPORTANT: 2,
-  NICE_TO_HAVE: 1,
+  CRITICAL: REQUIREMENT_WEIGHT_CRITICAL,
+  IMPORTANT: REQUIREMENT_WEIGHT_IMPORTANT,
+  NICE_TO_HAVE: REQUIREMENT_WEIGHT_NICE_TO_HAVE,
 };
 
 export const languageLevelRank: Record<LanguageLevel, number> = {
-  A1: 1,
-  A2: 2,
-  B1: 3,
-  B2: 4,
-  C1: 5,
-  C2: 6,
-  NATIVE: 7,
+  A1: LANGUAGE_LEVEL_A1_RANK,
+  A2: LANGUAGE_LEVEL_A2_RANK,
+  B1: LANGUAGE_LEVEL_B1_RANK,
+  B2: LANGUAGE_LEVEL_B2_RANK,
+  C1: LANGUAGE_LEVEL_C1_RANK,
+  C2: LANGUAGE_LEVEL_C2_RANK,
+  NATIVE: LANGUAGE_LEVEL_NATIVE_RANK,
 };
 
 const educationBonusRank: Record<Degree, number> = {
-  JUNIOR_BACHELOR: 4,
-  BACHELOR: 6,
-  MASTER: 8,
-  PHD: 10,
-  OTHER: 0,
+  JUNIOR_BACHELOR: EDUCATION_BONUS_JUNIOR_BACHELOR,
+  BACHELOR: EDUCATION_BONUS_BACHELOR,
+  MASTER: EDUCATION_BONUS_MASTER,
+  PHD: EDUCATION_BONUS_PHD,
+  OTHER: EDUCATION_BONUS_OTHER,
 };
 
 type MatchStudent = NonNullable<Awaited<ReturnType<StudentProfileRepository["findForApplicationMatchById"]>>>;
@@ -105,17 +152,17 @@ export class MatchingScoreService {
     const locationBreakdown = this.buildLocationBreakdown(vacancy, student);
     const locationMismatch = vacancy.isLocationCritical && locationBreakdown.matchType === "NONE";
     const educationBreakdown = this.buildEducationBreakdown(student);
-    const activeSearchBonus = student.isActiveSearch ? 5 : 0;
+    const activeSearchBonus = student.isActiveSearch ? ACTIVE_SEARCH_BONUS : NO_SCORE;
     const requirements = this.buildRequirementItems(vacancy, student, skillById, languageBreakdown, locationBreakdown);
     const baseRequirements = this.summarizeRequirements(requirements);
     const missingBlockingRequirements = requirements.filter((item) => item.isBlocking && !item.matched);
     const blockingReasons = [...new Set(missingBlockingRequirements
       .map((item) => item.blockingReason)
       .filter((reason): reason is string => Boolean(reason)))];
-    const matchesBlockingRequirements = missingBlockingRequirements.length === 0;
-    const skillDepthScore = this.round(skillBreakdown.reduce((sum, item) => sum + item.skillScore, 0));
+    const matchesBlockingRequirements = missingBlockingRequirements.length === NO_SCORE;
+    const skillDepthScore = this.round(skillBreakdown.reduce((sum, item) => sum + item.skillScore, NO_SCORE));
     const additionalCriteriaScore = this.round(
-      languageBreakdown.reduce((sum, item) => sum + item.languageBonus, 0)
+      languageBreakdown.reduce((sum, item) => sum + item.languageBonus, NO_SCORE)
       + locationBreakdown.locationBonus
       + educationBreakdown.educationBonus
       + activeSearchBonus,
@@ -211,7 +258,7 @@ export class MatchingScoreService {
       blockingReason: item.matched ? null : "MISSING_REQUIRED_LANGUAGES",
       details: { requiredLevel: item.requiredLevel, studentLevel: item.studentLevel },
     })));
-    if (vacancy.locations.length > 0) {
+    if (vacancy.locations.length > NO_SCORE) {
       items.push({
         key: "location",
         label: "LOCATION",
@@ -270,7 +317,7 @@ export class MatchingScoreService {
     vacancyValues: Array<{ id: number; label: string }>,
     studentValues: Array<{ id: number; label: string }>,
   ) {
-    if (vacancyValues.length === 0) return;
+    if (vacancyValues.length === NO_SCORE) return;
     const studentIds = new Set(studentValues.map((item) => item.id));
     const matched = vacancyValues.some((item) => studentIds.has(item.id));
     items.push({
@@ -291,8 +338,8 @@ export class MatchingScoreService {
 
   /** Підсумовує кількість, ваги та відсотки всіх і blocking-вимог. */
   private summarizeRequirements(items: RequirementItem[]) {
-    const maxRequirementScore = items.reduce((sum, item) => sum + item.weight, 0);
-    const matchedRequirementScore = items.filter((item) => item.matched).reduce((sum, item) => sum + item.weight, 0);
+    const maxRequirementScore = items.reduce((sum, item) => sum + item.weight, NO_SCORE);
+    const matchedRequirementScore = items.filter((item) => item.matched).reduce((sum, item) => sum + item.weight, NO_SCORE);
     const blockingItems = items.filter((item) => item.isBlocking);
     const matchedBlockingItems = blockingItems.filter((item) => item.matched);
     return {
@@ -300,13 +347,15 @@ export class MatchingScoreService {
       matchedRequirementsCount: items.filter((item) => item.matched).length,
       maxRequirementScore,
       matchedRequirementScore,
-      baseRequirementsPercent: maxRequirementScore > 0
-        ? this.round((matchedRequirementScore / maxRequirementScore) * 100)
-        : 100,
+      baseRequirementsPercent: maxRequirementScore > MIN_POSITIVE_SCORE
+        ? this.round((matchedRequirementScore / maxRequirementScore) * FULL_PERCENT)
+        : FULL_PERCENT,
       blockingRequirements: {
         totalCount: blockingItems.length,
         matchedCount: matchedBlockingItems.length,
-        percent: blockingItems.length > 0 ? this.round((matchedBlockingItems.length / blockingItems.length) * 100) : 100,
+        percent: blockingItems.length > NO_SCORE
+          ? this.round((matchedBlockingItems.length / blockingItems.length) * FULL_PERCENT)
+          : FULL_PERCENT,
       },
       items,
     };
@@ -319,14 +368,14 @@ export class MatchingScoreService {
         id: course.id,
         title: course.title,
         hasCertificate: Boolean(course.certificateUrl),
-        points: course.certificateUrl ? 4 : 2,
+        points: course.certificateUrl ? COURSE_CERTIFICATE_POINTS : COURSE_BASE_POINTS,
       }));
     const projects = student.projects.filter((project) => project.skills.some((skill) => skill.skillId === vacancySkill.skillId))
       .map((project) => ({
         id: project.id,
         title: project.title,
         hasProjectUrl: Boolean(project.projectUrl),
-        points: project.projectUrl ? 8 : 6,
+        points: project.projectUrl ? PROJECT_WITH_URL_POINTS : PROJECT_BASE_POINTS,
       }));
     const experiences = student.experiences.filter((experience) => experience.skills.some((skill) => skill.skillId === vacancySkill.skillId))
       .map((experience) => {
@@ -336,12 +385,14 @@ export class MatchingScoreService {
           position: experience.position,
           companyName: experience.companyName,
           months,
-          points: months < 1 ? 1 : months * 2,
+          points: months < MIN_MONTHS_FOR_EXPERIENCE_MULTIPLIER
+            ? SHORT_EXPERIENCE_POINTS
+            : months * EXPERIENCE_MONTH_MULTIPLIER,
         };
       });
-    const coursePoints = courses.reduce((sum, item) => sum + item.points, 0);
-    const projectPoints = projects.reduce((sum, item) => sum + item.points, 0);
-    const experiencePoints = experiences.reduce((sum, item) => sum + item.points, 0);
+    const coursePoints = courses.reduce((sum, item) => sum + item.points, NO_SCORE);
+    const projectPoints = projects.reduce((sum, item) => sum + item.points, NO_SCORE);
+    const experiencePoints = experiences.reduce((sum, item) => sum + item.points, NO_SCORE);
     const sourceSum = coursePoints + projectPoints + experiencePoints;
     const vacancyWeight = requirementWeightRank[vacancySkill.weight];
     return {
@@ -349,7 +400,7 @@ export class MatchingScoreService {
       skillName: vacancySkill.skill.name,
       vacancyWeight,
       requirementWeight: vacancySkill.weight,
-      matched: sourceSum > 0,
+      matched: sourceSum > MIN_POSITIVE_SCORE,
       coursePoints,
       projectPoints,
       experiencePoints,
@@ -365,9 +416,10 @@ export class MatchingScoreService {
     return vacancy.languages.map((requirement) => {
       const actual = studentLanguages.get(requirement.languageId);
       const levelDelta = actual ? languageLevelRank[actual.level] - languageLevelRank[requirement.level] : null;
-      const matched = levelDelta !== null && levelDelta >= 0;
-      const levelBonus = !matched ? 0 : levelDelta === 0 ? 2 : levelDelta === 1 ? 4 : 6;
-      const baseLanguageBonus = levelBonus + (matched && actual?.certificateUrl ? 2 : 0);
+      const matched = levelDelta !== null && levelDelta >= LANGUAGE_SAME_LEVEL_DELTA;
+      const levelBonus = this.languageLevelBonus(matched, levelDelta);
+      const certificateBonus = matched && actual?.certificateUrl ? LANGUAGE_CERTIFICATE_BONUS : NO_SCORE;
+      const baseLanguageBonus = levelBonus + certificateBonus;
       const weight = requirementWeightRank.CRITICAL;
       return {
         languageId: requirement.languageId,
@@ -384,6 +436,14 @@ export class MatchingScoreService {
     });
   }
 
+  /** Selects the language score bonus for the measured level difference. */
+  private languageLevelBonus(matched: boolean, levelDelta: number | null) {
+    if (!matched || levelDelta === null) return NO_SCORE;
+    if (levelDelta === LANGUAGE_SAME_LEVEL_DELTA) return LANGUAGE_SAME_LEVEL_BONUS;
+    if (levelDelta === LANGUAGE_ONE_LEVEL_HIGHER_DELTA) return LANGUAGE_ONE_LEVEL_HIGHER_BONUS;
+    return LANGUAGE_TWO_OR_MORE_LEVELS_HIGHER_BONUS;
+  }
+
   /** Визначає exact або broader збіг локації та нараховує bonus. */
   private buildLocationBreakdown(vacancy: MatchVacancy, student: MatchStudent) {
     const exact = vacancy.locations.some((required) =>
@@ -391,7 +451,7 @@ export class MatchingScoreService {
     const broad = !exact && !vacancy.isLocationCritical && vacancy.locations.some((required) =>
       student.desiredLocations.some((desired) => this.isBroaderLocationMatch(required.location, desired.location)));
     const matchType: LocationMatchType = exact ? "EXACT" : broad ? "BROAD" : "NONE";
-    const baseLocationBonus = vacancy.isLocationCritical ? 0 : matchType === "EXACT" ? 4 : matchType === "BROAD" ? 2 : 0;
+    const baseLocationBonus = this.locationBonus(vacancy.isLocationCritical, matchType);
     const weight = vacancy.isLocationCritical ? requirementWeightRank.CRITICAL : requirementWeightRank.NICE_TO_HAVE;
     return {
       matchType,
@@ -400,6 +460,14 @@ export class MatchingScoreService {
       locationBonus: baseLocationBonus,
       bonusRule: vacancy.isLocationCritical ? "BLOCKING_LOCATION_NO_BONUS" : "OPTIONAL_LOCATION_BONUS",
     };
+  }
+
+  /** Selects the location bonus without changing critical-location blocking rules. */
+  private locationBonus(isLocationCritical: boolean, matchType: LocationMatchType) {
+    if (isLocationCritical) return NO_SCORE;
+    if (matchType === "EXACT") return LOCATION_EXACT_BONUS;
+    if (matchType === "BROAD") return LOCATION_BROAD_BONUS;
+    return NO_SCORE;
   }
 
   /** Checks cautious country, region and city coverage for optional location matching. */
@@ -413,12 +481,12 @@ export class MatchingScoreService {
   /** Знаходить найвищу освіту студента та її підтверджувальний бонус. */
   private buildEducationBreakdown(student: MatchStudent) {
     const highest = [...student.education].sort((first, second) =>
-      educationBonusRank[second.degree] - educationBonusRank[first.degree])[0];
-    if (!highest) return { highestDegree: null, hasDiplomaUrl: false, educationBonus: 0 };
+      educationBonusRank[second.degree] - educationBonusRank[first.degree])[FIRST_ITEM_INDEX];
+    if (!highest) return { highestDegree: null, hasDiplomaUrl: false, educationBonus: NO_SCORE };
     return {
       highestDegree: highest.degree,
       hasDiplomaUrl: Boolean(highest.diplomaUrl),
-      educationBonus: educationBonusRank[highest.degree] + (highest.diplomaUrl ? 2 : 0),
+      educationBonus: educationBonusRank[highest.degree] + (highest.diplomaUrl ? EDUCATION_DOCUMENT_BONUS : NO_SCORE),
     };
   }
 
@@ -448,24 +516,24 @@ export class MatchingScoreService {
   }) {
     const summaryCode = !input.matchesBlockingRequirements
       ? "MATCH_BLOCKING_MISSING"
-      : input.baseRequirementsPercent < 70
+      : input.baseRequirementsPercent < PARTIAL_BASE_REQUIREMENTS_THRESHOLD
         ? "MATCH_BLOCKING_PASSED_PARTIAL"
         : "MATCH_BLOCKING_PASSED_BASE";
     const strongestAreas = [
-      ...(input.skillBreakdown.some((item) => item.projectPoints > 0) ? ["PROJECTS"] : []),
-      ...(input.skillBreakdown.some((item) => item.coursePoints > 0) ? ["COURSES"] : []),
-      ...(input.skillBreakdown.some((item) => item.experiencePoints > 0) ? ["EXPERIENCE"] : []),
-      ...(input.languageBreakdown.some((item) => item.languageBonus > 0) ? ["LANGUAGES"] : []),
-      ...(input.educationBreakdown.educationBonus > 0 ? ["EDUCATION"] : []),
-      ...(input.locationBreakdown.locationBonus > 0 ? ["LOCATION"] : []),
-      ...(input.activeSearchBonus > 0 ? ["ACTIVE_SEARCH"] : []),
+      ...(input.skillBreakdown.some((item) => item.projectPoints > MIN_POSITIVE_SCORE) ? ["PROJECTS"] : []),
+      ...(input.skillBreakdown.some((item) => item.coursePoints > MIN_POSITIVE_SCORE) ? ["COURSES"] : []),
+      ...(input.skillBreakdown.some((item) => item.experiencePoints > MIN_POSITIVE_SCORE) ? ["EXPERIENCE"] : []),
+      ...(input.languageBreakdown.some((item) => item.languageBonus > MIN_POSITIVE_SCORE) ? ["LANGUAGES"] : []),
+      ...(input.educationBreakdown.educationBonus > MIN_POSITIVE_SCORE ? ["EDUCATION"] : []),
+      ...(input.locationBreakdown.locationBonus > MIN_POSITIVE_SCORE ? ["LOCATION"] : []),
+      ...(input.activeSearchBonus > MIN_POSITIVE_SCORE ? ["ACTIVE_SEARCH"] : []),
     ];
     const weakestAreas = [
       ...input.missingCriticalSkills.map((item) => ({ code: "MISSING_CRITICAL_SKILL", label: item.name })),
       ...input.missingImportantSkills.map((item) => ({ code: "MISSING_IMPORTANT_SKILL", label: item.name })),
       ...input.missingLanguages.map((item) => ({ code: "MISSING_LANGUAGE", label: item.name })),
       ...(input.locationBreakdown.matchType === "NONE" ? [{ code: "NO_LOCATION_MATCH", label: null }] : []),
-      ...(input.skillBreakdown.every((item) => item.sourceSum === 0) ? [{ code: "NO_SKILL_SOURCES", label: null }] : []),
+      ...(input.skillBreakdown.every((item) => item.sourceSum === NO_SCORE) ? [{ code: "NO_SKILL_SOURCES", label: null }] : []),
     ];
     return {
       summary: summaryCode,
@@ -477,14 +545,14 @@ export class MatchingScoreService {
 
   /** Рахує повні місяці між датами для внеску підтвердженого досвіду. */
   private fullMonthsBetween(startDate: Date, endDate: Date) {
-    let months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + endDate.getMonth() - startDate.getMonth();
-    if (endDate.getDate() < startDate.getDate()) months -= 1;
-    return Math.max(0, months);
+    let months = (endDate.getFullYear() - startDate.getFullYear()) * MONTHS_PER_YEAR + endDate.getMonth() - startDate.getMonth();
+    if (endDate.getDate() < startDate.getDate()) months -= MONTH_STEP;
+    return Math.max(NO_SCORE, months);
   }
 
   /** Округлює метрики до двох знаків після коми. */
   private round(value: number) {
-    return Math.round(value * 100) / 100;
+    return Math.round(value * ROUNDING_PRECISION) / ROUNDING_PRECISION;
   }
 }
 
