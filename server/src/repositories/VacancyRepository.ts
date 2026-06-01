@@ -117,6 +117,14 @@ export class VacancyRepository {
     });
   }
 
+  /** Returns a vacancy by id only when it belongs to the given HR profile. */
+  async findHrVacancy(vacancyId: string, hrProfileId: string) {
+    return this.db.vacancy.findFirst({
+      where: { id: vacancyId, hrProfileId },
+      include: vacancyInclude,
+    });
+  }
+
   /** Повертає вакансію компанії за id, щоб перевірити право HR на редагування. */
   async findCompanyVacancy(vacancyId: string, companyId: string) {
     return this.db.vacancy.findFirst({
@@ -125,10 +133,20 @@ export class VacancyRepository {
     });
   }
 
+  /** Returns paginated vacancies owned by the given HR profile. */
+  async listHrVacancies(hrProfileId: string, params: VacancyListParams) {
+    return this.listScopedVacancies({ hrProfileId }, params);
+  }
+
   /** Повертає всі вакансії компанії поточного рекрутера. */
   async listCompanyVacancies(companyId: string, params: VacancyListParams) {
+    return this.listScopedVacancies({ companyId }, params);
+  }
+
+  /** Applies shared filtering, sorting and pagination for internal vacancy lists. */
+  private async listScopedVacancies(scope: Prisma.VacancyWhereInput, params: VacancyListParams) {
     const where: Prisma.VacancyWhereInput = {
-      companyId,
+      ...scope,
       ...(params.status ? { status: params.status } : {}),
       ...(params.search
         ? {
@@ -350,6 +368,18 @@ export class VacancyRepository {
       { spheres: { some: { sphere: { name: { contains: term, mode: "insensitive" } } } } },
       { skills: { some: { skill: { name: { contains: term, mode: "insensitive" } } } } },
     ];
+  }
+
+  /** Archives active vacancies owned by the HR profile when their closing date has passed. */
+  async archiveExpiredActiveVacanciesForHr(hrProfileId: string, today: Date) {
+    return this.db.vacancy.updateMany({
+      where: {
+        hrProfileId,
+        status: ListingStatus.ACTIVE,
+        closingDate: { lt: today },
+      },
+      data: { status: ListingStatus.ARCHIVED },
+    });
   }
 
   /** Архівує активні вакансії компанії, у яких минув closingDate. */

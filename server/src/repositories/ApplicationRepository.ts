@@ -84,6 +84,15 @@ export class ApplicationRepository {
     });
   }
 
+  /** Returns applications only for a vacancy owned by the current HR profile. */
+  async listVacancyApplicationsForHr(vacancyId: string, hrProfileId: string) {
+    return this.db.application.findMany({
+      where: { vacancyId, vacancy: { hrProfileId } },
+      orderBy: { createdAt: "desc" },
+      include: applicationInclude,
+    });
+  }
+
   /** Повертає відгуки лише для вакансії компанії поточного HR. */
   async listVacancyApplicationsForCompany(vacancyId: string, companyId: string) {
     return this.db.application.findMany({

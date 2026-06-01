@@ -62,20 +62,24 @@ export function ApplicationStatusTimeline({ currentStatus, statusHistory, varian
       {(currentStatus === "REJECTED" || currentStatus === "WITHDRAWN") && (
         <div className={classes.terminal}><ApplicationStatusBadge status={currentStatus} /></div>
       )}
-      {variant === "hr" && onStatusChange && transitionOptions.length > 0 && (
-        <div className={classes.statusControl}>
-          <Text fw={800} size="sm">{ui.timeline.changeStatus}</Text>
-          <Select
-            data={transitionOptions}
-            disabled={saving}
-            onChange={(status) => status && onStatusChange(status as ApplicationStatus)}
-            placeholder={ui.timeline.selectNextStatus}
-            value={null}
-          />
+      {variant === "hr" && (onStatusChange || onReject) && (
+        <div className={classes.statusActions}>
+          {onStatusChange && transitionOptions.length > 0 && (
+            <div className={classes.statusControl}>
+              <Text fw={800} size="sm">{ui.timeline.changeStatus}</Text>
+              <Select
+                data={transitionOptions}
+                disabled={saving}
+                onChange={(status) => status && onStatusChange(status as ApplicationStatus)}
+                placeholder={ui.timeline.selectNextStatus}
+                value={null}
+              />
+            </div>
+          )}
+          {onReject && !["HIRED", "REJECTED", "WITHDRAWN"].includes(currentStatus) && (
+            <Button className={classes.rejectButton} color="red" size="xs" variant="light" onClick={onReject}>{ui.hr.reject}</Button>
+          )}
         </div>
-      )}
-      {variant === "hr" && onReject && !["HIRED", "REJECTED", "WITHDRAWN"].includes(currentStatus) && (
-        <Button color="red" size="xs" variant="light" onClick={onReject}>{ui.hr.reject}</Button>
       )}
       {actions && <div className={classes.actions}>{actions}</div>}
       <div className={classes.history}>

@@ -5,11 +5,26 @@ import {
   SalaryPeriod,
 } from "../../prisma/generated/client/index.js";
 import { prisma } from "../config/db.js";
-import { BusinessLogicError, HttpStatus } from "../errors/BusinessLogicError.js";
-import { CatalogRepository, catalogRepository } from "../repositories/CatalogRepository.js";
-import { CompanyRepository, companyRepository } from "../repositories/CompanyRepository.js";
-import { HrProfileRepository, hrProfileRepository } from "../repositories/HrProfileRepository.js";
-import { SkillRepository, skillRepository } from "../repositories/SkillRepository.js";
+import {
+  BusinessLogicError,
+  HttpStatus,
+} from "../errors/BusinessLogicError.js";
+import {
+  CatalogRepository,
+  catalogRepository,
+} from "../repositories/CatalogRepository.js";
+import {
+  CompanyRepository,
+  companyRepository,
+} from "../repositories/CompanyRepository.js";
+import {
+  HrProfileRepository,
+  hrProfileRepository,
+} from "../repositories/HrProfileRepository.js";
+import {
+  SkillRepository,
+  skillRepository,
+} from "../repositories/SkillRepository.js";
 import {
   VacancyRepository,
   vacancyRepository,
@@ -19,8 +34,14 @@ import {
   type VacancyUpdateData,
 } from "../repositories/VacancyRepository.js";
 import { normalizeVacancyRequirements } from "./VacancyMatchingService.js";
-import { ApplicationMatchRefreshService, applicationMatchRefreshService } from "./ApplicationMatchRefreshService.js";
-import { OutboxEventService, outboxEventService } from "./OutboxEventService.js";
+import {
+  ApplicationMatchRefreshService,
+  applicationMatchRefreshService,
+} from "./ApplicationMatchRefreshService.js";
+import {
+  OutboxEventService,
+  outboxEventService,
+} from "./OutboxEventService.js";
 
 export type VacancySkillRequest = {
   skillId: number;
@@ -74,7 +95,19 @@ export class VacancyService {
   /** Повертає довідники та офісні локації компанії для форми вакансії. */
   async getVacancyCatalogs(clerkUserId: string) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
-    const [languages, employmentTypes, workSchedules, workFormats, professions, spheres, skills, countries, regions, cities, company] = await Promise.all([
+    const [
+      languages,
+      employmentTypes,
+      workSchedules,
+      workFormats,
+      professions,
+      spheres,
+      skills,
+      countries,
+      regions,
+      cities,
+      company,
+    ] = await Promise.all([
       this.catalogs.listLanguages(),
       this.catalogs.listEmploymentTypes(),
       this.catalogs.listWorkSchedules(),
@@ -106,32 +139,41 @@ export class VacancyService {
   /** Повертає вакансії компанії поточного рекрутера з урахуванням автоархівації. */
   async listMyVacancies(clerkUserId: string, query: VacancyListRequest = {}) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
-    await this.archiveExpiredVacancies(hrProfile.companyId);
+    await this.archiveExpiredVacancies(hrProfile.id);
     const params = this.normalizeListQuery(query);
-    const result = await this.vacancies.listCompanyVacancies(hrProfile.companyId, params);
+    const result = await this.vacancies.listHrVacancies(hrProfile.id, params);
     return {
       ...result,
-      items: result.items.map((vacancy) => this.mapVacancy(vacancy)).filter(Boolean),
+      items: result.items
+        .map((vacancy) => this.mapVacancy(vacancy))
+        .filter(Boolean),
     };
   }
 
   /** Повертає одну вакансію компанії поточного рекрутера. */
   async getMyVacancy(clerkUserId: string, vacancyId: string) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
-    await this.archiveExpiredVacancies(hrProfile.companyId);
-    const vacancy = await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.companyId);
+    await this.archiveExpiredVacancies(hrProfile.id);
+    const vacancy = await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.id);
     return this.mapVacancy(vacancy);
   }
 
   /** Створює вакансію та всі M:N зв'язки в межах однієї транзакції. */
   async createVacancy(clerkUserId: string, body: VacancyUpsertRequest) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
-    const normalized = await this.validateVacancyBody(body, hrProfile.companyId);
+    const normalized = await this.validateVacancyBody(
+      body,
+      hrProfile.companyId,
+    );
 
     return prisma.$transaction(async (tx) => {
       const txVacancies = new VacancyRepository(tx);
       const vacancy = await txVacancies.createVacancy({
-        ...this.mapBaseCreateData(normalized, hrProfile.id, hrProfile.companyId),
+        ...this.mapBaseCreateData(
+          normalized,
+          hrProfile.id,
+          hrProfile.companyId,
+        ),
       });
 
       await this.replaceRelations(txVacancies, vacancy.id, normalized);
@@ -142,14 +184,24 @@ export class VacancyService {
   }
 
   /** Оновлює вакансію та повністю синхронізує її зв'язки в межах транзакції. */
-  async updateVacancy(clerkUserId: string, vacancyId: string, body: VacancyUpsertRequest) {
+  async updateVacancy(
+    clerkUserId: string,
+    vacancyId: string,
+    body: VacancyUpsertRequest,
+  ) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
-    await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.companyId);
-    const normalized = await this.validateVacancyBody(body, hrProfile.companyId);
+    await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.id);
+    const normalized = await this.validateVacancyBody(
+      body,
+      hrProfile.companyId,
+    );
 
     const updated = await prisma.$transaction(async (tx) => {
       const txVacancies = new VacancyRepository(tx);
-      await txVacancies.updateVacancy(vacancyId, this.mapBaseUpdateData(normalized));
+      await txVacancies.updateVacancy(
+        vacancyId,
+        this.mapBaseUpdateData(normalized),
+      );
       await this.replaceRelations(txVacancies, vacancyId, normalized);
       await this.outbox.vacancyUpdated(tx, vacancyId, "VACANCY_EDITED");
       const completeVacancy = await txVacancies.findVacancyById(vacancyId);
@@ -160,9 +212,13 @@ export class VacancyService {
   }
 
   /** Змінює статус вакансії після перевірки права власності. */
-  async changeVacancyStatus(clerkUserId: string, vacancyId: string, status: ListingStatus) {
+  async changeVacancyStatus(
+    clerkUserId: string,
+    vacancyId: string,
+    status: ListingStatus,
+  ) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
-    await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.companyId);
+    await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.id);
     this.ensureAllowedStatus(status);
     const updated = await prisma.$transaction(async (tx) => {
       const txVacancies = new VacancyRepository(tx);
@@ -175,43 +231,77 @@ export class VacancyService {
 
   /** Переводить вакансію в архів вручну. */
   async archiveVacancy(clerkUserId: string, vacancyId: string) {
-    return this.changeVacancyStatus(clerkUserId, vacancyId, ListingStatus.ARCHIVED);
+    return this.changeVacancyStatus(
+      clerkUserId,
+      vacancyId,
+      ListingStatus.ARCHIVED,
+    );
   }
 
-  /** Архівує прострочені активні вакансії компанії. */
-  private async archiveExpiredVacancies(companyId: string) {
-    await this.vacancies.archiveExpiredActiveVacancies(companyId, this.todayDateOnly());
+  /** Archives expired active vacancies owned by the current HR profile. */
+  private async archiveExpiredVacancies(hrProfileId: string) {
+    await this.vacancies.archiveExpiredActiveVacanciesForHr(
+      hrProfileId,
+      this.todayDateOnly(),
+    );
   }
 
   /** Нормалізує query-параметри списку вакансій для репозиторію. */
   private normalizeListQuery(query: VacancyListRequest): VacancyListParams {
-    const allowedSortFields: VacancyListSortBy[] = ["title", "status", "closingDate", "updatedAt", "createdAt"];
+    const allowedSortFields: VacancyListSortBy[] = [
+      "title",
+      "status",
+      "closingDate",
+      "updatedAt",
+      "createdAt",
+    ];
     const page = this.clampPositiveInt(query.page, 1, 1, 10_000);
     const pageSize = this.clampPositiveInt(query.pageSize, 10, 5, 20);
-    const search = typeof query.search === "string" && query.search.trim() ? query.search.trim() : null;
-    const status = typeof query.status === "string" && Object.values(ListingStatus).includes(query.status as ListingStatus)
-      ? query.status as ListingStatus
-      : null;
-    const sortBy = typeof query.sortBy === "string" && allowedSortFields.includes(query.sortBy as VacancyListSortBy)
-      ? query.sortBy as VacancyListSortBy
-      : "updatedAt";
+    const search =
+      typeof query.search === "string" && query.search.trim()
+        ? query.search.trim()
+        : null;
+    const status =
+      typeof query.status === "string" &&
+      Object.values(ListingStatus).includes(query.status as ListingStatus)
+        ? (query.status as ListingStatus)
+        : null;
+    const sortBy =
+      typeof query.sortBy === "string" &&
+      allowedSortFields.includes(query.sortBy as VacancyListSortBy)
+        ? (query.sortBy as VacancyListSortBy)
+        : "updatedAt";
     const sortDirection = query.sortDirection === "asc" ? "asc" : "desc";
 
     return { page, pageSize, search, status, sortBy, sortDirection };
   }
 
   /** Повертає ціле число в дозволених межах або значення за замовчуванням. */
-  private clampPositiveInt(value: unknown, fallback: number, min: number, max: number) {
+  private clampPositiveInt(
+    value: unknown,
+    fallback: number,
+    min: number,
+    max: number,
+  ) {
     const parsed = Number(value);
     if (!Number.isInteger(parsed)) return fallback;
     return Math.min(Math.max(parsed, min), max);
   }
 
   /** Перевіряє DTO вакансії та нормалізує масиви. */
-  private async validateVacancyBody(body: VacancyUpsertRequest, companyId: string) {
+  private async validateVacancyBody(
+    body: VacancyUpsertRequest,
+    companyId: string,
+  ) {
     const title = this.requiredText(body.title, "Назва вакансії обов'язкова.");
-    const description = this.requiredText(body.description, "Опис вакансії обов'язковий.");
-    const professionId = this.requiredNumber(body.professionId, "Професія обов'язкова.");
+    const description = this.requiredText(
+      body.description,
+      "Опис вакансії обов'язковий.",
+    );
+    const professionId = this.requiredNumber(
+      body.professionId,
+      "Професія обов'язкова.",
+    );
     const sphereIds = this.uniqueNumbers(body.sphereIds ?? []);
     const skills = this.uniqueSkills(body.skills ?? []);
     const languages = this.uniqueLanguages(body.languages ?? []);
@@ -223,17 +313,33 @@ export class VacancyService {
     const status = body.status ?? ListingStatus.DRAFT;
     const salaryFrom = body.salaryFrom ?? null;
     const salaryTo = body.salaryTo ?? null;
-    const salaryPeriod = salaryFrom === null ? null : (body.salaryPeriod ?? SalaryPeriod.PER_MONTH);
+    const salaryPeriod =
+      salaryFrom === null
+        ? null
+        : (body.salaryPeriod ?? SalaryPeriod.PER_MONTH);
 
-    if (sphereIds.length < 1 || sphereIds.length > 3) this.throwValidation("Оберіть від 1 до 3 сфер проєкту.");
-    if (skills.length < 1) this.throwValidation("Додайте щонайменше одну навичку.");
-    if (officeLocationIds.length < 1) this.throwValidation("Додайте щонайменше одну офісну локацію.");
-    if (workFormatIds.length < 1) this.throwValidation("Оберіть хоча б один формат роботи.");
-    if (employmentTypeIds.length < 1) this.throwValidation("Оберіть хоча б один тип зайнятості.");
-    if (workScheduleIds.length < 1) this.throwValidation("Оберіть хоча б один графік роботи.");
-    if (salaryTo !== null && salaryFrom === null) this.throwValidation("Поле зарплати 'до' доступне тільки після заповнення 'від'.");
-    if (salaryFrom !== null && salaryFrom < 0) this.throwValidation("Мінімальна зарплата не може бути від'ємною.");
-    if (salaryTo !== null && salaryTo < salaryFrom!) this.throwValidation("Максимальна зарплата не може бути меншою за мінімальну.");
+    if (sphereIds.length < 1 || sphereIds.length > 3)
+      this.throwValidation("Оберіть від 1 до 3 сфер проєкту.");
+    if (skills.length < 1)
+      this.throwValidation("Додайте щонайменше одну навичку.");
+    if (officeLocationIds.length < 1)
+      this.throwValidation("Додайте щонайменше одну офісну локацію.");
+    if (workFormatIds.length < 1)
+      this.throwValidation("Оберіть хоча б один формат роботи.");
+    if (employmentTypeIds.length < 1)
+      this.throwValidation("Оберіть хоча б один тип зайнятості.");
+    if (workScheduleIds.length < 1)
+      this.throwValidation("Оберіть хоча б один графік роботи.");
+    if (salaryTo !== null && salaryFrom === null)
+      this.throwValidation(
+        "Поле зарплати 'до' доступне тільки після заповнення 'від'.",
+      );
+    if (salaryFrom !== null && salaryFrom < 0)
+      this.throwValidation("Мінімальна зарплата не може бути від'ємною.");
+    if (salaryTo !== null && salaryTo < salaryFrom!)
+      this.throwValidation(
+        "Максимальна зарплата не може бути меншою за мінімальну.",
+      );
     this.ensureAllowedStatus(status);
     if (salaryPeriod) this.ensureAllowedSalaryPeriod(salaryPeriod);
 
@@ -274,7 +380,9 @@ export class VacancyService {
   }
 
   /** Створює базові дані вакансії для update. */
-  private mapBaseUpdateData(body: Awaited<ReturnType<VacancyService["validateVacancyBody"]>>): VacancyUpdateData {
+  private mapBaseUpdateData(
+    body: Awaited<ReturnType<VacancyService["validateVacancyBody"]>>,
+  ): VacancyUpdateData {
     return {
       title: body.title,
       description: body.description,
@@ -310,27 +418,46 @@ export class VacancyService {
   private async getHrProfileOrThrow(clerkUserId: string) {
     const hrProfile = await this.hrs.findByClerkUserId(clerkUserId);
     if (!hrProfile) {
-      throw new BusinessLogicError("HR profile not found", HttpStatus.FORBIDDEN, "HR_PROFILE_NOT_FOUND");
+      throw new BusinessLogicError(
+        "HR profile not found",
+        HttpStatus.FORBIDDEN,
+        "HR_PROFILE_NOT_FOUND",
+      );
     }
     return hrProfile;
   }
 
-  /** Повертає вакансію компанії або кидає помилку доступу. */
-  private async getOwnedVacancyOrThrow(vacancyId: string, companyId: string) {
-    const vacancy = await this.vacancies.findCompanyVacancy(vacancyId, companyId);
+  /** Повертає вакансію HR або кидає помилку доступу.. */
+  private async getOwnedVacancyOrThrow(vacancyId: string, hrProfileId: string) {
+    const vacancy = await this.vacancies.findHrVacancy(vacancyId, hrProfileId);
     if (!vacancy) {
-      throw new BusinessLogicError("Vacancy not found", HttpStatus.NOT_FOUND, "VACANCY_NOT_FOUND");
+      throw new BusinessLogicError(
+        "Vacancy not found",
+        HttpStatus.NOT_FOUND,
+        "VACANCY_NOT_FOUND",
+      );
     }
     return vacancy;
   }
 
   /** Перевіряє, що всі локації вакансії належать компанії HR. */
-  private async ensureCompanyLocations(companyId: string, locationIds: string[]) {
+  private async ensureCompanyLocations(
+    companyId: string,
+    locationIds: string[],
+  ) {
     const company = await this.companies.findCompanyById(companyId);
-    const allowedLocationIds = new Set(company?.locations.map((item) => item.locationId) ?? []);
-    const hasForeignLocation = locationIds.some((locationId) => !allowedLocationIds.has(locationId));
+    const allowedLocationIds = new Set(
+      company?.locations.map((item) => item.locationId) ?? [],
+    );
+    const hasForeignLocation = locationIds.some(
+      (locationId) => !allowedLocationIds.has(locationId),
+    );
     if (hasForeignLocation) {
-      throw new BusinessLogicError("Office location does not belong to current company", HttpStatus.FORBIDDEN, "FOREIGN_OFFICE_LOCATION");
+      throw new BusinessLogicError(
+        "Office location does not belong to current company",
+        HttpStatus.FORBIDDEN,
+        "FOREIGN_OFFICE_LOCATION",
+      );
     }
   }
 
@@ -338,12 +465,18 @@ export class VacancyService {
   private async ensureSkillsExist(skillIds: number[]) {
     const existingCount = await this.skills.countExistingSkills(skillIds);
     if (existingCount !== skillIds.length) {
-      throw new BusinessLogicError("One or more skills do not exist", HttpStatus.BAD_REQUEST, "SKILLS_NOT_FOUND");
+      throw new BusinessLogicError(
+        "One or more skills do not exist",
+        HttpStatus.BAD_REQUEST,
+        "SKILLS_NOT_FOUND",
+      );
     }
   }
 
   /** Групує навички за категоріями для frontend. */
-  private groupSkillsByCategory(skills: Awaited<ReturnType<SkillRepository["searchSkills"]>>) {
+  private groupSkillsByCategory(
+    skills: Awaited<ReturnType<SkillRepository["searchSkills"]>>,
+  ) {
     return skills.reduce<Record<string, typeof skills>>((grouped, skill) => {
       grouped[skill.category] ??= [];
       grouped[skill.category].push(skill);
@@ -352,19 +485,35 @@ export class VacancyService {
   }
 
   /** Мапить вакансію в DTO з блоком для майбутнього метчингу. */
-  private mapVacancy(vacancy: Awaited<ReturnType<VacancyRepository["findVacancyById"]>>) {
+  private mapVacancy(
+    vacancy: Awaited<ReturnType<VacancyRepository["findVacancyById"]>>,
+  ) {
     if (!vacancy) return null;
     return {
       ...vacancy,
       status: this.getEffectiveStatus(vacancy.status, vacancy.closingDate),
       matchingRequirements: normalizeVacancyRequirements({
-        skills: vacancy.skills.map((item) => ({ skillId: item.skillId, weight: item.weight })),
-        languages: vacancy.languages.map((item) => ({ languageId: item.languageId, level: item.level })),
-        locations: vacancy.locations.map((item) => ({ locationId: item.locationId })),
+        skills: vacancy.skills.map((item) => ({
+          skillId: item.skillId,
+          weight: item.weight,
+        })),
+        languages: vacancy.languages.map((item) => ({
+          languageId: item.languageId,
+          level: item.level,
+        })),
+        locations: vacancy.locations.map((item) => ({
+          locationId: item.locationId,
+        })),
         isLocationCritical: vacancy.isLocationCritical,
-        workFormats: vacancy.workFormats.map((item) => ({ workFormatId: item.workFormatId })),
-        employmentTypes: vacancy.employmentTypes.map((item) => ({ employmentTypeId: item.employmentTypeId })),
-        workSchedules: vacancy.workSchedules.map((item) => ({ workScheduleId: item.workScheduleId })),
+        workFormats: vacancy.workFormats.map((item) => ({
+          workFormatId: item.workFormatId,
+        })),
+        employmentTypes: vacancy.employmentTypes.map((item) => ({
+          employmentTypeId: item.employmentTypeId,
+        })),
+        workSchedules: vacancy.workSchedules.map((item) => ({
+          workScheduleId: item.workScheduleId,
+        })),
         minSalary: vacancy.minSalary,
         maxSalary: vacancy.maxSalary,
         salaryPeriod: vacancy.salaryPeriod,
@@ -374,7 +523,8 @@ export class VacancyService {
 
   /** Повертає ефективний статус без очікування cron, якщо closingDate вже минула. */
   private getEffectiveStatus(status: ListingStatus, closingDate: Date) {
-    if (status === ListingStatus.ACTIVE && closingDate < this.todayDateOnly()) return ListingStatus.ARCHIVED;
+    if (status === ListingStatus.ACTIVE && closingDate < this.todayDateOnly())
+      return ListingStatus.ARCHIVED;
     return status;
   }
 
@@ -388,32 +538,43 @@ export class VacancyService {
       ListingStatus.ARCHIVED,
     ];
     if (!allowedStatuses.includes(status)) {
-      throw new BusinessLogicError("Unsupported vacancy status", HttpStatus.BAD_REQUEST, "UNSUPPORTED_VACANCY_STATUS");
+      throw new BusinessLogicError(
+        "Unsupported vacancy status",
+        HttpStatus.BAD_REQUEST,
+        "UNSUPPORTED_VACANCY_STATUS",
+      );
     }
   }
 
   /** Перевіряє допустимість періоду зарплати для збереження вакансії. */
   private ensureAllowedSalaryPeriod(period: SalaryPeriod) {
     if (!Object.values(SalaryPeriod).includes(period)) {
-      throw new BusinessLogicError("Unsupported salary period", HttpStatus.BAD_REQUEST, "UNSUPPORTED_SALARY_PERIOD");
+      throw new BusinessLogicError(
+        "Unsupported salary period",
+        HttpStatus.BAD_REQUEST,
+        "UNSUPPORTED_SALARY_PERIOD",
+      );
     }
   }
 
   /** Повертає обрізаний обов'язковий текст. */
   private requiredText(value: unknown, message: string) {
-    if (typeof value !== "string" || !value.trim()) this.throwValidation(message);
+    if (typeof value !== "string" || !value.trim())
+      this.throwValidation(message);
     return value.trim();
   }
 
   /** Повертає обов'язкове число. */
   private requiredNumber(value: unknown, message: string) {
-    if (typeof value !== "number" || Number.isNaN(value)) this.throwValidation(message);
+    if (typeof value !== "number" || Number.isNaN(value))
+      this.throwValidation(message);
     return value;
   }
 
   /** Повертає дату майбутнього дедлайну. */
   private requiredFutureDate(value: unknown) {
-    if (typeof value !== "string" || !value) this.throwValidation("Дата завершення вакансії обов'язкова.");
+    if (typeof value !== "string" || !value)
+      this.throwValidation("Дата завершення вакансії обов'язкова.");
     const date = new Date(value);
     if (Number.isNaN(date.getTime()) || date <= this.todayDateOnly()) {
       this.throwValidation("Дата завершення вакансії має бути в майбутньому.");
@@ -428,14 +589,23 @@ export class VacancyService {
 
   /** Прибирає дублікати рядкових id. */
   private uniqueStrings(values: string[]) {
-    return [...new Set(values.filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim()))];
+    return [
+      ...new Set(
+        values
+          .filter((value) => typeof value === "string" && value.trim())
+          .map((value) => value.trim()),
+      ),
+    ];
   }
 
   /** Прибирає дублікати навичок, залишаючи останню обрану вагу. */
   private uniqueSkills(skills: VacancySkillRequest[]) {
     const map = new Map<number, VacancySkillRequest>();
     skills.forEach((skill) => {
-      if (Number.isInteger(skill.skillId) && Object.values(RequirementWeight).includes(skill.weight)) {
+      if (
+        Number.isInteger(skill.skillId) &&
+        Object.values(RequirementWeight).includes(skill.weight)
+      ) {
         map.set(skill.skillId, skill);
       }
     });
@@ -446,7 +616,10 @@ export class VacancyService {
   private uniqueLanguages(languages: VacancyLanguageRequest[]) {
     const map = new Map<number, VacancyLanguageRequest>();
     languages.forEach((language) => {
-      if (Number.isInteger(language.languageId) && Object.values(LanguageLevel).includes(language.level)) {
+      if (
+        Number.isInteger(language.languageId) &&
+        Object.values(LanguageLevel).includes(language.level)
+      ) {
         map.set(language.languageId, language);
       }
     });
@@ -455,7 +628,11 @@ export class VacancyService {
 
   /** Кидає бізнес-помилку валідації вакансії. */
   private throwValidation(message: string): never {
-    throw new BusinessLogicError(message, HttpStatus.BAD_REQUEST, "VACANCY_VALIDATION_ERROR");
+    throw new BusinessLogicError(
+      message,
+      HttpStatus.BAD_REQUEST,
+      "VACANCY_VALIDATION_ERROR",
+    );
   }
 
   /** Повертає сьогоднішню дату без часу для порівняння з @db.Date. */

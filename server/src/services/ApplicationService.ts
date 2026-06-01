@@ -116,11 +116,11 @@ export class ApplicationService {
   async listVacancyApplications(clerkUserId: string, vacancyId: string) {
     const hr = await this.getHrActorOrThrow(clerkUserId);
     const vacancy = await this.vacancies.findVacancyById(vacancyId);
-    if (!vacancy || vacancy.companyId !== hr.profile.companyId) {
+    if (!vacancy || vacancy.hrProfileId !== hr.profile.id) {
       throw new BusinessLogicError("Vacancy not found", HttpStatus.NOT_FOUND, "VACANCY_NOT_FOUND");
     }
     await this.matchRefresh.recalculateForVacancy(vacancyId);
-    const applications = await this.applications.listVacancyApplicationsForCompany(vacancyId, hr.profile.companyId);
+    const applications = await this.applications.listVacancyApplicationsForHr(vacancyId, hr.profile.id);
     const sentApplications = applications.filter((application) => application.status === ApplicationStatus.SENT);
     if (sentApplications.length === 0) return applications;
 
@@ -137,7 +137,7 @@ export class ApplicationService {
         });
         await this.outbox.applicationUpdated(tx, application.id, ApplicationStatus.VIEWED);
       }
-      return repository.listVacancyApplicationsForCompany(vacancyId, hr.profile.companyId);
+      return repository.listVacancyApplicationsForHr(vacancyId, hr.profile.id);
     });
   }
 
@@ -145,7 +145,7 @@ export class ApplicationService {
   async getApplicationResume(clerkUserId: string, applicationId: string) {
     const hr = await this.getHrActorOrThrow(clerkUserId);
     const application = await this.getApplicationOrThrow(applicationId);
-    if (application.vacancy.companyId !== hr.profile.companyId) {
+    if (application.vacancy.hrProfileId !== hr.profile.id) {
       throw new BusinessLogicError("Application not found", HttpStatus.NOT_FOUND, "APPLICATION_NOT_FOUND");
     }
     const profile = await this.students.findResumeById(application.studentProfileId);

@@ -402,13 +402,12 @@ export class MatchingScoreService {
     };
   }
 
-  /** Порівнює нестрогі локації на один адміністративний рівень ширше. */
+  /** Checks cautious country, region and city coverage for optional location matching. */
   private isBroaderLocationMatch(required: MatchVacancy["locations"][number]["location"], desired: MatchStudent["desiredLocations"][number]["location"]) {
-    if (required.cityId !== null) {
-      return desired.countryId === required.countryId && desired.regionId === required.regionId;
-    }
-    if (required.regionId !== null) return desired.countryId === required.countryId;
-    return desired.countryId === required.countryId;
+    if (required.countryId !== desired.countryId) return false;
+    if (required.regionId === null || desired.regionId === null) return true;
+    if (required.regionId !== desired.regionId) return false;
+    return true;
   }
 
   /** Знаходить найвищу освіту студента та її підтверджувальний бонус. */
