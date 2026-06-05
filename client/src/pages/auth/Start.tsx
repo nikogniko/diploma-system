@@ -1,15 +1,17 @@
 import { Button, Group, Text, Title } from "@mantine/core";
+import { useUser } from "@clerk/react";
 import { useNavigate } from "react-router-dom";
 import classes from "./Start.module.scss";
 
 /** Сторінка вибору ролі перед реєстрацією. */
 export default function Start() {
   const navigate = useNavigate();
+  const { isSignedIn } = useUser();
 
   /** Зберігає обрану роль і відкриває сторінку реєстрації. */
   const handleRoleSelect = (role: "STUDENT" | "HR") => {
     localStorage.setItem("intendedRole", role);
-    navigate("/sign-up");
+    navigate(isSignedIn ? "/onboarding" : "/sign-up");
   };
 
   return (

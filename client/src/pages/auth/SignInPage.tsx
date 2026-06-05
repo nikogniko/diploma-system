@@ -3,31 +3,13 @@ import { AuthShell } from "../../components/auth/AuthShell";
 
 /** Сторінка входу з єдиним оформленням auth-флоу. */
 export default function SignInPage() {
-  const role =
-    typeof window !== "undefined" ? localStorage.getItem("intendedRole") : null;
-
-  const isEmployer = role === "HR";
-
   return (
     <AuthShell
-      title={
-        isEmployer
-          ? "Поверніться до кабінету роботодавця"
-          : "Поверніться до свого кар'єрного простору"
-      }
-      subtitle={
-        isEmployer
-          ? "Увійдіть, щоб працювати з профілем компанії, вакансіями та відгуками кандидатів."
-          : "Увійдіть, щоб продовжити профіль, відстежувати відгуки та бачити персональні можливості."
-      }
-      note={
-        role === "STUDENT"
-          ? "Для кандидатів доступ дозволений лише з корпоративної пошти навчального закладу."
-          : null
-      }
+      title="Платформа для студентів та роботодавців"
+      subtitle="Створюйте профілі, вказуйте компетенції, знаходьте релевантні вакансії чи кандидатів для своєї команди, переглядайте зручну аналітику. Увійдіть, щоб перейти до свого робочого простору."
     >
       <SignIn
-        signUpUrl="/sign-up"
+        signUpUrl="/start"
         fallbackRedirectUrl="/auth/redirect"
         appearance={{
           variables: {

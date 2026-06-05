@@ -84,6 +84,24 @@ export class ApplicationRepository {
     });
   }
 
+  /** Returns vacancy ids to which the student has already applied. */
+  async listAppliedVacancyIds(studentProfileId: string) {
+    const applications = await this.db.application.findMany({
+      where: { studentProfileId },
+      select: { vacancyId: true },
+    });
+    return applications.map((application) => application.vacancyId);
+  }
+
+  /** Returns recruiter ids whose company vacancies already have an application from the student. */
+  async listAppliedHrProfileIdsForCompany(studentProfileId: string, companyId: string) {
+    const applications = await this.db.application.findMany({
+      where: { studentProfileId, vacancy: { companyId } },
+      select: { vacancy: { select: { hrProfileId: true } } },
+    });
+    return [...new Set(applications.map((application) => application.vacancy.hrProfileId))];
+  }
+
   /** Returns applications only for a vacancy owned by the current HR profile. */
   async listVacancyApplicationsForHr(vacancyId: string, hrProfileId: string) {
     return this.db.application.findMany({

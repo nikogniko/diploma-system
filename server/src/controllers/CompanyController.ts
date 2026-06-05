@@ -33,7 +33,8 @@ export const searchCompanies = async (req: Request, res: Response, next: NextFun
 export const getPublicCompany = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const companyId = Array.isArray(req.params.companyId) ? req.params.companyId[0] : req.params.companyId;
-    const result = await companyService.getPublicCompany(companyId);
+    const { userId } = getAuth(req);
+    const result = await companyService.getPublicCompany(companyId, userId);
     res.status(HttpStatus.OK).json({ success: true, data: result });
   } catch (error) {
     next(error);

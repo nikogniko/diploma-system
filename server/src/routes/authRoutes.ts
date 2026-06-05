@@ -5,6 +5,7 @@ import {
   getPublicUserInfo,
   handleClerkWebhook,
   updateMyEmail,
+  updateMyPhoto,
   updateUserStatus,
 } from "../controllers/UserController.js";
 
@@ -14,6 +15,7 @@ router.post("/webhooks/clerk", handleClerkWebhook);
 router.post("/onboarding", completeOnboarding);
 router.get("/my-cabinet/auth", getMyAuthSnapshot);
 router.patch("/my-cabinet/email", updateMyEmail);
+router.patch("/my-cabinet/photo", updateMyPhoto);
 router.get("/:userId/public-info", getPublicUserInfo);
 router.patch("/:userId/status", updateUserStatus);
 

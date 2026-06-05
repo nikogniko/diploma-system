@@ -87,7 +87,15 @@ type StudentVacancy = {
     position?: string | null;
     links?: Array<{ linkName: string; value: string }>;
     user?: VacancyRecruiterUser;
+    vacancies?: Array<{
+      id: string;
+      title: string;
+      status?: string | null;
+      updatedAt?: string | null;
+      profession?: { name?: string | null } | null;
+    }>;
   } | null;
+  recruiterContactAccess?: "VISIBLE" | "AFTER_APPLICATION";
   spheres: Array<{ sphereId: number; sphere?: CatalogItem | null }>;
   employmentTypes: Array<{ employmentTypeId: number; employmentType?: CatalogItem | null }>;
   workSchedules: Array<{ workScheduleId: number; workSchedule?: CatalogItem | null }>;
@@ -336,6 +344,8 @@ export default function VacanciesPage() {
         method: "POST",
         body: JSON.stringify({ vacancyId: targetVacancyId }),
       });
+      const refreshed = await apiRequest<VacancySearchEntry>(`/vacancies/student/${targetVacancyId}`, token);
+      setSelected(refreshed);
       setApplicationCreated(true);
     } catch (applicationRequestError) {
       if (applicationRequestError instanceof ApiError
@@ -809,8 +819,10 @@ const recruiterPreviewLabels = {
   activeVacancies: ui.common.activeVacancies,
   totalVacancies: ui.common.totalVacancies,
   vacanciesList: ui.common.vacanciesList,
+  latestVacanciesNote: ui.common.latestVacanciesNote,
   emptyVacancies: ui.common.emptyVacancies,
   copy: ui.common.copy,
+  contactsUnavailable: ui.common.contactsUnavailable,
 };
 /** Maps vacancy recruiter data into the shared public preview DTO. */
 function buildRecruiterPreviewFromVacancy(vacancy: StudentVacancy): RecruiterPublicPreviewData | null {
@@ -820,9 +832,14 @@ function buildRecruiterPreviewFromVacancy(vacancy: StudentVacancy): RecruiterPub
     position: vacancy.hrProfile.position,
     photoUrl: vacancy.hrProfile.user?.photoUrl,
     companyName: vacancy.company?.publicName,
+    companyHref: vacancy.company?.id ? `/companies/${vacancy.company.id}` : undefined,
     email: vacancy.hrProfile.user?.email,
     contacts: vacancy.hrProfile.links ?? [],
+    contactAccess: vacancy.recruiterContactAccess,
     createdAt: vacancy.hrProfile.user?.createdAt,
+    activeVacanciesCount: (vacancy.hrProfile.vacancies ?? []).filter((item) => item.status === "ACTIVE").length,
+    totalVacanciesCount: vacancy.hrProfile.vacancies?.length ?? 0,
+    vacancies: (vacancy.hrProfile.vacancies ?? []).map((item) => ({ ...item, href: `/vacancies/${item.id}` })),
   };
 }
 /** Builds a display name for the vacancy recruiter. */

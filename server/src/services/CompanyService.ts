@@ -14,10 +14,16 @@ import {
   HrProfileRepository,
   hrProfileRepository,
 } from "../repositories/HrProfileRepository.js";
-import type { LocationKey } from "../repositories/StudentProfileRepository.js";
+import {
+  StudentProfileRepository,
+  studentProfileRepository,
+  type LocationKey,
+} from "../repositories/StudentProfileRepository.js";
 import { transactionManager, TransactionManager } from "../repositories/TransactionManager.js";
 import { VacancyRepository, vacancyRepository } from "../repositories/VacancyRepository.js";
+import { ApplicationRepository, applicationRepository } from "../repositories/ApplicationRepository.js";
 import { EmailValidator } from "../utils/EmailValidator.js";
+import { applyHrContactPolicy, applyVacancyRecruiterContactPolicy } from "../utils/ContactAccessPolicy.js";
 
 type LinkInput = {
   linkType: LinkType;
@@ -49,6 +55,8 @@ export class CompanyService {
     private readonly hrs: HrProfileRepository = hrProfileRepository,
     private readonly txManager: TransactionManager = transactionManager,
     private readonly vacancies: VacancyRepository = vacancyRepository,
+    private readonly applications: ApplicationRepository = applicationRepository,
+    private readonly students: StudentProfileRepository = studentProfileRepository,
   ) {}
 
   /** Повертає компанію, до якої належить поточний HR. */
@@ -62,7 +70,7 @@ export class CompanyService {
   }
 
   /** Повертає публічну сторінку компанії за id. */
-  async getPublicCompany(companyId: string) {
+  async getPublicCompany(companyId: string, clerkUserId?: string | null) {
     const company = await this.companies.findCompanyById(companyId);
     if (!company) {
       throw new BusinessLogicError(
@@ -72,12 +80,27 @@ export class CompanyService {
       );
     }
 
-    const [companyHrs, vacancyPage] = await Promise.all([
+    const [companyHrs, vacancyPage, student] = await Promise.all([
       this.companies.listCompanyHrs(companyId),
       this.vacancies.listPublicCompanyVacancies(companyId),
+      clerkUserId ? this.students.findByClerkUserId(clerkUserId) : Promise.resolve(null),
     ]);
 
-    return { company, companyHrs, vacancies: vacancyPage };
+    const [appliedVacancyIds, appliedHrProfileIds] = student
+      ? await Promise.all([
+          this.applications.listAppliedVacancyIds(student.id),
+          this.applications.listAppliedHrProfileIdsForCompany(student.id, companyId),
+        ])
+      : [[], []];
+    const visibleVacancies = new Set(appliedVacancyIds);
+    const visibleHrs = new Set(appliedHrProfileIds);
+
+    return {
+      company,
+      companyHrs: companyHrs.map((hr) => applyHrContactPolicy(hr, visibleHrs.has(hr.id))),
+      vacancies: vacancyPage.map((vacancy) =>
+        applyVacancyRecruiterContactPolicy(vacancy, visibleVacancies.has(vacancy.id))),
+    };
   }
 
   /** Повертає список HR профілів компанії поточного HR. */

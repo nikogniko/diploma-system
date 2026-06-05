@@ -21,5 +21,6 @@ yarn-error.log*
 # Кеші
 prisma/generated/
 server/prisma/generated/
+server/prisma/backups/
 
 prisma/seed.demo.ts

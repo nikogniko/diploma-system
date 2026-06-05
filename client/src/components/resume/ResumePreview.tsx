@@ -76,7 +76,7 @@ const languageLevelLabels: Record<string, string> = {
 
 type ResumePreviewProps = {
   profile: ResumeProfile | null;
-  contactAccess?: "OWNER" | "VISIBLE" | "AFTER_OFFER" | "HIDDEN";
+  contactAccess?: "OWNER" | "VISIBLE" | "AFTER_INTERVIEW_INVITE" | "HIDDEN";
 };
 
 /** Показує повне резюме кандидата у режимі читання для студента або рекрутера. */
@@ -101,9 +101,10 @@ export function ResumePreview({ profile, contactAccess = "OWNER" }: ResumePrevie
   const fullName = [profile.user.lastName, profile.user.firstName, profile.user.middleName].filter(Boolean).join(" ") || ui.profileFallbackName;
   const allSkills = collectSkills(profile);
   const groupedSkills = groupSkills(allSkills);
-  const knownLinks = (profile.links ?? []).filter((link) => isQuickContact(link.linkName) || link.linkType === "MESSENGER" || link.linkType === "SOCIAL");
+  const knownLinks = (profile.links ?? []).filter((link) => isCompactContact(link));
   const otherLinks = (profile.links ?? []).filter((link) => !knownLinks.includes(link));
   const isContactsVisible = contactAccess === "OWNER" || contactAccess === "VISIBLE";
+  const showOwnerContactNote = contactAccess === "OWNER";
 
   return (
     <article className={styles.resume} ref={scrollRef}>
@@ -192,7 +193,7 @@ export function ResumePreview({ profile, contactAccess = "OWNER" }: ResumePrevie
           <PreviewSection title={ui.contacts} compact>
             {isContactsVisible ? (
               <>
-                <Text className={styles.contactNote}>{ui.contactsNote}</Text>
+                {showOwnerContactNote && <Text className={styles.contactNote}>{ui.contactsNote}</Text>}
                 <ContactLine label={ui.contactEmail} value={profile.contactEmail} />
                 <ContactLine label={ui.primaryPhone} value={profile.primaryPhone} normalizeCopy={normalizePhone} />
                 <ContactLine label={ui.secondaryPhone} value={profile.secondaryPhone} normalizeCopy={normalizePhone} />
@@ -204,8 +205,9 @@ export function ResumePreview({ profile, contactAccess = "OWNER" }: ResumePrevie
 
           {isContactsVisible && (
             <PreviewSection title={ui.links} compact>
-              {knownLinks.length ? <QuickContactList links={knownLinks} /> : <Empty />}
+              {knownLinks.length ? <QuickContactList links={knownLinks} /> : null}
               {otherLinks.length ? <LinkList links={otherLinks.map((link) => ({ label: link.linkName, value: link.value }))} withActions /> : null}
+              {!knownLinks.length && !otherLinks.length ? <Empty /> : null}
             </PreviewSection>
           )}
 
@@ -268,7 +270,7 @@ function LinkList({ links, withActions }: { links: Array<{ label: string; value:
 }
 
 function QuickContactList({ links }: { links: LinkItem[] }) {
-  return <div className={styles.quickContacts}>{links.map((link) => <ContactLine key={`${link.linkName}-${link.value}`} label={link.linkName} value={link.value} openable={isWebLink(link.value)} />)}</div>;
+  return <div className={styles.quickContacts}>{links.map((link) => <ContactLine key={`${link.linkName}-${link.value}`} label={link.linkName} value={link.value} />)}</div>;
 }
 
 function LinkActions({ value }: { value: string }) {
@@ -286,9 +288,9 @@ function ContactLine({ label, value, openable, normalizeCopy }: { label: string;
   return <div className={styles.contactLine}><span>{label}</span><strong>{value}</strong>{openable && <AppTooltip label={ui.open}><a href={normalizeHref(value)} target="_blank" rel="noreferrer"><OpenIcon /></a></AppTooltip>}<AppTooltip label={ui.copy}><button type="button" onClick={() => copyToClipboard(copyValue)}><CopyIcon /></button></AppTooltip></div>;
 }
 
-function ContactAccessNotice({ access }: { access: "OWNER" | "VISIBLE" | "AFTER_OFFER" | "HIDDEN" }) {
+function ContactAccessNotice({ access }: { access: "OWNER" | "VISIBLE" | "AFTER_INTERVIEW_INVITE" | "HIDDEN" }) {
   const isHidden = access === "HIDDEN";
-  return <div className={isHidden ? styles.hiddenNotice : styles.confidentialNotice}><strong>{isHidden ? messages.studentDashboard.visibility.hiddenLabel : messages.studentDashboard.visibility.appliedLabel}</strong><span>{isHidden ? ui.contactsHidden : ui.contactsAfterOffer}</span></div>;
+  return <div className={isHidden ? styles.hiddenNotice : styles.confidentialNotice}><strong>{isHidden ? messages.studentDashboard.visibility.hiddenLabel : messages.studentDashboard.visibility.appliedLabel}</strong><span>{isHidden ? ui.contactsHidden : ui.contactsAfterInterviewInvite}</span></div>;
 }
 
 function RichHtml({ value }: { value: string }) {
@@ -313,6 +315,10 @@ function groupSkills(skills: Skill[]) {
     groups[key] = [...(groups[key] ?? []), skill];
     return groups;
   }, { HARD: [], TOOL: [], SOFT: [] });
+}
+
+function isCompactContact(link: LinkItem) {
+  return (link.linkType === "MESSENGER" || isQuickContact(link.linkName)) && !isWebLink(link.value);
 }
 
 function sortByDateDesc<T extends object>(items: T[], getDate: (item: T) => string) {

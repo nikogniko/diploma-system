@@ -39,7 +39,7 @@ import { RecruiterPublicPreviewDrawer as RecruiterPreviewDrawer } from "../../co
 import type { RecruiterPublicPreviewData } from "../../components/hr/RecruiterPublicPreviewDrawer";
 import { VacancyPublicPreview } from "../../components/vacancy/VacancyPublicPreview";
 import { ApplicationStatusTimeline } from "../../components/application/ApplicationStatusTimeline";
-import { ApplicationStatusBadge } from "../../components/application/ApplicationStatusBadge";
+import { ApplicationCard } from "../../components/application/ApplicationCard";
 import { ApplicationPipelineToolbar, type ApplicationPipelineFilter } from "../../components/application/ApplicationPipelineToolbar";
 import { MatchAnalysisPanel } from "../../components/application/MatchAnalysisPanel";
 import { ResumePreview, type ResumeProfile } from "../../components/resume/ResumePreview";
@@ -200,6 +200,13 @@ type VacancyRow = {
       email?: string | null;
       createdAt?: string | null;
     };
+    vacancies?: Array<{
+      id: string;
+      title: string;
+      status?: VacancyStatus | string | null;
+      updatedAt?: string | null;
+      profession?: { name?: string | null } | null;
+    }>;
   };
   company?: {
     id: string;
@@ -1073,6 +1080,7 @@ export default function HrDashboard() {
       activeKey={active}
       autoCollapseKeys={["vacancies"]}
       collapseSignal={collapseSignal}
+      storageKey="hr-cabinet-sidebar"
       onSelect={(key) => {
         setSelectedVacancy(null);
         setIsCompanyPreviewOpen(false);
@@ -1222,6 +1230,9 @@ export default function HrDashboard() {
                   onSelect={(vacancy) => {
                     openVacancyManagement(vacancy, "preview");
                   }}
+                  onOpenApplications={(vacancy) => {
+                    openVacancyManagement(vacancy, "applications");
+                  }}
                   onEdit={startVacancyEdit}
                   onStatusChange={changeVacancyStatus}
                   onArchive={archiveVacancy}
@@ -1239,6 +1250,7 @@ export default function HrDashboard() {
                     .length
                 }
                 totalVacanciesCount={vacancies.length}
+                vacancies={vacancies}
                 onCompanyOpen={() => setIsCompanyPreviewOpen(true)}
                 onClearError={() =>
                   setBlockErrors((current) => ({ ...current, hr: null }))
@@ -1253,6 +1265,7 @@ export default function HrDashboard() {
                 form={companyForm}
                 setForm={setCompanyForm}
                 options={options}
+                vacancies={vacancies}
                 newLocation={newLocation}
                 setNewLocation={setNewLocation}
                 error={blockErrors.company}
@@ -1293,6 +1306,7 @@ function VacancyBoard(props: {
   onSortChange: (sortBy: VacancySortBy) => void;
   onCreate: () => void;
   onSelect: (vacancy: VacancyRow, view?: VacancyManagementTab) => void;
+  onOpenApplications: (vacancy: VacancyRow) => void;
   onEdit: (vacancy: VacancyRow) => void;
   onStatusChange: (vacancyId: string, status: VacancyStatus) => void;
   onArchive: (vacancyId: string) => void;
@@ -1315,6 +1329,7 @@ function VacancyBoard(props: {
     onSortChange,
     onCreate,
     onSelect,
+    onOpenApplications,
     onEdit,
     onStatusChange,
     onArchive,
@@ -1405,7 +1420,7 @@ function VacancyBoard(props: {
                   <Table.Tr
                     key={vacancy.id}
                     className={classes.vacancyRow}
-                    onDoubleClick={() => onSelect(vacancy, "applications")}
+                    onDoubleClick={() => onOpenApplications(vacancy)}
                   >
                     <Table.Td>
                       <Text fw={900} className={classes.vacancyTitleCell}>
@@ -1883,22 +1898,24 @@ function VacancyApplicationsPanel({ vacancyId }: { vacancyId: string }) {
       <div className={classes.applicationList}>{visibleItems.map((application) => {
         const expanded = expandedId === application.id;
         const inactive = application.matchDetails?.requirementEligibility?.matchesBlockingRequirements === false;
-        return <article className={classes.applicationCard} data-expanded={expanded || undefined} data-inactive={inactive || undefined} key={application.id} onDoubleClick={() => setExpandedId(expanded ? null : application.id)}>
-          <div className={classes.applicationRow}>
-            <div className={classes.applicationCandidate}>
-              <Text fw={900}>{studentName(application)}</Text>
-              {inactive && <Text size="xs" c="red">{moduleUi.hr.inactive}</Text>}
-            </div>
-            <div className={`${classes.applicationMetric} ${classes.applicationDate}`}><span>{moduleUi.student.createdAt}</span><strong>{dayjs(application.createdAt).format("DD.MM.YYYY")}</strong></div>
-            <div className={`${classes.applicationMetric} ${classes.applicationRequirements}`}><span>{moduleUi.hr.baseRequirements}</span><strong>{application.matchDetails?.baseRequirementsPercent ?? 0}%</strong></div>
-            <div className={`${classes.applicationMetric} ${classes.applicationScore}`}><span>{moduleUi.student.matchScore}</span><strong>{application.matchScore ?? applicationUi.scorePending}</strong></div>
-            <div className={`${classes.applicationMetric} ${classes.applicationStatus}`}><span>{moduleUi.student.status}</span><ApplicationStatusBadge status={application.status} /></div>
-            <div className={classes.applicationActions} onDoubleClick={(event) => event.stopPropagation()}>
+        return <ApplicationCard
+          key={application.id}
+          application={application}
+          title={studentName(application)}
+          subtitle={application.studentProfile?.desiredPosition}
+          statusDetails={inactive ? <Text size="xs" c="red">{moduleUi.hr.inactive}</Text> : null}
+          expanded={expanded}
+          inactive={inactive}
+          statusLabel={moduleUi.student.status}
+          createdAtLabel={moduleUi.student.createdAt}
+          baseRequirementsLabel={moduleUi.hr.baseRequirements}
+          matchScoreLabel={moduleUi.student.matchScore}
+          onToggle={() => setExpandedId(expanded ? null : application.id)}
+          actions={<>
               <Button size="xs" variant="subtle" onClick={() => void openResume(application.id)}>{moduleUi.hr.resume}</Button>
               <Button size="xs" variant="light" onClick={() => setExpandedId(expanded ? null : application.id)}>{expanded ? moduleUi.hr.hideAnalysis : moduleUi.hr.analysis}</Button>
-            </div>
-          </div>
-          {expanded && <div className={classes.applicationDetails}>
+            </>}
+        >
             <ApplicationStatusTimeline
               currentStatus={application.status}
               onStatusChange={(status) => void changeApplicationStatus(application.id, status)}
@@ -1908,8 +1925,7 @@ function VacancyApplicationsPanel({ vacancyId }: { vacancyId: string }) {
               variant="hr"
             />
             <MatchAnalysisPanel details={application.matchDetails} variant="hr" />
-          </div>}
-        </article>;
+        </ApplicationCard>;
       })}</div>
     )}
     </FormSection>
@@ -2384,6 +2400,7 @@ function HrProfileTab({
   saving,
   activeVacanciesCount,
   totalVacanciesCount,
+  vacancies,
   onCompanyOpen,
   onClearError,
   onSave,
@@ -2393,6 +2410,7 @@ function HrProfileTab({
     profile,
     activeVacanciesCount,
     totalVacanciesCount,
+    vacancies,
   );
   return (
     <>
@@ -2526,6 +2544,7 @@ function CompanyProfileTab(props: any) {
     form,
     setForm,
     options,
+    vacancies,
     newLocation,
     setNewLocation,
     error,
@@ -2539,6 +2558,7 @@ function CompanyProfileTab(props: any) {
   const selectedRecruiterView = buildRecruiterPreviewFromCompanyHr(
     selectedHr,
     company,
+    vacancies,
   );
 
   return (
@@ -3488,17 +3508,20 @@ function buildRecruiterPreviewFromProfile(
   profile: HrProfile | null,
   activeVacanciesCount?: number,
   totalVacanciesCount?: number,
+  vacancies: VacancyRow[] = [],
 ): RecruiterPublicPreviewData {
   return {
     fullName: formatRecruiterName(profile?.user),
     position: profile?.position,
     photoUrl: profile?.user.photoUrl,
     companyName: profile?.company.publicName,
+    companyHref: profile?.company.id ? `/companies/${profile.company.id}` : undefined,
     email: profile?.user.email,
     contacts: profile?.links ?? [],
     createdAt: profile?.user.createdAt,
     activeVacanciesCount,
     totalVacanciesCount,
+    vacancies: mapRecruiterPreviewVacancies(vacancies),
   };
 }
 
@@ -3514,15 +3537,13 @@ function buildRecruiterPreviewFromCompanyHr(
     position: hr.position,
     photoUrl: hr.user.photoUrl,
     companyName: company?.publicName,
+    companyHref: company?.id ? `/companies/${company.id}` : undefined,
     email: hr.user.email,
     contacts: hr.links ?? [],
     createdAt: hr.user.createdAt,
-    activeVacanciesCount: vacancies.length
-      ? countHrVacancies(vacancies, hr.id, "ACTIVE")
-      : undefined,
-    totalVacanciesCount: vacancies.length
-      ? countHrVacancies(vacancies, hr.id)
-      : undefined,
+    activeVacanciesCount: countHrVacancies(vacancies, hr.id, "ACTIVE"),
+    totalVacanciesCount: countHrVacancies(vacancies, hr.id),
+    vacancies: mapRecruiterPreviewVacancies(vacancies.filter((vacancy) => vacancy.hrProfile?.id === hr.id)),
   };
 }
 
@@ -3551,10 +3572,29 @@ function buildRecruiterPreviewFromVacancy(
     position: vacancy.hrProfile.position,
     photoUrl: vacancy.hrProfile.user.photoUrl,
     companyName: vacancy.company?.publicName,
+    companyHref: vacancy.company?.id ? `/companies/${vacancy.company.id}` : undefined,
     email: vacancy.hrProfile.user.email,
     contacts: vacancy.hrProfile.links ?? [],
     createdAt: vacancy.hrProfile.user.createdAt,
+    activeVacanciesCount: (vacancy.hrProfile.vacancies ?? []).filter((item) => item.status === "ACTIVE").length,
+    totalVacanciesCount: vacancy.hrProfile.vacancies?.length ?? 0,
+    vacancies: mapRecruiterPreviewVacancies(vacancy.hrProfile.vacancies ?? []),
   };
+}
+
+function mapRecruiterPreviewVacancies(vacancies: Array<{
+  id: string;
+  title: string;
+  updatedAt?: string | null;
+  profession?: { name?: string | null } | null;
+}>) {
+  return vacancies.map((vacancy) => ({
+    id: vacancy.id,
+    title: vacancy.title,
+    updatedAt: vacancy.updatedAt,
+    profession: vacancy.profession,
+    href: `/vacancies/${vacancy.id}`,
+  }));
 }
 
 const normalizeHref = (value?: string | null) => {
@@ -3867,6 +3907,7 @@ function recruiterPreviewLabels() {
     activeVacancies: ui.profile.activeVacancies,
     totalVacancies: ui.profile.totalVacancies,
     vacanciesList: ui.profile.vacanciesList,
+    latestVacanciesNote: ui.profile.latestVacanciesNote,
     emptyVacancies: ui.vacancies.empty,
     copy: messages.studentDashboard.resumePreview.copy,
   };

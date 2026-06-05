@@ -1143,6 +1143,8 @@
 
 .vacancyTableCard {
   container-type: inline-size;
+  max-width: 100%;
+  overflow-x: auto;
   padding: 1rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1345,11 +1347,14 @@
 .applicationDetails {
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
 }
 
 .applicationCard {
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
   padding: 0.9rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1390,6 +1395,11 @@
   grid-template-areas: "candidate date requirements score status actions";
   gap: 0.75rem;
   align-items: center;
+  min-width: 0;
+
+  > * {
+    min-width: 0;
+  }
 }
 
 .applicationCandidate {
@@ -1415,10 +1425,30 @@
 
 .applicationActions {
   display: inline-flex;
+  flex-wrap: wrap;
   grid-area: actions;
   gap: 0.35rem;
   align-items: center;
   justify-self: end;
+}
+
+@container (max-width: 900px) {
+  .applicationRow {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+      "candidate candidate candidate actions"
+      "date requirements score status";
+  }
+}
+
+@container (max-width: 620px) {
+  .applicationRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "candidate actions"
+      "date requirements"
+      "score status";
+  }
 }
 
 .applicationMetric {

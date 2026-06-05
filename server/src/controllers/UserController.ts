@@ -162,3 +162,27 @@ export const updateMyEmail = async (
     next(error);
   }
 };
+
+/** Synchronizes the current user's Clerk profile image with the local DB. */
+export const updateMyPhoto = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      throw new BusinessLogicError(
+        "Unauthorized. Clerk user id is missing.",
+        HttpStatus.UNAUTHORIZED,
+        "UNAUTHORIZED",
+      );
+    }
+
+    const result = await userService.updateMyPhoto(userId, req.body.photoUrl ?? null);
+    res.status(HttpStatus.OK).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};

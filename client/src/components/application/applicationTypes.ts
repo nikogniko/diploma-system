@@ -124,6 +124,6 @@ export type ApplicationRecord = {
 };
 
 export type ApplicationResumeResponse<TProfile> = {
-  contactAccess: "VISIBLE" | "AFTER_OFFER" | "HIDDEN";
+  contactAccess: "VISIBLE" | "AFTER_INTERVIEW_INVITE" | "HIDDEN";
   profile: TProfile;
 };

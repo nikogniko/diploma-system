@@ -1,0 +1,999 @@
+{
+  "metadata": {
+    "purpose": "Demo profile data for filling student profiles for the active vacancy without changing dictionaries",
+    "createdAt": "2026-06-03T21:43:49Z",
+    "sourceBackups": {
+      "employers": "diploma-system-employers-backup-2026-06-03T20-37-42-731Z.json",
+      "candidates": "diploma-system-candidates-backup-2026-06-03T20-37-42-731Z.json"
+    },
+    "targetVacancy": {
+      "id": "e0fa0d0f-037f-4f5b-a66e-bab972e85c6f",
+      "title": "Junior Fullstack Developer React + Node.js",
+      "companyId": "fc68e5e3-34d5-422a-af4c-0118b4eb10ec",
+      "companyPublicName": "NextWave Software",
+      "profession": "Fullstack-розробник",
+      "requiredLanguage": "Англійська B1",
+      "skillRequirements": [
+        {
+          "name": "REST API",
+          "category": "HARD_SKILL",
+          "weight": "CRITICAL"
+        },
+        {
+          "name": "React",
+          "category": "TOOL",
+          "weight": "CRITICAL"
+        },
+        {
+          "name": "Node.js",
+          "category": "TOOL",
+          "weight": "CRITICAL"
+        },
+        {
+          "name": "TypeScript",
+          "category": "TOOL",
+          "weight": "CRITICAL"
+        },
+        {
+          "name": "PostgreSQL",
+          "category": "TOOL",
+          "weight": "IMPORTANT"
+        },
+        {
+          "name": "SQL",
+          "category": "HARD_SKILL",
+          "weight": "IMPORTANT"
+        },
+        {
+          "name": "Git",
+          "category": "TOOL",
+          "weight": "IMPORTANT"
+        },
+        {
+          "name": "JavaScript",
+          "category": "HARD_SKILL",
+          "weight": "IMPORTANT"
+        },
+        {
+          "name": "HTML5",
+          "category": "HARD_SKILL",
+          "weight": "IMPORTANT"
+        },
+        {
+          "name": "CSS3",
+          "category": "HARD_SKILL",
+          "weight": "IMPORTANT"
+        },
+        {
+          "name": "Docker",
+          "category": "TOOL",
+          "weight": "IMPORTANT"
+        },
+        {
+          "name": "Unit-тестування",
+          "category": "HARD_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Redis",
+          "category": "TOOL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "NoSQL",
+          "category": "HARD_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "GraphQL",
+          "category": "HARD_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Postman",
+          "category": "TOOL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Figma",
+          "category": "TOOL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Sass",
+          "category": "TOOL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Робота в команді",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Комунікабельність",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Вирішення проблем",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Системне мислення",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Проактивність",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Відповідальність",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Уважність до деталей",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Здатність до навчання",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Критичне мислення",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        },
+        {
+          "name": "Тайм-менеджмент",
+          "category": "SOFT_SKILL",
+          "weight": "NICE_TO_HAVE"
+        }
+      ]
+    },
+    "importantNotes": [
+      "Passwords from the prompt are intentionally not stored; the DB update script only needs Clerk user IDs and emails.",
+      "Existing male candidate Єгор Лабун / user_3EOXyIIgAo695KjTFo6538nf06a is intentionally not included and should not be changed.",
+      "No applications are created by this data file; application creation can be handled separately after profiles are approved.",
+      "All dictionary values are referenced by existing names from seed.ts/current backup, not by new dictionary values."
+    ],
+    "expectedRankingPlan": [
+      "1: Анастасія Литвиненко — strongest match, updated existing female profile",
+      "2-3: Кайлас Мороз and Марія Демченко — high level",
+      "4: Євген Коваленко — medium level",
+      "5-6: Євген Паламарчук and Аліна Горова — critical/basic requirements only"
+    ]
+  },
+  "students": [
+    {
+      "operation": "updateExistingStudentProfile",
+      "expectedFitLevel": "BEST_MATCH_UPDATED_GIRL",
+      "expectedRankGroup": "1 / найбільше підходить серед нової демо-групи",
+      "doNotCreateApplicationYet": true,
+      "auth": {
+        "clerkUserId": "user_3DiyJWrIrPvHa51XaGq67YSqseo",
+        "email": "7936015@stud.kai.edu.ua"
+      },
+      "user": {
+        "firstName": "Анастасія",
+        "lastName": "Литвиненко",
+        "middleName": "Олегівна",
+        "photoUrl": "https://images.unsplash.com/photo-1494790108377-be9c29b29330"
+      },
+      "profile": {
+        "gender": "FEMALE",
+        "birthDate": "2003-05-14",
+        "about": "<p><strong>Junior Fullstack Developer</strong> з фокусом на React, TypeScript, Node.js і PostgreSQL. Маю кілька fullstack-проєктів із REST API, Docker, SQL та Git. Найсильніша сторона — вміння доводити задачу від UI до API й бази даних.</p>",
+        "contactEmail": "anastasiia.lytvynenko@example.test",
+        "primaryPhone": "+380 67 118 45 21",
+        "secondaryPhone": null,
+        "desiredPosition": "Junior Fullstack Developer",
+        "minSalary": 32000,
+        "isActiveSearch": true,
+        "visibility": "PUBLIC",
+        "desiredProfessions": ["Fullstack-розробник"],
+        "employmentTypes": ["Повна зайнятість", "Стажування"],
+        "workSchedules": ["Гнучкий графік"],
+        "workFormats": ["Віддалена робота", "Гібридний формат"],
+        "desiredLocations": [
+          {
+            "country": "Україна",
+            "region": "Київська область",
+            "city": "Київ"
+          },
+          {
+            "country": "Україна",
+            "region": "Львівська область",
+            "city": "Львів"
+          }
+        ]
+      },
+      "links": [
+        {
+          "linkType": "PORTFOLIO",
+          "linkName": "GitHub",
+          "value": "https://github.com/example/anastasiia-lytvynenko"
+        },
+        {
+          "linkType": "SOCIAL",
+          "linkName": "LinkedIn",
+          "value": "https://www.linkedin.com/in/anastasiia-lytvynenko"
+        },
+        {
+          "linkType": "PORTFOLIO",
+          "linkName": "Portfolio",
+          "value": "https://anastasiia-lytvynenko.example.test"
+        }
+      ],
+      "education": [
+        {
+          "university": "КПІ — Національний технічний університет України «Київський політехнічний інститут імені Ігоря Сікорського»",
+          "degree": "BACHELOR",
+          "specialty": "Інженерія програмного забезпечення",
+          "startYear": 2020,
+          "endYear": 2024,
+          "diplomaUrl": "https://example.test/diplomas/anastasiia-lytvynenko-bachelor.pdf"
+        }
+      ],
+      "languages": [
+        {
+          "language": "Українська",
+          "level": "NATIVE",
+          "certificateUrl": null
+        },
+        {
+          "language": "Англійська",
+          "level": "B2",
+          "certificateUrl": "https://example.test/certificates/anastasiia-english-b2.pdf"
+        }
+      ],
+      "courses": [
+        {
+          "title": "Fullstack Web Development with React and Node.js",
+          "startDate": "2023-02-01",
+          "endDate": "2023-06-15",
+          "certificateUrl": "https://example.test/certificates/anastasiia-fullstack-web.pdf",
+          "skills": [
+            "React",
+            "TypeScript",
+            "JavaScript",
+            "Node.js",
+            "REST API",
+            "PostgreSQL",
+            "SQL",
+            "Git",
+            "HTML5",
+            "CSS3"
+          ]
+        },
+        {
+          "title": "Docker and API Testing Basics",
+          "startDate": "2023-09-01",
+          "endDate": "2023-11-20",
+          "certificateUrl": "https://example.test/certificates/anastasiia-docker-api.pdf",
+          "skills": [
+            "Docker",
+            "Postman",
+            "REST API",
+            "Unit-тестування",
+            "Вирішення проблем",
+            "Уважність до деталей"
+          ]
+        },
+        {
+          "title": "Advanced Frontend Components",
+          "startDate": "2024-01-10",
+          "endDate": "2024-03-20",
+          "certificateUrl": "https://example.test/certificates/anastasiia-frontend-components.pdf",
+          "skills": [
+            "React",
+            "TypeScript",
+            "Sass",
+            "Figma",
+            "Критичне мислення"
+          ]
+        }
+      ],
+      "projects": [
+        {
+          "title": "Student Career Match Platform",
+          "description": "<p>Fullstack pet-проєкт для пошуку junior-вакансій студентами. Реалізовано React-інтерфейс, Node.js REST API, PostgreSQL, SQL-запити, Docker Compose для локального запуску та перевірку endpoint-ів через Postman.</p>",
+          "projectUrl": "https://github.com/example/student-career-match",
+          "skills": [
+            "React",
+            "TypeScript",
+            "Node.js",
+            "REST API",
+            "PostgreSQL",
+            "SQL",
+            "Docker",
+            "Git",
+            "Postman",
+            "HTML5",
+            "CSS3",
+            "Робота в команді",
+            "Системне мислення"
+          ]
+        },
+        {
+          "title": "Course Progress Dashboard",
+          "description": "<p>Frontend dashboard для візуалізації навчального прогресу з картками курсів, фільтрами, адаптивною версткою та повторним використанням компонентів.</p>",
+          "projectUrl": "https://github.com/example/course-progress-dashboard",
+          "skills": [
+            "React",
+            "TypeScript",
+            "JavaScript",
+            "HTML5",
+            "CSS3",
+            "Sass",
+            "Figma",
+            "Уважність до деталей",
+            "Здатність до навчання"
+          ]
+        },
+        {
+          "title": "Realtime Notes API",
+          "description": "<p>Експериментальний backend-проєкт із Node.js, REST API, Redis для кешування та PostgreSQL як основним сховищем даних.</p>",
+          "projectUrl": "https://github.com/example/realtime-notes-api",
+          "skills": [
+            "Node.js",
+            "TypeScript",
+            "REST API",
+            "PostgreSQL",
+            "SQL",
+            "Redis",
+            "Git",
+            "Вирішення проблем"
+          ]
+        }
+      ],
+      "experiences": [
+        {
+          "companyName": "Academy Lab",
+          "position": "Frontend Intern",
+          "profession": "Frontend-розробник",
+          "sphere": "EdTech",
+          "startDate": "2024-02-01",
+          "endDate": "2024-06-01",
+          "achievements": "<p>Працювала над кабінетом студента: React-компоненти, інтеграція з REST API, виправлення помилок, адаптивність сторінок і участь у code review.</p>",
+          "skills": [
+            "React",
+            "TypeScript",
+            "REST API",
+            "Git",
+            "Комунікабельність",
+            "Відповідальність",
+            "Робота в команді"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "createOrUpdateStudentProfile",
+      "expectedFitLevel": "HIGH_MATCH_1",
+      "doNotCreateApplicationYet": true,
+      "auth": {
+        "clerkUserId": "user_3EdIefUYWe0oEomNNrtL9LvS10U",
+        "email": "kailas11251996@gmail.com"
+      },
+      "user": {
+        "firstName": "Кайлас",
+        "lastName": "Мороз",
+        "middleName": "Андрійович",
+        "photoUrl": null
+      },
+      "profile": {
+        "gender": "MALE",
+        "birthDate": "2001-08-19",
+        "about": "<p><strong>Junior Fullstack Developer</strong> із сильним backend-фокусом. Працюю з Node.js, TypeScript, REST API, PostgreSQL і Docker, а frontend закріплюю через React-проєкти та адаптивні інтерфейси.</p>",
+        "contactEmail": "kailas11251996@gmail.com",
+        "primaryPhone": "+380 63 251 96 11",
+        "secondaryPhone": null,
+        "desiredPosition": "Junior Fullstack Developer",
+        "minSalary": 34000,
+        "isActiveSearch": true,
+        "visibility": "PUBLIC",
+        "desiredProfessions": ["Fullstack-розробник"],
+        "employmentTypes": ["Повна зайнятість", "Стажування"],
+        "workSchedules": ["Гнучкий графік"],
+        "workFormats": ["Віддалена робота", "Гібридний формат"],
+        "desiredLocations": [
+          {
+            "country": "Україна",
+            "region": "Київська область",
+            "city": "Київ"
+          },
+          {
+            "country": "Україна",
+            "region": "Львівська область",
+            "city": "Львів"
+          }
+        ]
+      },
+      "links": [
+        {
+          "linkType": "PORTFOLIO",
+          "linkName": "GitHub",
+          "value": "https://github.com/example/kailas-moroz"
+        }
+      ],
+      "education": [
+        {
+          "university": "КАІ — Державний університет «Київський авіаційний інститут»",
+          "degree": "BACHELOR",
+          "specialty": "Інженерія програмного забезпечення",
+          "startYear": 2021,
+          "endYear": 2025,
+          "diplomaUrl": "https://example.test/diplomas/kailas11251996.pdf"
+        }
+      ],
+      "languages": [
+        {
+          "language": "Українська",
+          "level": "NATIVE",
+          "certificateUrl": null
+        },
+        {
+          "language": "Англійська",
+          "level": "B2",
+          "certificateUrl": null
+        }
+      ],
+      "courses": [
+        {
+          "title": "Node.js + PostgreSQL for Web Applications",
+          "startDate": "2024-01-15",
+          "endDate": "2024-04-30",
+          "certificateUrl": "https://example.test/certificates/kailas-node-postgres.pdf",
+          "skills": [
+            "Node.js",
+            "TypeScript",
+            "REST API",
+            "PostgreSQL",
+            "SQL",
+            "Docker",
+            "Git"
+          ]
+        },
+        {
+          "title": "React and TypeScript UI Practice",
+          "startDate": "2024-05-01",
+          "endDate": "2024-07-15",
+          "certificateUrl": "https://example.test/certificates/kailas-react-ts.pdf",
+          "skills": [
+            "React",
+            "TypeScript",
+            "JavaScript",
+            "HTML5",
+            "CSS3",
+            "Sass",
+            "Figma"
+          ]
+        }
+      ],
+      "projects": [
+        {
+          "title": "Inventory SaaS Dashboard",
+          "description": "<p>Fullstack-проєкт для обліку товарів: React dashboard, Node.js REST API, PostgreSQL, фільтрація записів, Docker та перевірка API через Postman.</p>",
+          "projectUrl": "https://github.com/example/inventory-saas-dashboard",
+          "skills": [
+            "React",
+            "TypeScript",
+            "Node.js",
+            "REST API",
+            "PostgreSQL",
+            "SQL",
+            "Docker",
+            "Git",
+            "Postman",
+            "HTML5",
+            "CSS3",
+            "Системне мислення",
+            "Відповідальність"
+          ]
+        },
+        {
+          "title": "Team Tasks Board",
+          "description": "<p>Канбан-дошка для командних задач із React-інтерфейсом, REST API і базовою роботою зі станами завантаження та помилок.</p>",
+          "projectUrl": "https://github.com/example/team-tasks-board",
+          "skills": [
+            "React",
+            "JavaScript",
+            "REST API",
+            "HTML5",
+            "CSS3",
+            "Git",
+            "Робота в команді",
+            "Комунікабельність"
+          ]
+        }
+      ],
+      "experiences": [
+        {
+          "companyName": "SoftStart Hub",
+          "position": "Fullstack Trainee",
+          "profession": "Fullstack-розробник",
+          "sphere": "Cloud Solutions / SaaS",
+          "startDate": "2025-02-01",
+          "endDate": "2025-05-01",
+          "achievements": "<p>Допомагав реалізовувати невеликі frontend/backend задачі, тестував REST API, працював із Git та SQL-запитами під менторством.</p>",
+          "skills": [
+            "React",
+            "Node.js",
+            "TypeScript",
+            "REST API",
+            "SQL",
+            "Git",
+            "Робота в команді",
+            "Проактивність"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "createOrUpdateStudentProfile",
+      "expectedFitLevel": "HIGH_MATCH_2",
+      "doNotCreateApplicationYet": true,
+      "auth": {
+        "clerkUserId": "user_3EdwFck4NZQo7yAkb5tm8t6RAtB",
+        "email": "completelydummy13@gmail.com"
+      },
+      "user": {
+        "firstName": "Марія",
+        "lastName": "Демченко",
+        "middleName": "Сергіївна",
+        "photoUrl": null
+      },
+      "profile": {
+        "gender": "FEMALE",
+        "birthDate": "2002-02-13",
+        "about": "<p>Junior fullstack кандидатка з акцентом на якісний frontend: React, TypeScript, HTML5/CSS3, REST API. Додатково маю практику з Node.js, PostgreSQL, SQL, Docker і командною роботою.</p>",
+        "contactEmail": "completelydummy13@gmail.com",
+        "primaryPhone": "+380 93 130 13 13",
+        "secondaryPhone": null,
+        "desiredPosition": "Junior Fullstack / Frontend Developer",
+        "minSalary": 33000,
+        "isActiveSearch": true,
+        "visibility": "PUBLIC",
+        "desiredProfessions": ["Fullstack-розробник"],
+        "employmentTypes": ["Повна зайнятість", "Стажування"],
+        "workSchedules": ["Гнучкий графік"],
+        "workFormats": ["Віддалена робота", "Гібридний формат"],
+        "desiredLocations": [
+          {
+            "country": "Україна",
+            "region": "Київська область",
+            "city": "Київ"
+          },
+          {
+            "country": "Україна",
+            "region": "Львівська область",
+            "city": "Львів"
+          }
+        ]
+      },
+      "links": [
+        {
+          "linkType": "PORTFOLIO",
+          "linkName": "GitHub",
+          "value": "https://github.com/example/mariia-demchenko"
+        },
+        {
+          "linkType": "SOCIAL",
+          "linkName": "LinkedIn",
+          "value": "https://www.linkedin.com/in/mariia-demchenko"
+        }
+      ],
+      "education": [
+        {
+          "university": "КНУ — Київський національний університет імені Тараса Шевченка",
+          "degree": "BACHELOR",
+          "specialty": "Комп’ютерні науки",
+          "startYear": 2020,
+          "endYear": 2024,
+          "diplomaUrl": "https://example.test/diplomas/completelydummy13.pdf"
+        }
+      ],
+      "languages": [
+        {
+          "language": "Українська",
+          "level": "NATIVE",
+          "certificateUrl": null
+        },
+        {
+          "language": "Англійська",
+          "level": "B2",
+          "certificateUrl": null
+        }
+      ],
+      "courses": [
+        {
+          "title": "React TypeScript Intensive",
+          "startDate": "2023-09-01",
+          "endDate": "2023-12-01",
+          "certificateUrl": "https://example.test/certificates/mariia-react-ts.pdf",
+          "skills": [
+            "React",
+            "TypeScript",
+            "JavaScript",
+            "HTML5",
+            "CSS3",
+            "Git",
+            "Figma"
+          ]
+        },
+        {
+          "title": "Backend Basics with Node.js",
+          "startDate": "2024-02-01",
+          "endDate": "2024-04-01",
+          "certificateUrl": "https://example.test/certificates/mariia-node-basics.pdf",
+          "skills": ["Node.js", "REST API", "PostgreSQL", "SQL", "Postman"]
+        }
+      ],
+      "projects": [
+        {
+          "title": "EdTech Student Cabinet",
+          "description": "<p>React/TypeScript застосунок для студентського кабінету: профіль, список курсів, статуси задач, адаптивний інтерфейс і підключення до REST API.</p>",
+          "projectUrl": "https://github.com/example/edtech-student-cabinet",
+          "skills": [
+            "React",
+            "TypeScript",
+            "JavaScript",
+            "HTML5",
+            "CSS3",
+            "REST API",
+            "Git",
+            "Figma",
+            "Sass",
+            "Уважність до деталей"
+          ]
+        },
+        {
+          "title": "Mini CRM API",
+          "description": "<p>Невеликий Node.js backend для заявок клієнтів із PostgreSQL, SQL-вибірками та перевіркою endpoint-ів через Postman.</p>",
+          "projectUrl": "https://github.com/example/mini-crm-api",
+          "skills": [
+            "Node.js",
+            "TypeScript",
+            "REST API",
+            "PostgreSQL",
+            "SQL",
+            "Postman",
+            "Git",
+            "Вирішення проблем"
+          ]
+        }
+      ],
+      "experiences": [
+        {
+          "companyName": "WebCraft Academy",
+          "position": "Frontend Intern",
+          "profession": "Frontend-розробник",
+          "sphere": "EdTech",
+          "startDate": "2024-05-01",
+          "endDate": "2024-07-01",
+          "achievements": "<p>Покращувала React-компоненти, працювала з REST API, HTML/CSS і брала участь у командних обговореннях.</p>",
+          "skills": [
+            "React",
+            "TypeScript",
+            "REST API",
+            "HTML5",
+            "CSS3",
+            "Git",
+            "Комунікабельність",
+            "Робота в команді"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "createOrUpdateStudentProfile",
+      "expectedFitLevel": "MEDIUM_MATCH",
+      "doNotCreateApplicationYet": true,
+      "auth": {
+        "clerkUserId": "user_3EdwIzHlJwANLaiCvfR98u2akYh",
+        "email": "absolutelyunknowneugene@gmail.com"
+      },
+      "user": {
+        "firstName": "Євген",
+        "lastName": "Коваленко",
+        "middleName": "Ігорович",
+        "photoUrl": null
+      },
+      "profile": {
+        "gender": "MALE",
+        "birthDate": "2002-11-09",
+        "about": "<p>Початковий fullstack-розробник. Маю базу React, Node.js, TypeScript і REST API, але поки більше навчального досвіду, ніж реальних проєктів. Хочу розвиватися у продуктовій команді.</p>",
+        "contactEmail": "absolutelyunknowneugene@gmail.com",
+        "primaryPhone": "+380 50 912 48 31",
+        "secondaryPhone": null,
+        "desiredPosition": "Trainee / Junior Fullstack Developer",
+        "minSalary": 30000,
+        "isActiveSearch": true,
+        "visibility": "PUBLIC",
+        "desiredProfessions": ["Fullstack-розробник"],
+        "employmentTypes": ["Повна зайнятість", "Стажування"],
+        "workSchedules": ["Гнучкий графік"],
+        "workFormats": ["Віддалена робота", "Гібридний формат"],
+        "desiredLocations": [
+          {
+            "country": "Україна",
+            "region": "Київська область",
+            "city": "Київ"
+          },
+          {
+            "country": "Україна",
+            "region": "Львівська область",
+            "city": "Львів"
+          }
+        ]
+      },
+      "links": [
+        {
+          "linkType": "PORTFOLIO",
+          "linkName": "GitHub",
+          "value": "https://github.com/example/yevhen-kovalenko"
+        }
+      ],
+      "education": [
+        {
+          "university": "ХНУРЕ — Харківський національний університет радіоелектроніки",
+          "degree": "BACHELOR",
+          "specialty": "Інженерія програмного забезпечення",
+          "startYear": 2021,
+          "endYear": 2025,
+          "diplomaUrl": "https://example.test/diplomas/absolutelyunknowneugene.pdf"
+        }
+      ],
+      "languages": [
+        {
+          "language": "Українська",
+          "level": "NATIVE",
+          "certificateUrl": null
+        },
+        {
+          "language": "Англійська",
+          "level": "B1",
+          "certificateUrl": null
+        }
+      ],
+      "courses": [
+        {
+          "title": "Fullstack Starter: React + Node.js",
+          "startDate": "2024-03-01",
+          "endDate": "2024-05-15",
+          "certificateUrl": "https://example.test/certificates/yevhen-fullstack-starter.pdf",
+          "skills": [
+            "React",
+            "Node.js",
+            "TypeScript",
+            "REST API",
+            "JavaScript",
+            "HTML5",
+            "CSS3"
+          ]
+        },
+        {
+          "title": "SQL Basics",
+          "startDate": "2024-06-01",
+          "endDate": "2024-07-01",
+          "certificateUrl": null,
+          "skills": ["SQL", "PostgreSQL"]
+        }
+      ],
+      "projects": [
+        {
+          "title": "Personal Notes App",
+          "description": "<p>Навчальний fullstack-проєкт: React-форма нотаток, простий Node.js REST API та збереження даних у PostgreSQL.</p>",
+          "projectUrl": "https://github.com/example/personal-notes-app",
+          "skills": [
+            "React",
+            "Node.js",
+            "TypeScript",
+            "REST API",
+            "PostgreSQL",
+            "SQL",
+            "Git",
+            "HTML5",
+            "CSS3"
+          ]
+        },
+        {
+          "title": "Landing Page Practice",
+          "description": "<p>Адаптивна сторінка для навчального проєкту з базовими інтерактивними елементами на JavaScript.</p>",
+          "projectUrl": "https://github.com/example/landing-practice",
+          "skills": [
+            "HTML5",
+            "CSS3",
+            "JavaScript",
+            "Git",
+            "Уважність до деталей"
+          ]
+        }
+      ],
+      "experiences": []
+    },
+    {
+      "operation": "createOrUpdateStudentProfile",
+      "expectedFitLevel": "BASIC_CRITICAL_ONLY_1",
+      "doNotCreateApplicationYet": true,
+      "auth": {
+        "clerkUserId": "user_3EdwLvpTVEc24mRAQbbUTMpDGMp",
+        "email": "yevhenlabun@gmail.com"
+      },
+      "user": {
+        "firstName": "Євген",
+        "lastName": "Паламарчук",
+        "middleName": "Олександрович",
+        "photoUrl": null
+      },
+      "profile": {
+        "gender": "MALE",
+        "birthDate": "2003-07-22",
+        "about": "<p>Кандидат початкового рівня. Закрив базовий стек вакансії: React, TypeScript, Node.js і REST API. Додаткові інструменти та база даних поки на рівні ознайомлення.</p>",
+        "contactEmail": "yevhenlabun@gmail.com",
+        "primaryPhone": "+380 67 422 18 60",
+        "secondaryPhone": null,
+        "desiredPosition": "Trainee Fullstack Developer",
+        "minSalary": 30000,
+        "isActiveSearch": true,
+        "visibility": "PUBLIC",
+        "desiredProfessions": ["Fullstack-розробник"],
+        "employmentTypes": ["Повна зайнятість", "Стажування"],
+        "workSchedules": ["Гнучкий графік"],
+        "workFormats": ["Віддалена робота"],
+        "desiredLocations": [
+          {
+            "country": "Україна",
+            "region": "Київська область",
+            "city": "Київ"
+          }
+        ]
+      },
+      "links": [
+        {
+          "linkType": "PORTFOLIO",
+          "linkName": "GitHub",
+          "value": "https://github.com/example/yevhen-palamarchuk"
+        }
+      ],
+      "education": [
+        {
+          "university": "КАІ — Державний університет «Київський авіаційний інститут»",
+          "degree": "BACHELOR",
+          "specialty": "Комп’ютерні науки",
+          "startYear": 2021,
+          "endYear": 2025,
+          "diplomaUrl": "https://example.test/diplomas/yevhenlabun.pdf"
+        }
+      ],
+      "languages": [
+        {
+          "language": "Українська",
+          "level": "NATIVE",
+          "certificateUrl": null
+        },
+        {
+          "language": "Англійська",
+          "level": "B1",
+          "certificateUrl": null
+        }
+      ],
+      "courses": [
+        {
+          "title": "React + Node.js First Steps",
+          "startDate": "2024-09-01",
+          "endDate": "2024-11-01",
+          "certificateUrl": "https://example.test/certificates/yevhen-first-steps.pdf",
+          "skills": ["React", "TypeScript", "Node.js", "REST API"]
+        }
+      ],
+      "projects": [
+        {
+          "title": "Simple Fullstack Todo",
+          "description": "<p>Навчальний todo-застосунок із React-клієнтом і простим Node.js REST API. Основна мета — закріпити критичні навички fullstack-напряму.</p>",
+          "projectUrl": "https://github.com/example/simple-fullstack-todo",
+          "skills": ["React", "TypeScript", "Node.js", "REST API"]
+        }
+      ],
+      "experiences": []
+    },
+    {
+      "operation": "createOrUpdateStudentProfile",
+      "expectedFitLevel": "BASIC_CRITICAL_ONLY_2",
+      "doNotCreateApplicationYet": true,
+      "auth": {
+        "clerkUserId": "user_3EdwOrHJqqmWBWRNQBAOV1VGpLx",
+        "email": "anonimka.gor@gmail.com"
+      },
+      "user": {
+        "firstName": "Аліна",
+        "lastName": "Горова",
+        "middleName": "Романівна",
+        "photoUrl": null
+      },
+      "profile": {
+        "gender": "FEMALE",
+        "birthDate": "2004-01-18",
+        "about": "<p>Студентка, яка шукає перше стажування у fullstack-напрямі. Маю базову практику з React, TypeScript, Node.js і REST API, готова швидко навчатися та працювати з ментором.</p>",
+        "contactEmail": "anonimka.gor@gmail.com",
+        "primaryPhone": "+380 66 718 40 15",
+        "secondaryPhone": null,
+        "desiredPosition": "Fullstack Intern",
+        "minSalary": 30000,
+        "isActiveSearch": true,
+        "visibility": "PUBLIC",
+        "desiredProfessions": ["Fullstack-розробник"],
+        "employmentTypes": ["Стажування"],
+        "workSchedules": ["Гнучкий графік"],
+        "workFormats": ["Гібридний формат", "Віддалена робота"],
+        "desiredLocations": [
+          {
+            "country": "Україна",
+            "region": "Львівська область",
+            "city": "Львів"
+          }
+        ]
+      },
+      "links": [
+        {
+          "linkType": "PORTFOLIO",
+          "linkName": "GitHub",
+          "value": "https://github.com/example/alina-horova"
+        }
+      ],
+      "education": [
+        {
+          "university": "НУЛП — Національний університет «Львівська політехніка»",
+          "degree": "BACHELOR",
+          "specialty": "Комп’ютерні науки",
+          "startYear": 2022,
+          "endYear": 2026,
+          "diplomaUrl": "https://example.test/diplomas/anonimka.gor.pdf"
+        }
+      ],
+      "languages": [
+        {
+          "language": "Українська",
+          "level": "NATIVE",
+          "certificateUrl": null
+        },
+        {
+          "language": "Англійська",
+          "level": "B1",
+          "certificateUrl": null
+        }
+      ],
+      "courses": [
+        {
+          "title": "JavaScript and TypeScript Web Basics",
+          "startDate": "2024-02-01",
+          "endDate": "2024-04-01",
+          "certificateUrl": "https://example.test/certificates/alina-web-basics.pdf",
+          "skills": ["TypeScript", "JavaScript", "React"]
+        },
+        {
+          "title": "Node.js REST API Intro",
+          "startDate": "2024-05-01",
+          "endDate": "2024-06-15",
+          "certificateUrl": null,
+          "skills": ["Node.js", "REST API"]
+        }
+      ],
+      "projects": [
+        {
+          "title": "Student Events Mini App",
+          "description": "<p>Мініпроєкт для перегляду студентських подій: React-інтерфейс, TypeScript і простий Node.js REST API для списку подій.</p>",
+          "projectUrl": "https://github.com/example/student-events-mini-app",
+          "skills": ["React", "TypeScript", "Node.js", "REST API"]
+        }
+      ],
+      "experiences": []
+    }
+  ]
+}

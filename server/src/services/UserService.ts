@@ -317,6 +317,29 @@ export class UserService {
     return this.users.updateEmail(user.id, normalizedEmail);
   }
 
+  /** Synchronizes the current Clerk profile image with the local user record. */
+  async updateMyPhoto(clerkUserId: string, photoUrl: string | null) {
+    const user = await this.users.findUserByClerkId(clerkUserId);
+
+    if (!user) {
+      throw new BusinessLogicError(
+        "User not found",
+        HttpStatus.NOT_FOUND,
+        "USER_NOT_FOUND",
+      );
+    }
+
+    const normalizedPhotoUrl = this.optionalStringMax(
+      photoUrl,
+      "photoUrl",
+      userFieldLimits.photoUrl,
+    );
+
+    if (user.photoUrl === normalizedPhotoUrl) return user;
+
+    return this.users.updateUserIdentity(user.id, { photoUrl: normalizedPhotoUrl });
+  }
+
   /** Перетворює payload Clerk user на внутрішні поля User. */
   private mapClerkUserToBaseUser(userData: ClerkUserPayload): BaseUserData {
     const email = this.extractPrimaryEmail(userData);

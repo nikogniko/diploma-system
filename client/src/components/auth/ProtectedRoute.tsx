@@ -29,6 +29,11 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     (user?.publicMetadata?.role as AllowedRoles | undefined) ??
     localRole ??
     undefined;
+  const userStatus = user?.publicMetadata?.status as string | undefined;
+
+  if (userStatus === "BLOCKED" || userStatus === "DELETED") {
+    return <Navigate to="/" replace />;
+  }
 
   if (
     !userRole &&

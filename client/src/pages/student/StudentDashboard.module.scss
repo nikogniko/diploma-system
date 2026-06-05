@@ -170,6 +170,15 @@
   white-space: pre-line;
 }
 
+.recordDescription {
+  max-width: 72ch;
+  margin-top: 0.45rem;
+  color: var(--color-dark-main);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .urlList {
   display: flex;
   flex-wrap: wrap;
@@ -630,11 +639,14 @@
 .applicationDetails {
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
 }
 
 .applicationCard {
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
   padding: 0.9rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -658,9 +670,59 @@
 
 .applicationCardMain {
   display: grid;
-  grid-template-columns: minmax(190px, 1.5fr) auto auto auto auto;
+  grid-template-columns: minmax(190px, 1fr) auto;
+  grid-template-areas:
+    "heading scores"
+    "meta meta";
   gap: 0.8rem;
   align-items: center;
+  min-width: 0;
+
+  > * {
+    min-width: 0;
+  }
+
+}
+
+.applicationHeading {
+  grid-area: heading;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.applicationScoreMetrics {
+  display: grid;
+  grid-area: scores;
+  grid-template-columns: repeat(2, minmax(8rem, 1fr));
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.applicationMeta {
+  display: flex;
+  grid-area: meta;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  align-items: center;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--color-border);
+
+  > div {
+    display: inline-flex;
+    gap: 0.45rem;
+    align-items: center;
+  }
+
+  span {
+    color: var(--color-dark-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  p {
+    color: var(--color-dark-main);
+    font-size: 0.9rem;
+  }
 }
 
 .applicationMetric {
@@ -676,8 +738,35 @@
 
 .applicationActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.65rem;
   justify-content: flex-end;
+}
+
+@media (max-width: 1180px) {
+  .applicationCardMain {
+    grid-template-columns: minmax(180px, 1fr) auto;
+  }
+}
+
+@container (max-width: 900px) {
+  .applicationCardMain {
+    grid-template-columns: minmax(180px, 1fr) auto;
+  }
+}
+
+@container (max-width: 620px) {
+  .applicationCardMain {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "heading"
+      "scores"
+      "meta";
+  }
+
+  .applicationScoreMetrics {
+    width: 100%;
+  }
 }
 
 @media (max-width: $breakpoint-mobile) {
@@ -697,6 +786,10 @@
 
   .applicationCardMain {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "heading"
+      "scores"
+      "meta";
   }
 
   .formActions {

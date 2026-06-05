@@ -1,43 +1,69 @@
 .visualRow {
   display: grid;
-  grid-template-columns: minmax(19rem, 0.82fr) minmax(27rem, 1.18fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 25rem), 1fr));
   gap: 0.7rem;
-  align-items: start;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .chartCard {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 0.7rem;
+  align-content: start;
+  min-width: 0;
+  height: 100%;
   padding: 0.8rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+
+  > :first-child {
+    text-align: center;
+  }
+
+  > :last-child {
+    align-self: center;
+    width: 100%;
+  }
 }
 
 .coverageCard {
-  align-self: start;
+  align-content: start;
 }
 
 .donutBody {
   display: flex;
-  gap: 0.55rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   align-items: center;
   justify-content: center;
+  align-self: center;
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
   padding-top: 0.15rem;
+
+  > :first-child {
+    flex: 0 0 auto;
+  }
 }
 
 .legend {
   display: grid;
-  flex: 0 1 13rem;
+  flex: 0 1 15rem;
   gap: 0.4rem;
-  max-width: 13rem;
+  width: min(100%, 15rem);
+  min-width: 0;
 }
 
 .legendLine {
   display: grid;
-  grid-template-columns: 0.7rem minmax(0, 1fr) auto;
+  grid-template-columns: 0.7rem minmax(0, 1fr);
   gap: 0.45rem;
   align-items: center;
+  min-width: 0;
   color: var(--color-dark-muted);
   font-size: 0.78rem;
 
@@ -48,37 +74,53 @@
   }
 
   strong {
+    grid-column: 2;
     color: var(--color-dark-main);
+    line-height: 1;
+  }
+
+  span {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 
 .barHeader {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.6rem;
   align-items: center;
-  justify-content: space-between;
+  min-width: 0;
+
+  > :first-child {
+    text-align: left;
+  }
 }
 
 .scrollableBars {
+  width: 100%;
+  min-width: 0;
   max-height: 24rem;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 0.25rem;
 }
 
 .muted {
   color: var(--color-dark-muted);
-}
-
-@media (max-width: 1050px) {
-  .visualRow {
-    grid-template-columns: 1fr;
-  }
+  text-align: center;
 }
 
 @media (max-width: 560px) {
-  .donutBody,
   .barHeader {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .donutBody {
+    width: 100%;
+  }
+
+  .legend {
+    width: 100%;
   }
 }

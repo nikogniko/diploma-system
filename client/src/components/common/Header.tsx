@@ -25,8 +25,8 @@ export default function Header() {
           </NavLink>
         )}
         {!isSignedIn ? (
-          <Link to="/start" className={classes.signUpBtn}>
-            Реєстрація
+          <Link to="/sign-in" className={classes.signUpBtn}>
+            Увійти
           </Link>
         ) : (
           <UserButton />

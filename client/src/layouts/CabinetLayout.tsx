@@ -19,6 +19,7 @@ type CabinetLayoutProps = {
   defaultCollapsed?: boolean;
   autoCollapseKeys?: string[];
   collapseSignal?: number;
+  storageKey?: string;
 };
 
 /** Спільний layout кабінету з лівою навігацією для всіх ролей. */
@@ -30,8 +31,13 @@ export function CabinetLayout({
   defaultCollapsed = false,
   autoCollapseKeys = [],
   collapseSignal = 0,
+  storageKey,
 }: CabinetLayoutProps) {
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (!storageKey || typeof window === "undefined") return defaultCollapsed;
+    const stored = window.localStorage.getItem(storageKey);
+    return stored === null ? defaultCollapsed : stored === "collapsed";
+  });
   const previousActiveKey = useRef(activeKey);
   const previousCollapseSignal = useRef(collapseSignal);
   const ui = messages.layout.cabinet;
@@ -45,6 +51,11 @@ export function CabinetLayout({
       setIsCollapsed(true);
     }
   }, [activeKey, autoCollapseKeys, collapseSignal]);
+
+  useEffect(() => {
+    if (!storageKey || typeof window === "undefined") return;
+    window.localStorage.setItem(storageKey, isCollapsed ? "collapsed" : "expanded");
+  }, [isCollapsed, storageKey]);
 
   /** Меню змінюється користувачем; для вибраних вкладок дозволене тільки одноразове автозгортання. */
   return (

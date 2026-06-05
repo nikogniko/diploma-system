@@ -86,7 +86,21 @@ export const vacancyInclude = {
   locations: { include: { location: true } },
   skills: { include: { skill: true } },
   languages: { include: { language: true } },
-  hrProfile: { include: { user: true, links: true } },
+  hrProfile: {
+    include: {
+      user: true,
+      links: true,
+      vacancies: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          updatedAt: true,
+          profession: { select: { name: true } },
+        },
+      },
+    },
+  },
   company: true,
   _count: { select: { applications: true } },
 } satisfies Prisma.VacancyInclude;

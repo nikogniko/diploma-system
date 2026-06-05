@@ -152,9 +152,9 @@ export class ApplicationService {
     if (!profile) {
       throw new BusinessLogicError("Student profile not found", HttpStatus.NOT_FOUND, "STUDENT_PROFILE_NOT_FOUND");
     }
-    const contactsVisible = this.canViewResumeContacts(profile.visibility, application.statusHistory);
+    const contactsVisible = this.canViewResumeContacts(profile.visibility, application.status, application.statusHistory);
     return {
-      contactAccess: contactsVisible ? "VISIBLE" : profile.visibility === ProfileVisibility.APPLIED_ONLY ? "AFTER_OFFER" : "HIDDEN",
+      contactAccess: contactsVisible ? "VISIBLE" : profile.visibility === ProfileVisibility.APPLIED_ONLY ? "AFTER_INTERVIEW_INVITE" : "HIDDEN",
       profile: contactsVisible ? profile : {
         ...profile,
         contactEmail: null,
@@ -300,11 +300,16 @@ export class ApplicationService {
   /** Визначає, чи настав етап, на якому HR дозволено побачити контактні дані кандидата. */
   private canViewResumeContacts(
     visibility: ProfileVisibility,
+    status: ApplicationStatus,
     history: Array<{ toStatus: ApplicationStatus }>,
   ) {
     if (visibility === ProfileVisibility.PUBLIC) return true;
     if (visibility === ProfileVisibility.HIDDEN) return false;
-    return history.some((item) => item.toStatus === ApplicationStatus.OFFERED || item.toStatus === ApplicationStatus.HIRED);
+    const contactsVisibleAtStatus = (value: ApplicationStatus) =>
+      value === ApplicationStatus.INTERVIEW_INVITED
+      || value === ApplicationStatus.OFFERED
+      || value === ApplicationStatus.HIRED;
+    return contactsVisibleAtStatus(status) || history.some((item) => contactsVisibleAtStatus(item.toStatus));
   }
 
   /** Валідує id вакансії у body eligibility/create запиту. */

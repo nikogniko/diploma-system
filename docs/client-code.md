@@ -234,6 +234,14 @@ Frontend - React SPA. Основний потік даних: route/page compone
 - Повертає: один рядок округлих статусних плашок, overflow-меню `...` для невміщених статусів і icon-меню сортування.
 - Summary: використовується у student та HR application views замість дублювання toolbar-логіки.
 
+### `ApplicationCard.tsx`
+
+- Призначення: спільна картка відгуку для student та HR application views.
+- Props: `application`, `title`, `subtitle`, labels для статусу/дати/метрик, `actions`, `statusDetails`, `expanded`, `inactive`, `onToggle`.
+- Візуальна шкала відповідності читається з `matchDetails`: якщо `matchesBlockingRequirements=false` або є `missingCriticalSkills`, картка має рівень `Не відповідає критичним вимогам`; інакше `baseRequirementsPercent < 70` дає `Часткова відповідність`, `70..84.99` - `Хороша відповідність`, `>= 85` - `Висока відповідність`.
+- UI: базовий відсоток показаний крупніше та забарвлений у `danger`/`accent`/`info`/`secondary`, картка має дуже м'який pastel background цього ж тону. Для кандидатів, які втратили blocking eligibility, зберігається червона рамка/приглушення і додається легка сіра домішка фону.
+- Layout: основний ряд містить заголовок і дві метрики; нижній ряд складається з двох рівних wrapper-блоків `meta` та `actions`, які адаптують власний вміст і стають вертикально тільки коли для двох колонок бракує ширини.
+
 ### `ApplicationStatusBadge.tsx`
 
 - Призначення: спільна кольорова плашка `ApplicationStatus`.
@@ -272,10 +280,10 @@ Frontend - React SPA. Основний потік даних: route/page compone
 
 ### `CabinetLayout.tsx`
 
-#### `CabinetLayout({ navItems, activeKey, onSelect, children, defaultCollapsed = false, autoCollapseKeys = [] })`
+#### `CabinetLayout({ navItems, activeKey, onSelect, children, defaultCollapsed = false, autoCollapseKeys = [], storageKey })`
 
 - Призначення: layout кабінету з лівою навігацією.
-- Props: items, active key, select handler, children, collapsed default, optional keys for one-way auto-collapse.
+- Props: items, active key, select handler, children, collapsed default, optional keys for one-way auto-collapse, optional `storageKey` for persisted collapsed state.
 - Повертає: sidebar + content.
 - Побічні ефекти: локально змінює `isCollapsed`.
 - Summary: використовується HR і Student кабінетами.
@@ -558,7 +566,7 @@ Route-level сторінки тепер розкладені за доменни
 - У вкладці роботи з відгуками вакансії panel викликає `GET /api/vacancies/:id/applications`, показує компактні рядки кандидата, дату, `baseRequirementsPercent`, `matchScore` і статичну плашку поточного статусу; перше відкриття списку фіксує перегляд нових applications на backend. Статусні фільтри займають один адаптивний рядок: плашки, що не вміщуються, доступні в меню `...`, а сортування відкривається компактною кнопкою з іконкою.
 - Над списком є компактний segmented pipeline-фільтр з пунктом `Усі` та кожним application status окремо; кольорові лічильники зберігають семантику статусів, а невміщені сегменти переходять у dropdown `...` без появи другого рядка. Поруч доступне icon-menu сортування за комплексним балом, базовою відповідністю або датою; default order спершу ставить `matchesBlockingRequirements=true`, далі `matchScore desc` і `createdAt desc`.
 - Рядок має підписані metric blocks для дати, статусу, базової відповідності й комплексного бала. На проміжних та мобільних ширинах ім'я кандидата і дії залишаються у верхньому рядку, а метрики переносяться нижче без горизонтального виходу за контейнер. Кандидати, що перестали виконувати blocking-вимоги після редагування вакансії, мають badge `Не відповідає оновленим критичним вимогам`.
-- Компактна кнопка `Резюме` викликає `GET /api/applications/:id/resume` і відкриває reusable `ResumePreview`; `PUBLIC` контакти доступні HR одразу після відгуку, `APPLIED_ONLY` - тільки після переходу application до `OFFERED`/`HIRED`, а приховані contacts сервер не включає у response.
+- Компактна кнопка `Резюме` викликає `GET /api/applications/:id/resume` і відкриває reusable `ResumePreview`; `PUBLIC` контакти доступні HR одразу після відгуку, `APPLIED_ONLY` - тільки після переходу application до `INTERVIEW_INVITED` або пізнішого етапу, а приховані contacts сервер не включає у response.
 - `Показати деталі` або подвійний клік application card розгортає reusable `ApplicationStatusTimeline` і `MatchAnalysisPanel`; selector дозволених наступних статусів розміщено у timeline і використовує `PATCH /api/applications/:id/status`. `Відхилити` знаходиться під кроками timeline і вимагає підтвердження. Подвійний клік рядка у таблиці вакансій одразу відкриває applications view.
 
 ### `StudentDashboard.tsx`

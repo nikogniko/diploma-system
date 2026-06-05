@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useAuth } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
 import {
   Autocomplete,
   Avatar,
@@ -34,7 +34,7 @@ import { ResumePreview } from "../../components/resume/ResumePreview";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { ApplicationStatusTimeline } from "../../components/application/ApplicationStatusTimeline";
 import { MatchAnalysisPanel } from "../../components/application/MatchAnalysisPanel";
-import { ApplicationStatusBadge } from "../../components/application/ApplicationStatusBadge";
+import { ApplicationCard } from "../../components/application/ApplicationCard";
 import { ApplicationPipelineToolbar, type ApplicationPipelineFilter } from "../../components/application/ApplicationPipelineToolbar";
 import type { ApplicationRecord, ApplicationStatus } from "../../components/application/applicationTypes";
 import { CabinetLayout } from "../../layouts/CabinetLayout";
@@ -231,6 +231,7 @@ const linkResources: LinkResource[] = [
 /** Кабінет кандидата з персональними даними, резюме і параметрами пошуку. */
 export default function StudentDashboard() {
   const { getToken } = useAuth();
+  const { user } = useUser();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get("tab");
   const [active, setActive] = useState(initialTab && navItems.some((item) => item.key === initialTab) ? initialTab : "dashboard");
@@ -260,6 +261,15 @@ export default function StudentDashboard() {
   const [vacancyError, setVacancyError] = useState<string | null>(null);
   const [selectedVacancy, setSelectedVacancy] = useState<VacancySearchEntry | null>(null);
   const [applicationNotice, setApplicationNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.imageUrl) return;
+    setProfile((current) =>
+      current
+        ? { ...current, user: { ...current.user, photoUrl: user.imageUrl } }
+        : current,
+    );
+  }, [user?.imageUrl]);
 
   const [personalForm, setPersonalForm] = useState({
     firstName: "",
@@ -337,7 +347,13 @@ export default function StudentDashboard() {
         apiRequest<StudentProfile>("/students/my-cabinet", token),
         apiRequest<StudentCatalogs>("/catalogs/student-cabinet", token),
       ]);
-      setProfile(profileData);
+      setProfile({
+        ...profileData,
+        user: {
+          ...profileData.user,
+          photoUrl: user?.imageUrl || profileData.user.photoUrl,
+        },
+      });
       setCatalogs(catalogData);
       fillForms(profileData, catalogData);
     } catch (err) {
@@ -652,10 +668,17 @@ export default function StudentDashboard() {
   if (isLoading) return <AppLoader text={ui.loading.dashboard} />;
 
   return (
-    <CabinetLayout navItems={navItems} activeKey={active} onSelect={(key) => {
-      setActive(key);
-      setSearchParams(key === "dashboard" ? {} : { tab: key });
-    }}>
+    <CabinetLayout
+      navItems={navItems}
+      activeKey={active}
+      defaultCollapsed={active === "dashboard" || active === "applications"}
+      autoCollapseKeys={["dashboard", "applications"]}
+      storageKey="student-cabinet-sidebar"
+      onSelect={(key) => {
+        setActive(key);
+        setSearchParams(key === "dashboard" ? {} : { tab: key });
+      }}
+    >
       <Drawer
         opened={isResumePreviewOpen}
         onClose={() => setIsResumePreviewOpen(false)}
@@ -869,29 +892,29 @@ function MyApplicationsTab() {
           const inactive = application.matchDetails?.requirementEligibility?.matchesBlockingRequirements === false;
           const canWithdraw = !["HIRED", "REJECTED", "WITHDRAWN"].includes(application.status);
           const restoreStatus = previousStatusBeforeWithdraw(application);
-          return <article className={classes.applicationCard} data-expanded={expanded || undefined} data-inactive={inactive || undefined} key={application.id} onDoubleClick={() => setExpandedId(expanded ? null : application.id)}>
-            <div className={classes.applicationCardMain}>
-              <div>
-                <Text fw={900}>{application.vacancy.title}</Text>
-                <Text className={classes.muted}>{application.vacancy.company?.publicName ?? applicationUi.student.company}</Text>
-              </div>
-              <div className={classes.applicationMetric}><span>{applicationUi.student.status}</span><ApplicationStatusBadge status={application.status} /></div>
-              <div className={classes.applicationMetric}><span>{applicationUi.student.createdAt}</span><strong>{new Date(application.createdAt).toLocaleDateString("uk-UA")}</strong></div>
-              <div className={classes.applicationMetric}><span>{applicationUi.student.baseRequirements}</span><strong>{application.matchDetails?.baseRequirementsPercent ?? 0}%</strong></div>
-              <div className={classes.applicationMetric}><span>{applicationUi.student.matchScore}</span><strong>{application.matchScore ?? 0}</strong></div>
-            </div>
-            <div className={classes.applicationActions} onDoubleClick={(event) => event.stopPropagation()}>
+          return <ApplicationCard
+            key={application.id}
+            application={application}
+            title={application.vacancy.title}
+            subtitle={application.vacancy.company?.publicName ?? applicationUi.student.company}
+            expanded={expanded}
+            inactive={inactive}
+            statusLabel={applicationUi.student.status}
+            createdAtLabel={applicationUi.student.createdAt}
+            baseRequirementsLabel={applicationUi.student.baseRequirements}
+            matchScoreLabel={applicationUi.student.matchScore}
+            onToggle={() => setExpandedId(expanded ? null : application.id)}
+            actions={<>
               <Button variant="subtle" onClick={() => navigate(`/vacancies/${application.vacancy.id}`)}>{applicationUi.student.viewVacancy}</Button>
               <Button variant="light" onClick={() => setExpandedId(expanded ? null : application.id)}>{expanded ? applicationUi.student.hideAnalysis : applicationUi.student.analysis}</Button>
-            </div>
-            {expanded && <div className={classes.applicationDetails}>
+            </>}
+          >
               <ApplicationStatusTimeline currentStatus={application.status} statusHistory={application.statusHistory} variant="student" actions={<>
                 {canWithdraw && <Button color="red" size="xs" variant="light" loading={savingId === application.id} onClick={() => setConfirmAction({ application, status: "WITHDRAWN" })}>{applicationUi.student.withdraw}</Button>}
                 {application.status === "WITHDRAWN" && restoreStatus && <Button size="xs" variant="light" loading={savingId === application.id} onClick={() => setConfirmAction({ application, status: restoreStatus })}>{applicationUi.student.restore}</Button>}
               </>} />
               <MatchAnalysisPanel details={application.matchDetails} variant="student" />
-            </div>}
-          </article>;
+          </ApplicationCard>;
         })}</div>
       )}
     </FormSection>
@@ -1234,7 +1257,7 @@ function CompetencySection({ type, title, description, items, form, setForm, edi
 /** Renders and edits professional experience records. */
 function ExperienceSection({ form, setForm, items, options, edit, isEditing, error, saving, onSave, onDelete, clearError }: any) {
   return <FormSection title={ui.resume.experienceTitle} description={ui.resume.experienceDescription}>
-    <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => <><strong>{formatDuration(i.startDate, i.endDate)}</strong> · {dateShort(i.startDate)} - {i.endDate ? dateShort(i.endDate) : ui.resume.now}<br />{i.profession?.name ?? ""} · {i.sphere?.name ?? ""}</>} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
+    <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => <><strong>{formatDuration(i.startDate, i.endDate)}</strong> · {dateShort(i.startDate)} - {i.endDate ? dateShort(i.endDate) : ui.resume.now}<br />{i.profession?.name ?? ""} · {i.sphere?.name ?? ""}</>} description={(i: any) => stripHtml(i.achievements ?? "")} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
     <div className={classes.grid}><Select label={ui.resume.profession} required searchable placeholder={ui.resume.professionPlaceholder} data={options.professions} value={form.professionId || null} onChange={(value) => setForm({ ...form, professionId: value ?? "" })} /><TextInput label={ui.resume.position} required placeholder={ui.resume.positionPlaceholder} maxLength={200} value={form.position} onChange={(e) => setForm({ ...form, position: e.currentTarget.value })} /><TextInput label={ui.resume.company} required placeholder={ui.resume.companyPlaceholder} maxLength={200} value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.currentTarget.value })} /><Select label={ui.resume.sphere} required searchable placeholder={ui.resume.spherePlaceholder} data={options.spheres} value={form.sphereId || null} onChange={(value) => setForm({ ...form, sphereId: value ?? "" })} /><DateInput label={ui.resume.startDate} required placeholder={ui.resume.datePlaceholder} value={form.startDate ? new Date(form.startDate) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><DateInput label={ui.resume.endDate} placeholder={ui.resume.datePlaceholder} clearable value={form.endDate ? new Date(form.endDate) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /></div>
     <RichTextEditor label={ui.resume.achievements} value={form.achievements} onChange={(achievements) => setForm({ ...form, achievements })} placeholder={ui.resume.achievementsPlaceholder} />
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={30} />
@@ -1255,9 +1278,9 @@ function SmartSkillSelector({ value, onChange, options, max }: { value: string[]
 }
 
 /** Renders editable resume records as a compact card list. */
-function RecordList({ items, title, meta, skills, links, onEdit, onDelete }: any) {
+function RecordList({ items, title, meta, description, skills, links, onEdit, onDelete }: any) {
   if (!items.length) return <Text className={classes.muted}>{ui.resume.noRecords}</Text>;
-  return <div className={classes.cardList}>{items.map((item: any) => <div key={item.id} className={classes.recordCard}><span className={classes.dragHandle}>⠿</span><div><Text className={classes.recordTitle}>{title(item)}</Text>{meta?.(item) && <Text className={classes.recordMeta}>{meta(item)}</Text>}{links?.(item)?.length > 0 && <div className={classes.urlList}>{links(item).map((link: { label: string; value: string }) => <AppTooltip key={`${link.label}-${link.value}`} label={link.value}><a className={classes.resourceLink} href={normalizeHref(link.value)} target="_blank" rel="noreferrer">{link.label}</a></AppTooltip>)}</div>}{skills && <SkillChips skills={skills(item)} />}</div><div className={classes.iconActions}><AppTooltip label={commonUi.actions.edit}><button className={classes.iconButton} onClick={() => onEdit(item)}><EditIcon /></button></AppTooltip><AppTooltip label={commonUi.actions.delete}><button className={`${classes.iconButton} ${classes.dangerIconButton}`} onClick={() => onDelete(item)}><TrashIcon /></button></AppTooltip></div></div>)}</div>;
+  return <div className={classes.cardList}>{items.map((item: any) => <div key={item.id} className={classes.recordCard}><span className={classes.dragHandle}>⠿</span><div><Text className={classes.recordTitle}>{title(item)}</Text>{meta?.(item) && <Text className={classes.recordMeta}>{meta(item)}</Text>}{description?.(item) && <Text className={classes.recordDescription}>{description(item)}</Text>}{links?.(item)?.length > 0 && <div className={classes.urlList}>{links(item).map((link: { label: string; value: string }) => <AppTooltip key={`${link.label}-${link.value}`} label={link.value}><a className={classes.resourceLink} href={normalizeHref(link.value)} target="_blank" rel="noreferrer">{link.label}</a></AppTooltip>)}</div>}{skills && <SkillChips skills={skills(item)} />}</div><div className={classes.iconActions}><AppTooltip label={commonUi.actions.edit}><button className={classes.iconButton} onClick={() => onEdit(item)}><EditIcon /></button></AppTooltip><AppTooltip label={commonUi.actions.delete}><button className={`${classes.iconButton} ${classes.dangerIconButton}`} onClick={() => onDelete(item)}><TrashIcon /></button></AppTooltip></div></div>)}</div>;
 }
 
 /** Renders and edits profile resource links. */

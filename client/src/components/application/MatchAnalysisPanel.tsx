@@ -203,7 +203,8 @@ function RequirementColumn({ items, tone }: { items: MatchRequirementItem[]; ton
 /** Показує таблицю джерел skill score із підсумками по всіх колонках. */
 function SkillSourcesTable({ details }: { details: ApplicationMatchDetails }) {
   const ui = messages.applicationModule.analysis;
-  const skills = details.details.skillBreakdown;
+  const skills = [...details.details.skillBreakdown]
+    .sort((first, second) => second.skillScore - first.skillScore || first.skillName.localeCompare(second.skillName));
   const total = {
     courses: skills.reduce((sum, skill) => sum + skill.sources.courses.length, 0),
     coursePoints: skills.reduce((sum, skill) => sum + skill.coursePoints, 0),

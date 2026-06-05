@@ -435,7 +435,7 @@ Backend - Express API. Основний потік: route → controller → ser
 - `listMyApplications(clerkUserId)` - ізолює студентський список відгуків і перед видачею актуалізує score snapshots.
 - `listVacancyApplications(clerkUserId, vacancyId)` - перевіряє належність вакансії компанії поточного HR, актуалізує snapshots і при першому відкритті переводить `SENT -> VIEWED` з history/outbox event; потім повертає список для сортування/аналізу.
 - `changeStatus(clerkUserId, applicationId, status)` - студенту дозволяє `WITHDRAWN` власного нетермінального відгуку, а після відкликання - повернення лише до статусу безпосередньо перед `WITHDRAWN`; HR дозволяє лише просування вперед у pipeline або `REJECTED` для application вакансії, створеної саме ним. При `HIRED` в одній transaction закриває вакансію з `closeReason=HIRED`.
-- `getApplicationResume(clerkUserId, applicationId)` - перевіряє, що HR належить компанії вакансії; `PUBLIC` відкриває контакти після відгуку, `APPLIED_ONLY` тільки після наявності `OFFERED`/`HIRED` у history, а до цього приватні контакти й links вирізаються на сервері.
+- `getApplicationResume(clerkUserId, applicationId)` - перевіряє, що HR належить компанії вакансії; `PUBLIC` відкриває контакти після відгуку, `APPLIED_ONLY` тільки після наявності `INTERVIEW_INVITED`/`OFFERED`/`HIRED` у history, а до цього приватні контакти й links вирізаються на сервері.
 
 ### `EligibilityService.ts`
 

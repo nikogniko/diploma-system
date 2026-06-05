@@ -1,6 +1,8 @@
 .panel {
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
+  max-width: 100%;
   padding: 0.9rem;
   background: var(--color-bg-main);
   border: 1px solid var(--color-border);
@@ -11,6 +13,19 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.55rem;
+  min-width: 0;
+}
+
+@container (max-width: 760px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 440px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
 }
 
 .metric {
@@ -268,10 +283,6 @@
 }
 
 @media (max-width: 820px) {
-  .metrics {
-    grid-template-columns: 1fr;
-  }
-
   .requirementColumns {
     grid-template-columns: 1fr;
   }
@@ -291,5 +302,11 @@
     th {
       white-space: normal;
     }
+  }
+}
+
+@media (max-width: 520px) {
+  .metrics {
+    grid-template-columns: 1fr;
   }
 }

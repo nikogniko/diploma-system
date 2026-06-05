@@ -4,6 +4,7 @@ import classes from "./NoticeBanner.module.scss";
 type NoticeBannerProps = {
   message: string | null;
   tone?: "info" | "warning" | "error";
+  className?: string;
 };
 
 const icons = {
@@ -13,11 +14,11 @@ const icons = {
 };
 
 /** Показує коротку підказку або попередження з м'яким кольоровим акцентом. */
-export function NoticeBanner({ message, tone = "info" }: NoticeBannerProps) {
+export function NoticeBanner({ message, tone = "info", className }: NoticeBannerProps) {
   if (!message) return null;
 
   return (
-    <div className={classes.notice} data-tone={tone}>
+    <div className={`${classes.notice} ${className ?? ""}`} data-tone={tone}>
       <span className={classes.icon}>{icons[tone]}</span>
       <Text size="sm" className={classes.text}>
         {message}

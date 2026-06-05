@@ -48,7 +48,8 @@ export const searchVacancies = async (req: Request, res: Response, next: NextFun
 /** Повертає одну публічно видиму вакансію для перегляду. */
 export const getStudentVacancy = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await vacancySearchService.getActiveVacancy(vacancyIdParam(req));
+    const { userId } = getAuth(req);
+    const result = await vacancySearchService.getActiveVacancy(vacancyIdParam(req), userId);
     res.status(HttpStatus.OK).json({ success: true, data: result });
   } catch (error) {
     next(error);

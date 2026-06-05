@@ -15,10 +15,15 @@ import {
   studentProfileRepository,
 } from "../repositories/StudentProfileRepository.js";
 import {
+  ApplicationRepository,
+  applicationRepository,
+} from "../repositories/ApplicationRepository.js";
+import {
   getElasticsearchClient,
   isElasticsearchAvailable,
   vacanciesIndexName,
 } from "../search/elasticsearchClient.js";
+import { applyVacancyRecruiterContactPolicy } from "../utils/ContactAccessPolicy.js";
 
 type SearchMode = "regular" | "personalized";
 type ParsedSearchQuery = {
@@ -76,6 +81,7 @@ export class VacancySearchService {
   constructor(
     private readonly vacancies: VacancyRepository = vacancyRepository,
     private readonly students: StudentProfileRepository = studentProfileRepository,
+    private readonly applications: ApplicationRepository = applicationRepository,
   ) {}
 
   /** Searches student-visible vacancies through Elasticsearch with Prisma fallback. */
@@ -83,11 +89,12 @@ export class VacancySearchService {
     const mode = this.normalizeMode(query.mode);
     const params = await this.buildSearchParams(query, mode, clerkUserId);
     const result = await this.searchWithPreferredBackend(params);
+    const appliedVacancyIds = await this.appliedVacancyIds(clerkUserId);
 
     return {
       ...result,
       items: result.items.map((vacancy) => ({
-        vacancy,
+        vacancy: applyVacancyRecruiterContactPolicy(vacancy, appliedVacancyIds.has(vacancy.id)),
         matchScore: null,
         matchExplanation: null,
       } satisfies VacancySearchItem<typeof vacancy>)),
@@ -95,16 +102,25 @@ export class VacancySearchService {
   }
 
   /** Returns one student-visible vacancy for the public preview. */
-  async getActiveVacancy(vacancyId: string) {
+  async getActiveVacancy(vacancyId: string, clerkUserId?: string | null) {
     const vacancy = await this.vacancies.findPublicVisibleVacancyById(vacancyId, this.todayDateOnly());
     if (!vacancy) {
       throw new BusinessLogicError("Vacancy not found", HttpStatus.NOT_FOUND, "VACANCY_NOT_FOUND");
     }
+    const appliedVacancyIds = await this.appliedVacancyIds(clerkUserId);
     return {
-      vacancy,
+      vacancy: applyVacancyRecruiterContactPolicy(vacancy, appliedVacancyIds.has(vacancy.id)),
       matchScore: null,
       matchExplanation: null,
     };
+  }
+
+  /** Resolves applications of the current student without exposing contacts to other roles. */
+  private async appliedVacancyIds(clerkUserId?: string | null) {
+    if (!clerkUserId) return new Set<string>();
+    const student = await this.students.findByClerkUserId(clerkUserId);
+    if (!student) return new Set<string>();
+    return new Set(await this.applications.listAppliedVacancyIds(student.id));
   }
 
   /** Returns dynamic company options available in the vacancy catalog. */

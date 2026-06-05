@@ -6,6 +6,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { useAuth } from "@clerk/react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError, apiRequest } from "../../api/apiClient";
@@ -48,6 +49,7 @@ type CompanyProfile = {
 
 type CompanyHr = {
   id: string;
+  contactAccess?: "VISIBLE" | "AFTER_APPLICATION";
   position?: string | null;
   links?: LinkItem[];
   user: {
@@ -118,6 +120,7 @@ export function CompanyPublicPage({
   onVacancyOpen,
 }: CompanyPublicPageProps = {}) {
   const { companyId } = useParams();
+  const { getToken } = useAuth();
   const navigate = useNavigate();
   const [loadedData, setLoadedData] = useState<PublicCompanyResponse | null>(null);
   const [loadedCatalogs, setLoadedCatalogs] = useState<VacancyCatalogs | null>(null);
@@ -140,9 +143,10 @@ export function CompanyPublicPage({
       setLoading(true);
       setError(null);
       try {
+        const token = await getToken();
         const [result, catalogData] = await Promise.all([
-          apiRequest<PublicCompanyResponse>(`/companies/${companyId}`, null),
-          apiRequest<VacancyCatalogs>("/catalogs/student-cabinet", null),
+          apiRequest<PublicCompanyResponse>(`/companies/${companyId}`, token),
+          apiRequest<VacancyCatalogs>("/catalogs/student-cabinet", token),
         ]);
         if (isMounted) {
           setLoadedData(result);
@@ -162,7 +166,7 @@ export function CompanyPublicPage({
     return () => {
       isMounted = false;
     };
-  }, [companyId, embedded]);
+  }, [companyId, embedded, getToken]);
 
   const data = initialData ?? loadedData;
   const catalogs = externalCatalogs ?? loadedCatalogs;
@@ -571,15 +575,22 @@ function buildRecruiterPreviewFromCompanyHr(
     position: hr.position,
     photoUrl: hr.user.photoUrl,
     companyName: company?.publicName,
+    companyHref: company?.id ? `/companies/${company.id}` : undefined,
     email: hr.user.email,
     contacts: hr.links ?? [],
+    contactAccess: hr.contactAccess,
     createdAt: hr.user.createdAt,
-    activeVacanciesCount: vacancies.length
-      ? countHrVacancies(vacancies, hr.id, "ACTIVE")
-      : undefined,
-    totalVacanciesCount: vacancies.length
-      ? countHrVacancies(vacancies, hr.id)
-      : undefined,
+    activeVacanciesCount: countHrVacancies(vacancies, hr.id, "ACTIVE"),
+    totalVacanciesCount: countHrVacancies(vacancies, hr.id),
+    vacancies: vacancies
+      .filter((vacancy) => vacancy.hrProfile?.id === hr.id)
+      .map((vacancy) => ({
+        id: vacancy.id,
+        title: vacancy.title,
+        updatedAt: vacancy.updatedAt,
+        profession: vacancy.profession,
+        href: `/vacancies/${vacancy.id}`,
+      })),
   };
 }
 
@@ -715,8 +726,10 @@ const recruiterPreviewLabels = {
   activeVacancies: ui.common.activeVacancies,
   totalVacancies: ui.common.totalVacancies,
   vacanciesList: ui.common.vacanciesList,
+  latestVacanciesNote: ui.common.latestVacanciesNote,
   emptyVacancies: ui.common.emptyVacancies,
   copy: ui.common.copy,
+  contactsUnavailable: ui.common.contactsUnavailable,
 };
 
 function ArrowIcon() {

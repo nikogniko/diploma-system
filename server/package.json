@@ -8,6 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx prisma/seed.ts",
+    "backup": "tsx prisma/backup.ts",
+    "import:demo-students": "tsx prisma/importDemoStudents.ts",
     "search:ensure-indexes": "tsx src/scripts/ensureSearchIndexes.ts",
     "search:reindex:vacancies": "tsx src/scripts/reindexVacancies.ts",
     "test": "echo \"Error: no test specified\" && exit 1"

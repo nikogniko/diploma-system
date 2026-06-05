@@ -9,7 +9,11 @@ type UserRole = "STUDENT" | "HR" | "SYS_ADMIN";
 type AuthSnapshot = {
   role: UserRole;
   status: string;
+  studentProfile?: { id: string } | null;
+  hrProfile?: { id: string } | null;
 };
+
+const blockedStatuses = new Set(["BLOCKED", "DELETED"]);
 
 /** Визначає адресу кабінету за роллю користувача. */
 const cabinetPathByRole = (role?: UserRole) => {
@@ -30,8 +34,16 @@ export default function AuthRedirect() {
 
     const redirect = async () => {
       const clerkRole = user?.publicMetadata?.role as UserRole | undefined;
+      const clerkStatus = user?.publicMetadata?.status as string | undefined;
+
+      if (clerkStatus && blockedStatuses.has(clerkStatus)) {
+        navigate("/", { replace: true });
+        return;
+      }
+
       if (clerkRole) {
         if (user?.id) localStorage.setItem(`currentRole:${user.id}`, clerkRole);
+        localStorage.removeItem("intendedRole");
         navigate(cabinetPathByRole(clerkRole), { replace: true });
         return;
       }
@@ -42,16 +54,31 @@ export default function AuthRedirect() {
           "/users/my-cabinet/auth",
           token,
         );
-        if (user?.id)
-          localStorage.setItem(`currentRole:${user.id}`, snapshot.role);
-        navigate(cabinetPathByRole(snapshot.role), { replace: true });
+        if (blockedStatuses.has(snapshot.status)) {
+          navigate("/", { replace: true });
+          return;
+        }
+
+        const hasCompletedProfile =
+          (snapshot.role === "STUDENT" && Boolean(snapshot.studentProfile)) ||
+          (snapshot.role === "HR" && Boolean(snapshot.hrProfile)) ||
+          snapshot.role === "SYS_ADMIN";
+
+        if (hasCompletedProfile) {
+          if (user?.id) localStorage.setItem(`currentRole:${user.id}`, snapshot.role);
+          localStorage.removeItem("intendedRole");
+          navigate(cabinetPathByRole(snapshot.role), { replace: true });
+          return;
+        }
+
+        navigate("/start", { replace: true });
       } catch {
-        navigate("/onboarding", { replace: true });
+        navigate("/start", { replace: true });
       }
     };
 
     void redirect();
-  }, [getToken, isLoaded, navigate, user?.id, user?.publicMetadata?.role]);
+  }, [getToken, isLoaded, navigate, user?.id, user?.publicMetadata?.role, user?.publicMetadata?.status]);
 
   return <AppLoader text="Готуємо ваш кабінет..." />;
 }

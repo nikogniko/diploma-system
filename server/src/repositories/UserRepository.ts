@@ -133,6 +133,8 @@ export class UserRepository {
         firstName: true,
         lastName: true,
         photoUrl: true,
+        studentProfile: { select: { id: true } },
+        hrProfile: { select: { id: true } },
       },
     });
   }
