@@ -285,7 +285,10 @@ type VacancyOptions = {
 const ui = messages.hrDashboard;
 const commonUi = messages.common;
 const currentYear = new Date().getFullYear();
-const maxSalaryInput = 9_999_999;
+const maxSalaryInput = 1_000_000;
+const maxVacancySkills = 30;
+const maxVacancyLanguages = 5;
+const maxVacancyLocations = 10;
 const normalizeVacancyManagementTab = (
   value: string | null,
 ): VacancyManagementTab =>
@@ -2106,6 +2109,7 @@ function CreateVacancyTab(props: {
         <RichTextEditor
           value={form.description}
           onChange={(description) => setForm({ ...form, description })}
+          maxLength={10000}
           placeholder={ui.createVacancy.descriptionPlaceholder}
         />
       </FormSection>
@@ -2142,7 +2146,7 @@ function CreateVacancyTab(props: {
           <Button
             variant="light"
             onClick={onAddSkill}
-            disabled={!selectedSkillDraft.skillId}
+            disabled={!selectedSkillDraft.skillId || form.skills.length >= maxVacancySkills}
           >
             {ui.createVacancy.addSkill}
           </Button>
@@ -2185,7 +2189,9 @@ function CreateVacancyTab(props: {
             variant="light"
             onClick={onAddLanguage}
             disabled={
-              !selectedLanguageDraft.languageId || !selectedLanguageDraft.level
+              !selectedLanguageDraft.languageId ||
+              !selectedLanguageDraft.level ||
+              form.languages.length >= maxVacancyLanguages
             }
           >
             {ui.createVacancy.addLanguage}
@@ -2222,6 +2228,7 @@ function CreateVacancyTab(props: {
             required
             label={ui.createVacancy.officeLocations}
             data={options.officeLocations}
+            maxValues={maxVacancyLocations}
             value={form.officeLocationIds}
             onChange={(officeLocationIds) =>
               setForm({ ...form, officeLocationIds })
@@ -2652,6 +2659,7 @@ function CompanyProfileTab(props: any) {
         <RichTextEditor
           value={form.about}
           onChange={(about) => setForm({ ...form, about })}
+          maxLength={10000}
         />
         <div className={classes.editorActions}>
           <Button
@@ -3739,9 +3747,15 @@ function validateVacancyForm(
   if (form.sphereIds.length < 1 || form.sphereIds.length > 3)
     throw new Error(ui.createVacancy.errors.spheres);
   if (form.skills.length < 1) throw new Error(ui.createVacancy.errors.skills);
+  if (form.skills.length > maxVacancySkills)
+    throw new Error(ui.createVacancy.errors.skills);
+  if (form.languages.length > maxVacancyLanguages)
+    throw new Error(ui.createVacancy.errors.conditions);
   if (companyLocationCount === 0)
     throw new Error(ui.createVacancy.errors.companyLocations);
   if (form.officeLocationIds.length < 1)
+    throw new Error(ui.createVacancy.errors.locations);
+  if (form.officeLocationIds.length > maxVacancyLocations)
     throw new Error(ui.createVacancy.errors.locations);
   if (
     form.workFormatIds.length < 1 ||
@@ -3756,6 +3770,11 @@ function validateVacancyForm(
     throw new Error(ui.createVacancy.errors.closingDate);
   if (form.salaryTo !== null && form.salaryFrom === null)
     throw new Error(ui.createVacancy.errors.salaryToWithoutFrom);
+  if (
+    (form.salaryFrom !== null && form.salaryFrom > maxSalaryInput) ||
+    (form.salaryTo !== null && form.salaryTo > maxSalaryInput)
+  )
+    throw new Error(ui.createVacancy.errors.salaryRange);
   if (
     form.salaryFrom !== null &&
     form.salaryTo !== null &&

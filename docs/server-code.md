@@ -174,6 +174,18 @@ Backend - Express API. Основний потік: route → controller → ser
 
 ## `server/src/services`
 
+### Validation and Publishing Rules
+
+- Shared scalar validation lives in `server/src/utils/InputValidation.ts`.
+- User/student base data limits: names `100`, `photoUrl` `255` and valid HTTP(S) URL, contact email `255` and email format, phones `50`, student `about` `500`.
+- Student resume/search limits: profile links up to `10`, link names `100`, link values `255` and valid URL; desired position `150`, desired professions up to `5`, preference option arrays up to `10`, desired locations up to `5`, monthly salary up to `1_000_000`.
+- Education validates university/custom name and specialty up to `200`, diploma/certificate/resource URLs up to `255`, year range around current year, and `endYear >= startYear`.
+- Courses/projects/experience validate titles/company/position up to `200`, rich text descriptions or achievements up to `10_000`, URLs up to `255`, date order, and skill counts (`20` for courses, `30` for projects/experience).
+- Company profile validates registration number `50`, legal name `200`, corporate domain `100` with domain format, logo/website URLs `255`, public name `100`, about `10_000`, public email `255`, public phone `50`, and up to `10` URL links.
+- Vacancy validation requires title `200`, description `10_000`, `1-3` spheres, `1-30` skills, up to `5` languages, `1-10` office locations, required work format/employment/schedule, future closing date, and salary bounds (`1_000_000` monthly or `10_000` hourly).
+- Publishing rule: creating/updating a vacancy as `ACTIVE`, or changing an existing vacancy to `ACTIVE`, requires `company.verificationStatus === APPROVED`; drafts remain available before verification.
+- Application cover letter is optional but capped at `5_000` characters.
+
 ### `VacancyService.ts`
 
 #### `VacancyService`

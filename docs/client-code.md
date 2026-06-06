@@ -329,7 +329,7 @@ Route-level сторінки тепер розкладені за доменни
 - State: active tab, selected/editing vacancy, HR profile, company, companyHrs, catalogs, vacancy table filters/pagination/sort, forms, saving/errors.
 - UI behavior: ліве меню не відкривається примусово під час переходів між вкладками; при переході на вкладку вакансій воно може одноразово згорнутися через `autoCollapseKeys`.
 - Routing: активний екран і взаємодія з вакансією зберігаються у читабельному path: `/hr/vacancies`, `/hr/vacancies/new`, `/hr/vacancies/:vacancyId/applications|preview|edit`, `/hr/profile`, `/hr/company`. Старі query-посилання одноразово переводяться у відповідний path.
-- Обмеження вводу: зарплата у формі вакансії обмежена `0..9_999_999`, без від'ємних і дробових значень, з `clampBehavior="strict"`.
+- Обмеження вводу: зарплата у формі вакансії обмежена `0..1_000_000`, без від'ємних і дробових значень, з `clampBehavior="strict"`.
 - API calls: `GET /hr-profiles/my-cabinet`, `GET/PATCH /companies/my-cabinet`, `GET /companies/my-cabinet/hr-profiles`, `GET /vacancies/catalogs`, `GET/POST/PATCH /vacancies/my-cabinet`, `PATCH /vacancies/my-cabinet/:id/status`, `POST /vacancies/my-cabinet/:id/archive`.
 - Methods:
   - `buildVacancyListPath(overrides): string` - формує query для server-side pagination/filter/sort.
@@ -363,7 +363,7 @@ Route-level сторінки тепер розкладені за доменни
 - Призначення: кабінет студента: dashboard, персональні дані, preferences, resume sections.
 - Routing: видимого пункту каталогу в меню кабінету немає; верхнє посилання вакансій веде на спільну сторінку `/vacancies`.
 - UI behavior: меню кабінету не відкривається примусово при зміні вкладок; стан меню змінюється дією користувача.
-- Обмеження вводу: мінімальна зарплата у фільтрах каталогу й у preferences обмежена `0..9_999_999`, без від'ємних і дробових значень.
+- Обмеження вводу: мінімальна зарплата у фільтрах каталогу й у preferences обмежена `0..1_000_000`, без від'ємних і дробових значень.
 - API calls: student profile, search preferences, resume CRUD endpoints, catalogs.
 - Локальні компоненти: `DashboardTab`, `PersonalTab`, `SearchTab`, `ResumeTab`, section editors, `RecordList`, `LinkEditor`, `VisibilitySelector`.
 - Побічні ефекти: network requests, form state, resume preview state.

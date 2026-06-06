@@ -20,6 +20,18 @@ import { SkillRepository, skillRepository } from "../repositories/SkillRepositor
 import { transactionManager, TransactionManager } from "../repositories/TransactionManager.js";
 import { UserRepository } from "../repositories/UserRepository.js";
 import { EmailValidator } from "../utils/EmailValidator.js";
+import {
+  ensureArrayLength,
+  ensureDateOrder,
+  ensureYearRange,
+  normalizeEmail,
+  optionalText,
+  optionalUrl,
+  requireInteger,
+  requireText,
+  requireUrl,
+  validationLimits,
+} from "../utils/InputValidation.js";
 import { ApplicationMatchRefreshService, applicationMatchRefreshService } from "./ApplicationMatchRefreshService.js";
 
 type LinkInput = {
@@ -129,11 +141,11 @@ export class StudentProfileService {
   /** Оновлює базові дані студента та його посилання/соцмережі. */
   async updateBaseData(clerkUserId: string, body: UpdateStudentBaseDataRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    const about = this.requiredString(body.about, "about");
+    const about = requireText(body.about, "about", validationLimits.studentAbout);
     const primaryPhone =
       body.primaryPhone === undefined
         ? profile.primaryPhone
-        : this.requiredString(body.primaryPhone, "primaryPhone");
+        : requireText(body.primaryPhone, "primaryPhone", validationLimits.phone);
 
     const updated = await this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
@@ -148,14 +160,18 @@ export class StudentProfileService {
         await txUsers.updateUserIdentity(profile.userId, {
           firstName:
             body.firstName !== undefined
-              ? this.requiredString(body.firstName, "firstName")
+              ? requireText(body.firstName, "firstName", validationLimits.userName)
               : undefined,
           lastName:
             body.lastName !== undefined
-              ? this.requiredString(body.lastName, "lastName")
+              ? requireText(body.lastName, "lastName", validationLimits.userName)
               : undefined,
-          middleName: body.middleName,
-          photoUrl: body.photoUrl,
+          middleName: body.middleName !== undefined
+            ? optionalText(body.middleName, "middleName", validationLimits.userName)
+            : undefined,
+          photoUrl: body.photoUrl !== undefined
+            ? optionalUrl(body.photoUrl, "photoUrl", validationLimits.userPhotoUrl)
+            : undefined,
         });
       }
 
@@ -163,10 +179,12 @@ export class StudentProfileService {
         birthDate: body.birthDate ? this.parseDate(body.birthDate, "birthDate") : undefined,
         gender: body.gender,
         contactEmail: body.contactEmail
-          ? EmailValidator.normalizeEmail(body.contactEmail)
+          ? normalizeEmail(EmailValidator.normalizeEmail(body.contactEmail), "contactEmail")
           : undefined,
         primaryPhone,
-        secondaryPhone: body.secondaryPhone,
+        secondaryPhone: body.secondaryPhone !== undefined
+          ? optionalText(body.secondaryPhone, "secondaryPhone", validationLimits.phone)
+          : undefined,
         about,
       });
 
@@ -190,8 +208,12 @@ export class StudentProfileService {
     return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
       const updatedProfile = await txProfiles.updateSearchSettings(profile.id, {
-        desiredPosition: body.desiredPosition,
-        minSalary: body.minSalary,
+        desiredPosition: body.desiredPosition !== undefined
+          ? optionalText(body.desiredPosition, "desiredPosition", validationLimits.desiredPosition)
+          : undefined,
+        minSalary: body.minSalary !== undefined
+          ? this.normalizeSalary(body.minSalary, "minSalary")
+          : undefined,
         isActiveSearch: body.isActiveSearch,
         visibility: body.visibility,
       });
@@ -199,25 +221,25 @@ export class StudentProfileService {
       if (body.desiredProfessionIds) {
         await txProfiles.replaceDesiredProfessions(
           profile.id,
-          this.uniqueNumbers(body.desiredProfessionIds),
+          this.uniqueLimitedNumbers(body.desiredProfessionIds, "desiredProfessionIds", validationLimits.desiredProfessions),
         );
       }
 
       if (body.employmentTypeIds) {
-        await txProfiles.replaceEmploymentTypes(profile.id, this.uniqueNumbers(body.employmentTypeIds));
+        await txProfiles.replaceEmploymentTypes(profile.id, this.uniqueLimitedNumbers(body.employmentTypeIds, "employmentTypeIds", validationLimits.preferenceOptions));
       }
 
       if (body.workScheduleIds) {
-        await txProfiles.replaceWorkSchedules(profile.id, this.uniqueNumbers(body.workScheduleIds));
+        await txProfiles.replaceWorkSchedules(profile.id, this.uniqueLimitedNumbers(body.workScheduleIds, "workScheduleIds", validationLimits.preferenceOptions));
       }
 
       if (body.workFormatIds) {
-        await txProfiles.replaceWorkFormats(profile.id, this.uniqueNumbers(body.workFormatIds));
+        await txProfiles.replaceWorkFormats(profile.id, this.uniqueLimitedNumbers(body.workFormatIds, "workFormatIds", validationLimits.preferenceOptions));
       }
 
       if (body.desiredLocations) {
         const uniqueLocationKeys = this.uniqueLocationKeys(body.desiredLocations);
-        if (uniqueLocationKeys.length > 5) {
+        if (uniqueLocationKeys.length > validationLimits.desiredLocations) {
           throw new BusinessLogicError(
             "Student can save up to 5 desired locations",
             HttpStatus.BAD_REQUEST,
@@ -285,7 +307,7 @@ export class StudentProfileService {
   /** Створює курс і прив'язує до нього навички у transaction. */
   async createCourse(clerkUserId: string, body: CourseRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    const skillIds = this.uniqueNumbers(body.skillIds);
+    const skillIds = this.uniqueLimitedNumbers(body.skillIds, "skillIds", validationLimits.courseSkills, 1);
 
     return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
@@ -299,7 +321,7 @@ export class StudentProfileService {
   /** Оновлює курс і повністю замінює його навички у transaction. */
   async updateCourse(clerkUserId: string, courseId: string, body: CourseRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    const skillIds = this.uniqueNumbers(body.skillIds);
+    const skillIds = this.uniqueLimitedNumbers(body.skillIds, "skillIds", validationLimits.courseSkills, 1);
 
     return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
@@ -321,7 +343,7 @@ export class StudentProfileService {
   /** Створює проєкт і прив'язує до нього навички у transaction. */
   async createProject(clerkUserId: string, body: ProjectRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    const skillIds = this.uniqueNumbers(body.skillIds);
+    const skillIds = this.uniqueLimitedNumbers(body.skillIds, "skillIds", validationLimits.resumeSkills, 1);
 
     return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
@@ -335,7 +357,7 @@ export class StudentProfileService {
   /** Оновлює проєкт і повністю замінює його навички у transaction. */
   async updateProject(clerkUserId: string, projectId: string, body: ProjectRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    const skillIds = this.uniqueNumbers(body.skillIds);
+    const skillIds = this.uniqueLimitedNumbers(body.skillIds, "skillIds", validationLimits.resumeSkills, 1);
 
     return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
@@ -357,7 +379,7 @@ export class StudentProfileService {
   /** Створює досвід роботи і прив'язує до нього навички у transaction. */
   async createExperience(clerkUserId: string, body: ExperienceRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    const skillIds = this.uniqueNumbers(body.skillIds);
+    const skillIds = this.uniqueLimitedNumbers(body.skillIds, "skillIds", validationLimits.resumeSkills, 1);
 
     return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
@@ -371,7 +393,7 @@ export class StudentProfileService {
   /** Оновлює досвід роботи і повністю замінює його навички у transaction. */
   async updateExperience(clerkUserId: string, experienceId: string, body: ExperienceRequest) {
     const profile = await this.getOwnedProfileOrThrow(clerkUserId);
-    const skillIds = this.uniqueNumbers(body.skillIds);
+    const skillIds = this.uniqueLimitedNumbers(body.skillIds, "skillIds", validationLimits.resumeSkills, 1);
 
     return this.refreshAfter(profile.id, this.txManager.run(async (tx) => {
       const txProfiles = new StudentProfileRepository(tx);
@@ -486,14 +508,24 @@ export class StudentProfileService {
 
   /** Перетворює body освіти на дані репозиторію. */
   private mapEducation(body: EducationRequest): EducationData {
+    const startYear = requireInteger(body.startYear, "startYear");
+    const endYear = body.endYear === undefined || body.endYear === null
+      ? null
+      : requireInteger(body.endYear, "endYear");
+    ensureYearRange(startYear, endYear);
+
     return {
       universityId: body.universityId ?? null,
-      customUniversityName: body.customUniversityName ?? null,
+      customUniversityName: optionalText(
+        body.customUniversityName,
+        "customUniversityName",
+        validationLimits.educationName,
+      ),
       degree: this.requiredEnum(body.degree, Degree, "degree"),
-      specialty: this.requiredString(body.specialty, "specialty"),
-      startYear: this.requiredNumber(body.startYear, "startYear"),
-      endYear: body.endYear ?? null,
-      diplomaUrl: body.diplomaUrl ?? null,
+      specialty: requireText(body.specialty, "specialty", validationLimits.educationSpecialty),
+      startYear,
+      endYear,
+      diplomaUrl: optionalUrl(body.diplomaUrl, "diplomaUrl", validationLimits.resourceUrl),
     };
   }
 
@@ -502,54 +534,89 @@ export class StudentProfileService {
     return {
       languageId: this.requiredNumber(body.languageId, "languageId"),
       level: this.requiredEnum(body.level, LanguageLevel, "level"),
-      certificateUrl: body.certificateUrl ?? null,
+      certificateUrl: optionalUrl(body.certificateUrl, "certificateUrl", validationLimits.resourceUrl),
     };
   }
 
   /** Перетворює body курсу на дані репозиторію. */
   private mapCourse(body: CourseRequest): CourseData {
+    const startDate = this.parseDate(body.startDate, "startDate");
+    const endDate = body.endDate ? this.parseDate(body.endDate, "endDate") : null;
+    ensureDateOrder(startDate, endDate);
+
     return {
-      title: this.requiredString(body.title, "title"),
-      startDate: this.parseDate(body.startDate, "startDate"),
-      endDate: body.endDate ? this.parseDate(body.endDate, "endDate") : null,
-      certificateUrl: body.certificateUrl ?? null,
+      title: requireText(body.title, "title", validationLimits.courseTitle),
+      startDate,
+      endDate,
+      certificateUrl: optionalUrl(body.certificateUrl, "certificateUrl", validationLimits.resourceUrl),
     };
   }
 
   /** Перетворює body проєкту на дані репозиторію. */
   private mapProject(body: ProjectRequest): ProjectData {
     return {
-      title: this.requiredString(body.title, "title"),
-      description: this.requiredString(body.description, "description"),
-      projectUrl: body.projectUrl ?? null,
+      title: requireText(body.title, "title", validationLimits.resumeTitle),
+      description: requireText(body.description, "description", validationLimits.resumeRichText),
+      projectUrl: optionalUrl(body.projectUrl, "projectUrl", validationLimits.resourceUrl),
     };
   }
 
   /** Перетворює body досвіду на дані репозиторію. */
   private mapExperience(body: ExperienceRequest): ExperienceData {
+    const startDate = this.parseDate(body.startDate, "startDate");
+    const endDate = body.endDate ? this.parseDate(body.endDate, "endDate") : null;
+    ensureDateOrder(startDate, endDate);
+
     return {
       professionId: this.requiredNumber(body.professionId, "professionId"),
       sphereId: this.requiredNumber(body.sphereId, "sphereId"),
-      companyName: this.requiredString(body.companyName, "companyName"),
-      position: this.requiredString(body.position, "position"),
-      startDate: this.parseDate(body.startDate, "startDate"),
-      endDate: body.endDate ? this.parseDate(body.endDate, "endDate") : null,
-      achievements: this.requiredString(body.achievements, "achievements"),
+      companyName: requireText(body.companyName, "companyName", validationLimits.resumeTitle),
+      position: requireText(body.position, "position", validationLimits.resumeTitle),
+      startDate,
+      endDate,
+      achievements: requireText(body.achievements, "achievements", validationLimits.resumeRichText),
     };
   }
 
   /** Перетворює посилання з API у формат createMany. */
   private mapLinks(links: LinkInput[]) {
+    ensureArrayLength(links, "links", 0, validationLimits.studentLinks);
+
     return links.map((link) => ({
       linkType: this.requiredEnum(link.linkType, LinkType, "linkType"),
-      linkName: this.requiredString(link.linkName, "linkName"),
-      value: this.requiredString(link.value, "value"),
+      linkName: requireText(link.linkName, "linkName", validationLimits.linkName),
+      value: requireUrl(link.value, "value", validationLimits.linkValue),
     }));
   }
 
   /** Нормалізує масив чисел і прибирає дублікати. */
   private uniqueNumbers(values: number[] = []) {
     return [...new Set(values.map((value) => this.requiredNumber(value, "id")))];
+  }
+
+  private uniqueLimitedNumbers(
+    values: number[] = [],
+    fieldName: string,
+    max: number,
+    min = 0,
+  ) {
+    const uniqueValues = this.uniqueNumbers(values);
+    return ensureArrayLength(uniqueValues, fieldName, min, max);
+  }
+
+  private normalizeSalary(value: number | null, fieldName: string) {
+    if (value === null) return null;
+    const salary = this.requiredNumber(value, fieldName);
+    if (salary < 0 || salary > validationLimits.monthlySalary) {
+      throw new BusinessLogicError(
+        `${fieldName} must be between 0 and ${validationLimits.monthlySalary}`,
+        HttpStatus.BAD_REQUEST,
+        "NUMBER_OUT_OF_RANGE",
+        { fieldName, max: validationLimits.monthlySalary },
+      );
+    }
+
+    return salary;
   }
 
   /** Нормалізує бажані локації та прибирає дублікати. */

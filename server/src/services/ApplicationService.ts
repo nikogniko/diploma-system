@@ -27,6 +27,7 @@ import { EligibilityService, eligibilityService } from "./EligibilityService.js"
 import { MatchingScoreService, matchingScoreService } from "./MatchingScoreService.js";
 import { OutboxEventService, outboxEventService } from "./OutboxEventService.js";
 import { ApplicationMatchRefreshService, applicationMatchRefreshService } from "./ApplicationMatchRefreshService.js";
+import { optionalText, validationLimits } from "../utils/InputValidation.js";
 
 export type ApplicationCreateRequest = {
   vacancyId?: string;
@@ -82,9 +83,11 @@ export class ApplicationService {
       );
     }
     const matchPreview = await this.matching.calculateApplicationMatch(vacancyId, student.profile.id);
-    const coverLetter = typeof body.coverLetter === "string" && body.coverLetter.trim()
-      ? body.coverLetter.trim()
-      : null;
+    const coverLetter = optionalText(
+      body.coverLetter,
+      "coverLetter",
+      validationLimits.applicationCoverLetter,
+    );
 
     return this.transactions.run(async (tx) => {
       const applications = new ApplicationRepository(tx);

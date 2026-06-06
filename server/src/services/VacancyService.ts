@@ -1,6 +1,7 @@
 import {
   LanguageLevel,
   ListingStatus,
+  ModerationStatus,
   RequirementWeight,
   SalaryPeriod,
 } from "../../prisma/generated/client/index.js";
@@ -42,6 +43,10 @@ import {
   OutboxEventService,
   outboxEventService,
 } from "./OutboxEventService.js";
+import {
+  requireText,
+  validationLimits,
+} from "../utils/InputValidation.js";
 
 export type VacancySkillRequest = {
   skillId: number;
@@ -218,8 +223,11 @@ export class VacancyService {
     status: ListingStatus,
   ) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
-    await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.id);
+    const ownedVacancy = await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.id);
     this.ensureAllowedStatus(status);
+    if (status === ListingStatus.ACTIVE) {
+      await this.ensureCompanyApprovedForPublishing(ownedVacancy.companyId);
+    }
     const updated = await prisma.$transaction(async (tx) => {
       const txVacancies = new VacancyRepository(tx);
       const vacancy = await txVacancies.updateVacancyStatus(vacancyId, status);
@@ -302,6 +310,8 @@ export class VacancyService {
       body.professionId,
       "Професія обов'язкова.",
     );
+    requireText(title, "title", validationLimits.vacancyTitle);
+    requireText(description, "description", validationLimits.vacancyDescription);
     const sphereIds = this.uniqueNumbers(body.sphereIds ?? []);
     const skills = this.uniqueSkills(body.skills ?? []);
     const languages = this.uniqueLanguages(body.languages ?? []);
@@ -324,6 +334,12 @@ export class VacancyService {
       this.throwValidation("Додайте щонайменше одну навичку.");
     if (officeLocationIds.length < 1)
       this.throwValidation("Додайте щонайменше одну офісну локацію.");
+    if (skills.length > validationLimits.vacancySkills)
+      this.throwValidation(`Vacancy can contain up to ${validationLimits.vacancySkills} skills.`);
+    if (languages.length > validationLimits.vacancyLanguages)
+      this.throwValidation(`Vacancy can contain up to ${validationLimits.vacancyLanguages} languages.`);
+    if (officeLocationIds.length > validationLimits.vacancyLocations)
+      this.throwValidation(`Vacancy can contain up to ${validationLimits.vacancyLocations} office locations.`);
     if (workFormatIds.length < 1)
       this.throwValidation("Оберіть хоча б один формат роботи.");
     if (employmentTypeIds.length < 1)
@@ -342,6 +358,10 @@ export class VacancyService {
       );
     this.ensureAllowedStatus(status);
     if (salaryPeriod) this.ensureAllowedSalaryPeriod(salaryPeriod);
+    this.ensureSalaryLimits(salaryFrom, salaryTo, salaryPeriod);
+    if (status === ListingStatus.ACTIVE) {
+      await this.ensureCompanyApprovedForPublishing(companyId);
+    }
 
     await this.ensureSkillsExist(skills.map((skill) => skill.skillId));
     await this.ensureCompanyLocations(companyId, officeLocationIds);
@@ -462,6 +482,34 @@ export class VacancyService {
   }
 
   /** Перевіряє, що всі навички є в довіднику. */
+  private async ensureCompanyApprovedForPublishing(companyId: string) {
+    const company = await this.companies.findCompanyById(companyId);
+    if (!company || company.verificationStatus !== ModerationStatus.APPROVED) {
+      throw new BusinessLogicError(
+        "Only verified companies can publish active vacancies",
+        HttpStatus.FORBIDDEN,
+        "COMPANY_VERIFICATION_REQUIRED",
+      );
+    }
+  }
+
+  private ensureSalaryLimits(
+    salaryFrom: number | null,
+    salaryTo: number | null,
+    salaryPeriod: SalaryPeriod | null,
+  ) {
+    const salaryLimit = salaryPeriod === SalaryPeriod.PER_HOUR
+      ? validationLimits.hourlySalary
+      : validationLimits.monthlySalary;
+
+    if (salaryFrom !== null && salaryFrom > salaryLimit) {
+      this.throwValidation(`Salary must not exceed ${salaryLimit}.`);
+    }
+    if (salaryTo !== null && salaryTo > salaryLimit) {
+      this.throwValidation(`Salary must not exceed ${salaryLimit}.`);
+    }
+  }
+
   private async ensureSkillsExist(skillIds: number[]) {
     const existingCount = await this.skills.countExistingSkills(skillIds);
     if (existingCount !== skillIds.length) {

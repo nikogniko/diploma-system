@@ -154,7 +154,7 @@ type FilterState = {
   pageSize: number;
 };
 
-const maxSalaryInput = 9_999_999;
+const maxSalaryInput = 1_000_000;
 const pageSizes = ["5", "10", "20"];
 const defaultFilters: FilterState = {
   search: "",

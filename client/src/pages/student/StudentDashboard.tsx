@@ -200,8 +200,8 @@ const cefrLevels = [
 ];
 const currentYear = new Date().getFullYear();
 const resourcePlaceholder = ui.resourcePlaceholder;
-const maxProfileLinks = 6;
-const maxSalaryInput = 9_999_999;
+const maxProfileLinks = 10;
+const maxSalaryInput = 1_000_000;
 const vacancyPageSizes = ["5", "10", "20"];
 const vacancySortOptions = [
   { value: "relevance", label: "Релевантність" },
@@ -558,7 +558,7 @@ export default function StudentDashboard() {
 
   /** Зберігає параметри пошуку вакансій. */
   const saveSearchPreferences = () => runBlock("search", async () => {
-    if (searchForm.desiredProfessionIds.length < 1 || searchForm.desiredProfessionIds.length > 3) throw new Error(ui.errors.desiredProfessions);
+    if (searchForm.desiredProfessionIds.length < 1 || searchForm.desiredProfessionIds.length > 5) throw new Error(ui.errors.desiredProfessions);
     const token = await getToken();
     await apiRequest("/students/my-cabinet/search-preferences", token, {
       method: "PATCH",
@@ -604,6 +604,7 @@ export default function StudentDashboard() {
     if (!educationForm.specialty.trim()) return ui.errors.educationSpecialty;
     if (!educationForm.startYear) return ui.errors.educationStartYearRequired;
     if (Number(educationForm.startYear) < currentYear - 60 || Number(educationForm.startYear) > currentYear) return interpolate(ui.errors.educationStartYearRange, { min: currentYear - 60, max: currentYear });
+    if (educationForm.endYear && Number(educationForm.endYear) < Number(educationForm.startYear)) return ui.errors.educationStartYearRange;
     return null;
   });
 
@@ -620,15 +621,17 @@ export default function StudentDashboard() {
   /** Saves a course record after validating its linked skills. */
   const saveCourse = () => {
     if (courseForm.skillIds.length < 1) return setBlockErrors((c) => ({ ...c, courses: ui.errors.courseRequired }));
+    if (courseForm.skillIds.length > 20) return setBlockErrors((c) => ({ ...c, courses: ui.errors.courseRequired }));
     return runResume("courses", courseEditId, { ...courseForm, startDate: monthToDate(courseForm.startDate), endDate: courseForm.endDate ? monthToDate(courseForm.endDate) : null, certificateUrl: nullable(courseForm.certificateUrl), skillIds: courseForm.skillIds.map(Number) }, () => { setCourseForm(emptyCourse); setCourseEditId(null); }, () => {
       if (!courseForm.title.trim() || !courseForm.startDate) return ui.errors.courseRequired;
+      if (courseForm.endDate && dayjs(monthToDate(courseForm.endDate)).isBefore(dayjs(monthToDate(courseForm.startDate)))) return ui.errors.courseRequired;
       return null;
     });
   };
 
   /** Saves a project record after validating its required data and skills. */
   const saveProject = () => {
-    if (projectForm.skillIds.length < 3) return setBlockErrors((c) => ({ ...c, projects: ui.errors.projectRequired }));
+    if (projectForm.skillIds.length < 1 || projectForm.skillIds.length > 30) return setBlockErrors((c) => ({ ...c, projects: ui.errors.projectRequired }));
     return runResume("projects", projectEditId, { ...projectForm, projectUrl: nullable(projectForm.projectUrl), skillIds: projectForm.skillIds.map(Number) }, () => { setProjectForm(emptyProject); setProjectEditId(null); }, () => {
       if (!projectForm.title.trim() || !projectForm.description.trim()) return ui.errors.projectRequired;
       return null;
@@ -637,9 +640,10 @@ export default function StudentDashboard() {
 
   /** Saves an experience record after validating its required data and skills. */
   const saveExperience = () => {
-    if (experienceForm.skillIds.length < 3) return setBlockErrors((c) => ({ ...c, experiences: ui.errors.experienceRequired }));
+    if (experienceForm.skillIds.length < 1 || experienceForm.skillIds.length > 30) return setBlockErrors((c) => ({ ...c, experiences: ui.errors.experienceRequired }));
     return runResume("experiences", experienceEditId, { ...experienceForm, professionId: Number(experienceForm.professionId), sphereId: Number(experienceForm.sphereId), endDate: nullable(experienceForm.endDate), skillIds: experienceForm.skillIds.map(Number) }, () => { setExperienceForm(emptyExperience); setExperienceEditId(null); }, () => {
       if (!experienceForm.professionId || !experienceForm.position.trim() || !experienceForm.companyName.trim() || !experienceForm.sphereId || !experienceForm.startDate || !experienceForm.achievements.trim()) return ui.errors.experienceRequired;
+      if (experienceForm.endDate && dayjs(experienceForm.endDate).isBefore(dayjs(experienceForm.startDate))) return ui.errors.experienceRequired;
       return null;
     });
   };
@@ -1167,7 +1171,7 @@ function SearchTab(props: any) {
         <Switch className={classes.inlineSwitch} label={ui.search.activeSearch} checked={form.isActiveSearch} onChange={(e) => setForm({ ...form, isActiveSearch: e.currentTarget.checked })} />
         <div className={classes.grid}>
           <TextInput label={ui.search.desiredPosition} maxLength={150} placeholder={ui.search.desiredPositionPlaceholder} value={form.desiredPosition} onChange={(e) => setForm({ ...form, desiredPosition: e.currentTarget.value })} />
-          <MultiSelect classNames={{ pill: classes.professionPill }} label={ui.search.desiredProfession} required searchable maxValues={3} data={options.professions} value={form.desiredProfessionIds} onChange={(value) => setForm({ ...form, desiredProfessionIds: value })} />
+          <MultiSelect classNames={{ pill: classes.professionPill }} label={ui.search.desiredProfession} required searchable maxValues={5} data={options.professions} value={form.desiredProfessionIds} onChange={(value) => setForm({ ...form, desiredProfessionIds: value })} />
         </div>
       </FormSection>
       <FormSection title={ui.search.locationsTitle} description={ui.search.locationsDescription}>
@@ -1250,7 +1254,7 @@ function CompetencySection({ type, title, description, items, form, setForm, edi
   const isProject = type === "projects";
   return <FormSection title={title} description={description}>
     <RecordList items={items} title={(i: any) => i.title} meta={(i: any) => isCourse ? `${monthShort(i.startDate)}${i.endDate ? ` - ${monthShort(i.endDate)}` : ""}` : richTextToPlainText(i.description)} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} links={(i: any) => isCourse ? (i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []) : (i.projectUrl ? [{ label: ui.links.project, value: i.projectUrl }] : [])} onEdit={(i: any) => { edit(i.id); setForm(isCourse ? { title: i.title, startDate: i.startDate?.slice(0, 7), endDate: i.endDate?.slice(0, 7) ?? "", certificateUrl: i.certificateUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) } : { title: i.title, description: i.description, projectUrl: i.projectUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete(type, i.id)} />
-    {isCourse ? <div className={classes.grid}><TextInput className={classes.fullRow} label={ui.resume.titleField} required placeholder={ui.resume.courseTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><MonthPickerInput label={ui.resume.startMonth} required placeholder={ui.resume.monthPlaceholder} value={form.startDate ? new Date(monthToDate(form.startDate)) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><MonthPickerInput label={ui.resume.endMonth} placeholder={ui.resume.monthPlaceholder} clearable value={form.endDate ? new Date(monthToDate(form.endDate)) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><TextInput className={classes.fullRow} label={ui.resume.certificateUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.certificateUrl} onChange={(e) => setForm({ ...form, certificateUrl: e.currentTarget.value })} /></div> : <><TextInput label={ui.resume.titleField} required placeholder={ui.resume.projectTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><RichTextEditor value={form.description} onChange={(description) => setForm({ ...form, description })} label={ui.resume.descriptionField} placeholder={ui.resume.projectDescriptionPlaceholder} /><TextInput label={ui.resume.projectUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.projectUrl} onChange={(e) => setForm({ ...form, projectUrl: e.currentTarget.value })} /></>}
+    {isCourse ? <div className={classes.grid}><TextInput className={classes.fullRow} label={ui.resume.titleField} required placeholder={ui.resume.courseTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><MonthPickerInput label={ui.resume.startMonth} required placeholder={ui.resume.monthPlaceholder} value={form.startDate ? new Date(monthToDate(form.startDate)) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><MonthPickerInput label={ui.resume.endMonth} placeholder={ui.resume.monthPlaceholder} clearable value={form.endDate ? new Date(monthToDate(form.endDate)) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><TextInput className={classes.fullRow} label={ui.resume.certificateUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.certificateUrl} onChange={(e) => setForm({ ...form, certificateUrl: e.currentTarget.value })} /></div> : <><TextInput label={ui.resume.titleField} required placeholder={ui.resume.projectTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><RichTextEditor value={form.description} onChange={(description) => setForm({ ...form, description })} maxLength={10000} label={ui.resume.descriptionField} placeholder={ui.resume.projectDescriptionPlaceholder} /><TextInput label={ui.resume.projectUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.projectUrl} onChange={(e) => setForm({ ...form, projectUrl: e.currentTarget.value })} /></>}
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={isProject ? 30 : 20} />
     <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm(isCourse ? { title: "", startDate: "", endDate: "", certificateUrl: "", skillIds: [] } : { title: "", description: "", projectUrl: "", skillIds: [] }); edit(null); clearError(type); }} />
   </FormSection>;
@@ -1261,7 +1265,7 @@ function ExperienceSection({ form, setForm, items, options, edit, isEditing, err
   return <FormSection title={ui.resume.experienceTitle} description={ui.resume.experienceDescription}>
     <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => <><strong>{formatDuration(i.startDate, i.endDate)}</strong> · {dateShort(i.startDate)} - {i.endDate ? dateShort(i.endDate) : ui.resume.now}<br />{i.profession?.name ?? ""} · {i.sphere?.name ?? ""}</>} description={(i: any) => richTextToPlainText(i.achievements ?? "")} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
     <div className={classes.grid}><Select label={ui.resume.profession} required searchable placeholder={ui.resume.professionPlaceholder} data={options.professions} value={form.professionId || null} onChange={(value) => setForm({ ...form, professionId: value ?? "" })} /><TextInput label={ui.resume.position} required placeholder={ui.resume.positionPlaceholder} maxLength={200} value={form.position} onChange={(e) => setForm({ ...form, position: e.currentTarget.value })} /><TextInput label={ui.resume.company} required placeholder={ui.resume.companyPlaceholder} maxLength={200} value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.currentTarget.value })} /><Select label={ui.resume.sphere} required searchable placeholder={ui.resume.spherePlaceholder} data={options.spheres} value={form.sphereId || null} onChange={(value) => setForm({ ...form, sphereId: value ?? "" })} /><DateInput label={ui.resume.startDate} required placeholder={ui.resume.datePlaceholder} value={form.startDate ? new Date(form.startDate) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><DateInput label={ui.resume.endDate} placeholder={ui.resume.datePlaceholder} clearable value={form.endDate ? new Date(form.endDate) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /></div>
-    <RichTextEditor label={ui.resume.achievements} value={form.achievements} onChange={(achievements) => setForm({ ...form, achievements })} placeholder={ui.resume.achievementsPlaceholder} />
+    <RichTextEditor label={ui.resume.achievements} value={form.achievements} onChange={(achievements) => setForm({ ...form, achievements })} maxLength={10000} placeholder={ui.resume.achievementsPlaceholder} />
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={30} />
     <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm({ professionId: "", sphereId: "", companyName: "", position: "", startDate: "", endDate: "", achievements: "", skillIds: [] }); edit(null); clearError("experiences"); }} />
   </FormSection>;

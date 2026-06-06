@@ -11,6 +11,7 @@ import {
   userRepository,
 } from "../repositories/UserRepository.js";
 import { EmailValidator } from "../utils/EmailValidator.js";
+import { optionalUrl } from "../utils/InputValidation.js";
 import {
   ClerkUserSyncService,
   clerkUserSyncService,
@@ -164,7 +165,7 @@ export class UserService {
     const firstName = this.requiredStringMax(body.firstName, "firstName", userFieldLimits.firstName);
     const lastName = this.requiredStringMax(body.lastName, "lastName", userFieldLimits.lastName);
     const middleName = this.optionalStringMax(body.middleName, "middleName", userFieldLimits.middleName);
-    const photoUrl = this.optionalStringMax(body.photoUrl ?? user.photoUrl, "photoUrl", userFieldLimits.photoUrl);
+    const photoUrl = optionalUrl(body.photoUrl ?? user.photoUrl, "photoUrl", userFieldLimits.photoUrl);
     const contactEmail = this.requiredStringMax(
       EmailValidator.normalizeEmail(body.contactEmail ?? email),
       "contactEmail",
@@ -329,11 +330,7 @@ export class UserService {
       );
     }
 
-    const normalizedPhotoUrl = this.optionalStringMax(
-      photoUrl,
-      "photoUrl",
-      userFieldLimits.photoUrl,
-    );
+    const normalizedPhotoUrl = optionalUrl(photoUrl, "photoUrl", userFieldLimits.photoUrl);
 
     if (user.photoUrl === normalizedPhotoUrl) return user;
 

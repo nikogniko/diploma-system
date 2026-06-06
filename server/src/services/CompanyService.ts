@@ -24,6 +24,16 @@ import { VacancyRepository, vacancyRepository } from "../repositories/VacancyRep
 import { ApplicationRepository, applicationRepository } from "../repositories/ApplicationRepository.js";
 import { EmailValidator } from "../utils/EmailValidator.js";
 import { applyHrContactPolicy, applyVacancyRecruiterContactPolicy } from "../utils/ContactAccessPolicy.js";
+import {
+  ensureArrayLength,
+  normalizeEmail,
+  optionalDomain,
+  optionalText,
+  optionalUrl,
+  requireText,
+  requireUrl,
+  validationLimits,
+} from "../utils/InputValidation.js";
 
 type LinkInput = {
   linkType: LinkType;
@@ -113,7 +123,7 @@ export class CompanyService {
   async updateMyCompany(clerkUserId: string, body: UpdateCompanyRequest) {
     const hrProfile = await this.getHrProfileOrThrow(clerkUserId);
     this.ensureHrCanManageCompany(hrProfile);
-    const about = this.requiredString(body.about, "about");
+    const about = requireText(body.about, "about", validationLimits.companyAbout);
 
     return this.txManager.run(async (tx) => {
       const txCompanies = new CompanyRepository(tx);
@@ -121,17 +131,33 @@ export class CompanyService {
         registrationType: body.registrationType
           ? this.requiredEnum(body.registrationType, RegistrationType, "registrationType")
           : undefined,
-        registrationNumber: body.registrationNumber,
-        legalName: body.legalName,
-        corporateDomain: "corporateDomain" in body ? body.corporateDomain : undefined,
-        logoUrl: "logoUrl" in body ? body.logoUrl : undefined,
-        publicName: body.publicName,
-        websiteUrl: "websiteUrl" in body ? body.websiteUrl : undefined,
+        registrationNumber: body.registrationNumber !== undefined
+          ? requireText(body.registrationNumber, "registrationNumber", validationLimits.companyRegistrationNumber)
+          : undefined,
+        legalName: body.legalName !== undefined
+          ? requireText(body.legalName, "legalName", validationLimits.companyLegalName)
+          : undefined,
+        corporateDomain: "corporateDomain" in body
+          ? optionalDomain(body.corporateDomain, "corporateDomain", validationLimits.companyDomain)
+          : undefined,
+        logoUrl: "logoUrl" in body
+          ? optionalUrl(body.logoUrl, "logoUrl", validationLimits.resourceUrl)
+          : undefined,
+        publicName: body.publicName !== undefined
+          ? requireText(body.publicName, "publicName", validationLimits.companyPublicName)
+          : undefined,
+        websiteUrl: "websiteUrl" in body
+          ? optionalUrl(body.websiteUrl, "websiteUrl", validationLimits.resourceUrl)
+          : undefined,
         foundationYear: body.foundationYear,
         employeeCount: "employeeCount" in body ? body.employeeCount : undefined,
         about,
-        publicEmail: body.publicEmail ? EmailValidator.normalizeEmail(body.publicEmail) : undefined,
-        publicPhone: "publicPhone" in body ? body.publicPhone : undefined,
+        publicEmail: body.publicEmail
+          ? normalizeEmail(EmailValidator.normalizeEmail(body.publicEmail), "publicEmail")
+          : undefined,
+        publicPhone: "publicPhone" in body
+          ? optionalText(body.publicPhone, "publicPhone", validationLimits.phone)
+          : undefined,
       } satisfies CompanyUpdateData);
 
       if (body.sphereIds) {
@@ -203,10 +229,12 @@ export class CompanyService {
   }
 
   private mapLinks(links: LinkInput[]) {
+    ensureArrayLength(links, "links", 0, validationLimits.companyLinks);
+
     return links.map((link) => ({
       linkType: this.requiredEnum(link.linkType, LinkType, "linkType"),
-      linkName: this.requiredString(link.linkName, "linkName"),
-      value: this.requiredString(link.value, "value"),
+      linkName: requireText(link.linkName, "linkName", validationLimits.linkName),
+      value: requireUrl(link.value, "value", validationLimits.linkValue),
     }));
   }
 

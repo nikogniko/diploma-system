@@ -20,6 +20,16 @@ import { transactionManager, TransactionManager } from "../repositories/Transact
 import { UserRepository, userRepository } from "../repositories/UserRepository.js";
 import { EmailValidator } from "../utils/EmailValidator.js";
 import {
+  ensureArrayLength,
+  normalizeEmail,
+  optionalDomain,
+  optionalText,
+  optionalUrl,
+  requireText,
+  requireUrl,
+  validationLimits,
+} from "../utils/InputValidation.js";
+import {
   ClerkUserSyncService,
   clerkUserSyncService,
 } from "./ClerkUserSyncService.js";
@@ -141,10 +151,10 @@ export class HrProfileService {
       }
 
       const updatedUser = await txUsers.updateUserIdentity(user.id, {
-        firstName: this.requiredString(body.firstName, "firstName"),
-        lastName: this.requiredString(body.lastName, "lastName"),
-        middleName: body.middleName ?? null,
-        photoUrl: body.photoUrl ?? user.photoUrl,
+        firstName: requireText(body.firstName, "firstName", validationLimits.userName),
+        lastName: requireText(body.lastName, "lastName", validationLimits.userName),
+        middleName: optionalText(body.middleName, "middleName", validationLimits.userName),
+        photoUrl: optionalUrl(body.photoUrl ?? user.photoUrl, "photoUrl", validationLimits.userPhotoUrl),
       });
 
       await txUsers.updateUserRole(user.id, UserRole.HR);
@@ -153,7 +163,7 @@ export class HrProfileService {
       const hrProfile = await txHrs.createHrProfile({
         userId: user.id,
         companyId: company.id,
-        position: this.requiredString(body.position, "position"),
+        position: requireText(body.position, "position", validationLimits.desiredPosition),
       });
 
       // TODO: перенести підтвердження HR/компанії в кабінет системного адміністратора.
@@ -188,15 +198,17 @@ export class HrProfileService {
 
       if (body.firstName || body.lastName || body.middleName !== undefined) {
         await txUsers.updateUserIdentity(hrProfile.userId, {
-          firstName: body.firstName ? this.requiredString(body.firstName, "firstName") : hrProfile.user.firstName,
-          lastName: body.lastName ? this.requiredString(body.lastName, "lastName") : hrProfile.user.lastName,
-          middleName: body.middleName ?? null,
+          firstName: body.firstName ? requireText(body.firstName, "firstName", validationLimits.userName) : hrProfile.user.firstName,
+          lastName: body.lastName ? requireText(body.lastName, "lastName", validationLimits.userName) : hrProfile.user.lastName,
+          middleName: body.middleName !== undefined
+            ? optionalText(body.middleName, "middleName", validationLimits.userName)
+            : hrProfile.user.middleName,
           photoUrl: hrProfile.user.photoUrl,
         });
       }
 
       const updatedHrProfile = await txHrs.updateHrProfile(hrProfile.id, {
-        position: body.position ? this.requiredString(body.position, "position") : undefined,
+        position: body.position ? requireText(body.position, "position", validationLimits.desiredPosition) : undefined,
       });
 
       if (body.links) {
@@ -226,29 +238,31 @@ export class HrProfileService {
   private mapCompanyCreateData(company: NewCompanyHrOnboardingRequest["company"]): CompanyCreateData {
     return {
       registrationType: company.registrationType,
-      registrationNumber: this.requiredString(company.registrationNumber, "company.registrationNumber"),
-      legalName: this.requiredString(company.legalName, "company.legalName"),
-      corporateDomain: company.corporateDomain ?? null,
+      registrationNumber: requireText(company.registrationNumber, "company.registrationNumber", validationLimits.companyRegistrationNumber),
+      legalName: requireText(company.legalName, "company.legalName", validationLimits.companyLegalName),
+      corporateDomain: optionalDomain(company.corporateDomain, "company.corporateDomain", validationLimits.companyDomain),
       verificationStatus: ModerationStatus.PENDING,
-      logoUrl: company.logoUrl ?? null,
-      publicName: this.requiredString(company.publicName, "company.publicName"),
-      websiteUrl: company.websiteUrl ?? null,
+      logoUrl: optionalUrl(company.logoUrl, "company.logoUrl", validationLimits.resourceUrl),
+      publicName: requireText(company.publicName, "company.publicName", validationLimits.companyPublicName),
+      websiteUrl: optionalUrl(company.websiteUrl, "company.websiteUrl", validationLimits.resourceUrl),
       foundationYear: this.requiredNumber(company.foundationYear, "company.foundationYear"),
       employeeCount: company.employeeCount ?? null,
-      about: this.requiredString(company.about, "company.about"),
-      publicEmail: EmailValidator.normalizeEmail(
-        this.requiredString(company.publicEmail, "company.publicEmail"),
-      ),
-      publicPhone: company.publicPhone ?? null,
+      about: requireText(company.about, "company.about", validationLimits.companyAbout),
+      publicEmail: normalizeEmail(EmailValidator.normalizeEmail(
+        requireText(company.publicEmail, "company.publicEmail", validationLimits.email),
+      ), "company.publicEmail"),
+      publicPhone: optionalText(company.publicPhone, "company.publicPhone", validationLimits.phone),
     };
   }
 
   /** Перетворює посилання з API у формат createMany. */
   private mapLinks(links: LinkInput[]) {
+    ensureArrayLength(links, "links", 0, validationLimits.companyLinks);
+
     return links.map((link) => ({
       linkType: this.requiredEnum(link.linkType, LinkType, "linkType"),
-      linkName: this.requiredString(link.linkName, "linkName"),
-      value: this.requiredString(link.value, "value"),
+      linkName: requireText(link.linkName, "linkName", validationLimits.linkName),
+      value: requireUrl(link.value, "value", validationLimits.linkValue),
     }));
   }
 
