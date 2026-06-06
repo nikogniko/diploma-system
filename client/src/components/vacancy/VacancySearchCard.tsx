@@ -1,5 +1,6 @@
 import { Avatar, Group, Paper, Text } from "@mantine/core";
 import { messages } from "../../locales/localizedMessages";
+import { richTextToPlainText } from "../../utils/richText";
 import classes from "./VacancySearchCard.module.scss";
 
 export type SearchCardVacancy = {
@@ -48,7 +49,7 @@ export function VacancySearchCard({ vacancy, skills = [], locations = [], onOpen
           {vacancy.company?.publicName?.[0] ?? "C"}
         </Avatar>
       </div>
-      {vacancy.description && <Text className={classes.description}>{stripHtml(vacancy.description)}</Text>}
+      {vacancy.description && <Text className={classes.description}>{richTextToPlainText(vacancy.description)}</Text>}
       <div className={classes.metaLine}>
         <span className={classes.locationInline}>
           {(locations.length ? locations : [ui.locationFallback]).map((location) => (
@@ -87,7 +88,6 @@ function formatVacancySalary(vacancy: SearchCardVacancy) {
   return `${formatMoney(vacancy.minSalary ?? vacancy.maxSalary ?? 0)} ${period}`;
 }
 
-const stripHtml = (value: string) => value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 const labelList = (values?: Array<string | null | undefined>) => values?.filter(Boolean).join(", ") || ui.notSpecified;
 const dateLong = (value: string) => new Date(value).toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
 const formatMoney = (value: number) => new Intl.NumberFormat("uk-UA").format(value);

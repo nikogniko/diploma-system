@@ -14,6 +14,7 @@ import { AppLoader } from "../../components/common/AppLoader";
 import { AppTooltip } from "../../components/common/AppTooltip";
 import { ErrorBanner } from "../../components/common/ErrorBanner";
 import { FormSection } from "../../components/common/FormSection";
+import { MarkdownView } from "../../components/common/MarkdownView";
 import { RecruiterPublicCard as RecruiterCard } from "../../components/hr/RecruiterPublicCard";
 import { RecruiterPublicPreviewDrawer as RecruiterPreviewDrawer } from "../../components/hr/RecruiterPublicPreviewDrawer";
 import type { RecruiterPublicPreviewData } from "../../components/hr/RecruiterPublicPreviewDrawer";
@@ -226,13 +227,7 @@ export function CompanyPublicPage({
           <div className={classes.companyPreviewGrid}>
             <section className={classes.companyPreviewMain}>
               <FormSection title={ui.companyPage.about}>
-                <div
-                  className={classes.richPreview}
-                  dangerouslySetInnerHTML={{
-                    __html:
-                      company.about || ui.companyPage.emptyAbout,
-                  }}
-                />
+                <MarkdownView className={classes.richPreview} value={company.about || ui.companyPage.emptyAbout} />
               </FormSection>
               <FormSection title={ui.companyPage.vacancies}>
                 <CompanyVacancyFilters

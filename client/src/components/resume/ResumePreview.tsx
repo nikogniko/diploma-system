@@ -2,6 +2,7 @@ import { Badge, Text, Title } from "@mantine/core";
 import dayjs from "dayjs";
 import { useEffect, useRef, useState } from "react";
 import { AppTooltip } from "../common/AppTooltip";
+import { MarkdownView } from "../common/MarkdownView";
 import { interpolate, messages } from "../../locales/localizedMessages";
 import styles from "./ResumePreview.module.scss";
 
@@ -128,7 +129,7 @@ export function ResumePreview({ profile, contactAccess = "OWNER" }: ResumePrevie
       <div className={styles.layout}>
         <main className={styles.main}>
           <PreviewSection title={ui.about}>
-            {profile.about ? <RichHtml value={profile.about} /> : <Empty />}
+            {profile.about ? <MarkdownView className={styles.richText} value={profile.about} /> : <Empty />}
           </PreviewSection>
 
           <PreviewSection title={ui.experience}>
@@ -245,7 +246,7 @@ function ResumeCard({ title, meta, html, skills, links }: { title: string; meta?
     <div className={styles.card}>
       <Text className={styles.cardTitle}>{title}</Text>
       {meta && <Text className={styles.cardMeta}>{meta}</Text>}
-      {html && <RichHtml value={html} />}
+      {html && <MarkdownView className={styles.richText} value={html} />}
       {skills?.length ? <SkillCloud skills={skills} /> : null}
       {links?.length ? <LinkList links={links} /> : null}
     </div>
@@ -291,10 +292,6 @@ function ContactLine({ label, value, openable, normalizeCopy }: { label: string;
 function ContactAccessNotice({ access }: { access: "OWNER" | "VISIBLE" | "AFTER_INTERVIEW_INVITE" | "HIDDEN" }) {
   const isHidden = access === "HIDDEN";
   return <div className={isHidden ? styles.hiddenNotice : styles.confidentialNotice}><strong>{isHidden ? messages.studentDashboard.visibility.hiddenLabel : messages.studentDashboard.visibility.appliedLabel}</strong><span>{isHidden ? ui.contactsHidden : ui.contactsAfterInterviewInvite}</span></div>;
-}
-
-function RichHtml({ value }: { value: string }) {
-  return <div className={styles.richText} dangerouslySetInnerHTML={{ __html: value }} />;
 }
 
 function Empty() {

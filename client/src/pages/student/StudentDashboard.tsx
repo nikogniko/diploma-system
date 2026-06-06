@@ -30,6 +30,7 @@ import { FormSection } from "../../components/common/FormSection";
 import { AppLoader } from "../../components/common/AppLoader";
 import { AppTooltip } from "../../components/common/AppTooltip";
 import { RichTextEditor } from "../../components/common/RichTextEditor";
+import { MarkdownView } from "../../components/common/MarkdownView";
 import { ResumePreview } from "../../components/resume/ResumePreview";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { ApplicationStatusTimeline } from "../../components/application/ApplicationStatusTimeline";
@@ -39,6 +40,7 @@ import { ApplicationPipelineToolbar, type ApplicationPipelineFilter } from "../.
 import type { ApplicationRecord, ApplicationStatus } from "../../components/application/applicationTypes";
 import { CabinetLayout } from "../../layouts/CabinetLayout";
 import { interpolate, messages } from "../../locales/localizedMessages";
+import { richTextToPlainText } from "../../utils/richText";
 import {
   formatUkrainianPhone,
   isValidEmail,
@@ -1035,7 +1037,7 @@ function VacancyCatalogCard({ entry, onOpen }: { entry: VacancySearchEntry; onOp
       </div>
       <Avatar src={vacancy.company?.logoUrl} radius="md" size={54}>{vacancy.company?.publicName?.[0] ?? "C"}</Avatar>
     </div>
-    <Text className={classes.vacancyDescription}>{stripHtml(vacancy.description)}</Text>
+    <Text className={classes.vacancyDescription}>{richTextToPlainText(vacancy.description)}</Text>
     <div className={classes.vacancyMetaLine}>
       <span>{labelList(vacancy.workFormats.map((item) => item.workFormat?.name))}</span>
       <span>{labelList(vacancy.employmentTypes.map((item) => item.employmentType?.name))}</span>
@@ -1071,7 +1073,7 @@ function VacancyDetails({ entry, notice, onBack, onApply }: { entry: VacancySear
     <div className={classes.vacancyDetailsGrid}>
       <section className={classes.sectionStack}>
         <FormSection title="Опис вакансії">
-          <div className={classes.richPreview} dangerouslySetInnerHTML={{ __html: vacancy.description }} />
+          <MarkdownView className={classes.richPreview} value={vacancy.description} />
         </FormSection>
         <FormSection title="Навички">
           <div className={classes.skillGroups}>{skillGroups.map((group) => <div key={group.category}><Text className={classes.skillGroupTitle}>{skillCategoryLabel(group.category)}</Text><div className={classes.chips}>{group.skills.map((item) => <span key={item.skillId} className={`${classes.skillChip} ${skillClass(item.skill?.category ?? "")}`}>{item.skill?.name}</span>)}</div></div>)}</div>
@@ -1247,7 +1249,7 @@ function CompetencySection({ type, title, description, items, form, setForm, edi
   const isCourse = type === "courses";
   const isProject = type === "projects";
   return <FormSection title={title} description={description}>
-    <RecordList items={items} title={(i: any) => i.title} meta={(i: any) => isCourse ? `${monthShort(i.startDate)}${i.endDate ? ` - ${monthShort(i.endDate)}` : ""}` : stripHtml(i.description)} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} links={(i: any) => isCourse ? (i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []) : (i.projectUrl ? [{ label: ui.links.project, value: i.projectUrl }] : [])} onEdit={(i: any) => { edit(i.id); setForm(isCourse ? { title: i.title, startDate: i.startDate?.slice(0, 7), endDate: i.endDate?.slice(0, 7) ?? "", certificateUrl: i.certificateUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) } : { title: i.title, description: i.description, projectUrl: i.projectUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete(type, i.id)} />
+    <RecordList items={items} title={(i: any) => i.title} meta={(i: any) => isCourse ? `${monthShort(i.startDate)}${i.endDate ? ` - ${monthShort(i.endDate)}` : ""}` : richTextToPlainText(i.description)} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} links={(i: any) => isCourse ? (i.certificateUrl ? [{ label: ui.links.certificate, value: i.certificateUrl }] : []) : (i.projectUrl ? [{ label: ui.links.project, value: i.projectUrl }] : [])} onEdit={(i: any) => { edit(i.id); setForm(isCourse ? { title: i.title, startDate: i.startDate?.slice(0, 7), endDate: i.endDate?.slice(0, 7) ?? "", certificateUrl: i.certificateUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) } : { title: i.title, description: i.description, projectUrl: i.projectUrl ?? "", skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete(type, i.id)} />
     {isCourse ? <div className={classes.grid}><TextInput className={classes.fullRow} label={ui.resume.titleField} required placeholder={ui.resume.courseTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><MonthPickerInput label={ui.resume.startMonth} required placeholder={ui.resume.monthPlaceholder} value={form.startDate ? new Date(monthToDate(form.startDate)) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><MonthPickerInput label={ui.resume.endMonth} placeholder={ui.resume.monthPlaceholder} clearable value={form.endDate ? new Date(monthToDate(form.endDate)) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM") : "" })} valueFormat="MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><TextInput className={classes.fullRow} label={ui.resume.certificateUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.certificateUrl} onChange={(e) => setForm({ ...form, certificateUrl: e.currentTarget.value })} /></div> : <><TextInput label={ui.resume.titleField} required placeholder={ui.resume.projectTitlePlaceholder} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.currentTarget.value })} /><RichTextEditor value={form.description} onChange={(description) => setForm({ ...form, description })} label={ui.resume.descriptionField} placeholder={ui.resume.projectDescriptionPlaceholder} /><TextInput label={ui.resume.projectUrl} placeholder={resourcePlaceholder} maxLength={255} value={form.projectUrl} onChange={(e) => setForm({ ...form, projectUrl: e.currentTarget.value })} /></>}
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={isProject ? 30 : 20} />
     <InlineError message={error} /><ActionButtons saving={saving} isEditing={isEditing} onSave={onSave} onCancel={() => { setForm(isCourse ? { title: "", startDate: "", endDate: "", certificateUrl: "", skillIds: [] } : { title: "", description: "", projectUrl: "", skillIds: [] }); edit(null); clearError(type); }} />
@@ -1257,7 +1259,7 @@ function CompetencySection({ type, title, description, items, form, setForm, edi
 /** Renders and edits professional experience records. */
 function ExperienceSection({ form, setForm, items, options, edit, isEditing, error, saving, onSave, onDelete, clearError }: any) {
   return <FormSection title={ui.resume.experienceTitle} description={ui.resume.experienceDescription}>
-    <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => <><strong>{formatDuration(i.startDate, i.endDate)}</strong> · {dateShort(i.startDate)} - {i.endDate ? dateShort(i.endDate) : ui.resume.now}<br />{i.profession?.name ?? ""} · {i.sphere?.name ?? ""}</>} description={(i: any) => stripHtml(i.achievements ?? "")} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
+    <RecordList items={items} title={(i: any) => `${i.position} · ${i.companyName}`} meta={(i: any) => <><strong>{formatDuration(i.startDate, i.endDate)}</strong> · {dateShort(i.startDate)} - {i.endDate ? dateShort(i.endDate) : ui.resume.now}<br />{i.profession?.name ?? ""} · {i.sphere?.name ?? ""}</>} description={(i: any) => richTextToPlainText(i.achievements ?? "")} skills={(i: any) => i.skills?.map((join: SkillJoin) => join.skill) ?? []} onEdit={(i: any) => { edit(i.id); setForm({ professionId: String(i.professionId), sphereId: String(i.sphereId), companyName: i.companyName, position: i.position, startDate: i.startDate?.slice(0, 10), endDate: i.endDate?.slice(0, 10) ?? "", achievements: i.achievements, skillIds: i.skills.map((s: SkillJoin) => String(s.skill.id)) }); }} onDelete={(i: any) => onDelete("experiences", i.id)} />
     <div className={classes.grid}><Select label={ui.resume.profession} required searchable placeholder={ui.resume.professionPlaceholder} data={options.professions} value={form.professionId || null} onChange={(value) => setForm({ ...form, professionId: value ?? "" })} /><TextInput label={ui.resume.position} required placeholder={ui.resume.positionPlaceholder} maxLength={200} value={form.position} onChange={(e) => setForm({ ...form, position: e.currentTarget.value })} /><TextInput label={ui.resume.company} required placeholder={ui.resume.companyPlaceholder} maxLength={200} value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.currentTarget.value })} /><Select label={ui.resume.sphere} required searchable placeholder={ui.resume.spherePlaceholder} data={options.spheres} value={form.sphereId || null} onChange={(value) => setForm({ ...form, sphereId: value ?? "" })} /><DateInput label={ui.resume.startDate} required placeholder={ui.resume.datePlaceholder} value={form.startDate ? new Date(form.startDate) : null} onChange={(v) => setForm({ ...form, startDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /><DateInput label={ui.resume.endDate} placeholder={ui.resume.datePlaceholder} clearable value={form.endDate ? new Date(form.endDate) : null} onChange={(v) => setForm({ ...form, endDate: v ? dayjs(v).format("YYYY-MM-DD") : "" })} valueFormat="DD.MM.YYYY" locale="uk" popoverProps={{ position: "bottom-end", withinPortal: true }} /></div>
     <RichTextEditor label={ui.resume.achievements} value={form.achievements} onChange={(achievements) => setForm({ ...form, achievements })} placeholder={ui.resume.achievementsPlaceholder} />
     <SmartSkillSelector value={form.skillIds} onChange={(skillIds) => setForm({ ...form, skillIds })} options={options.skills} max={30} />
@@ -1480,7 +1482,6 @@ const validateProfileLink = (link: LinkItem) => {
 /** Normalizes user links into browser-ready absolute URLs. */
 const normalizeHref = (value: string) => /^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim().replace(/^www\./i, "www.")}`;
 /** Produces readable plain text from rich text fragments. */
-const stripHtml = (value: string) => value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 /** Sorts dated records from newest to oldest. */
 const sortByDateDesc = <T extends Record<string, string>>(items: T[], key: keyof T) => [...items].sort((a, b) => dayjs(String(b[key])).valueOf() - dayjs(String(a[key])).valueOf());
 /** Sorts academic records from latest start year to earliest. */

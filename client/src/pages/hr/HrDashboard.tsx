@@ -32,6 +32,7 @@ import { AppTooltip } from "../../components/common/AppTooltip";
 import { ChipBadge } from "../../components/common/ChipBadge";
 import { ErrorBanner } from "../../components/common/ErrorBanner";
 import { FormSection } from "../../components/common/FormSection";
+import { MarkdownView } from "../../components/common/MarkdownView";
 import { RichTextEditor } from "../../components/common/RichTextEditor";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { RecruiterPublicCard as RecruiterCard } from "../../components/hr/RecruiterPublicCard";
@@ -2907,12 +2908,7 @@ export function HrCompanyPublicPageLegacy({
       <div className={classes.companyPreviewGrid}>
         <section className={classes.companyPreviewMain}>
           <FormSection title={ui.company.aboutTitle}>
-            <div
-              className={classes.richPreview}
-              dangerouslySetInnerHTML={{
-                __html: company?.about || ui.company.emptyAbout,
-              }}
-            />
+            <MarkdownView className={classes.richPreview} value={company?.about || ui.company.emptyAbout} />
           </FormSection>
           <FormSection title={ui.company.vacanciesTitle}>
             <CompanyVacancyFilters

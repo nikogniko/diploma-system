@@ -5,18 +5,24 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.45rem;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .viewport {
   position: relative;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .tabs {
   display: flex;
   gap: 0.25rem;
+  min-width: 0;
   width: 100%;
   padding: 0.22rem;
+  overflow: hidden;
   background: var(--color-bg-main);
   border: 1px solid var(--color-border);
   border-radius: 999px;
@@ -24,6 +30,8 @@
 
 .measurement {
   position: absolute;
+  top: 0;
+  left: 0;
   display: flex;
   gap: 0.25rem;
   width: max-content;

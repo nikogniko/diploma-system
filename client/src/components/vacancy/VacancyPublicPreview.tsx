@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChipBadge } from "../common/ChipBadge";
 import { FormSection } from "../common/FormSection";
+import { MarkdownView } from "../common/MarkdownView";
 import { messages } from "../../locales/localizedMessages";
 import classes from "./VacancyPublicPreview.module.scss";
 
@@ -102,7 +103,7 @@ export function VacancyPublicPreview({ vacancy, labels = {}, locationText, compa
       <div className={classes.grid}>
         <main className={classes.main}>
           <FormSection title={ui.description}>
-            <div className={classes.richPreview} dangerouslySetInnerHTML={{ __html: vacancy.description }} />
+            <MarkdownView className={classes.richPreview} value={vacancy.description} />
           </FormSection>
           <FormSection title={ui.requiredSkills} description={ui.requiredSkillsDescription}>
             <div className={classes.skillGroups}>{skillGroups.map((group) => (

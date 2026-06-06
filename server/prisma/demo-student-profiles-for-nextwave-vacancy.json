@@ -188,7 +188,7 @@
       "profile": {
         "gender": "FEMALE",
         "birthDate": "2003-05-14",
-        "about": "<p><strong>Junior Fullstack Developer</strong> з фокусом на React, TypeScript, Node.js і PostgreSQL. Маю кілька fullstack-проєктів із REST API, Docker, SQL та Git. Найсильніша сторона — вміння доводити задачу від UI до API й бази даних.</p>",
+        "about": "**Junior Fullstack Developer** з фокусом на React, TypeScript, Node.js і PostgreSQL. Маю кілька fullstack-проєктів із REST API, Docker, SQL та Git. Найсильніша сторона — вміння доводити задачу від UI до API й бази даних.",
         "contactEmail": "anastasiia.lytvynenko@example.test",
         "primaryPhone": "+380 67 118 45 21",
         "secondaryPhone": null,
@@ -196,10 +196,20 @@
         "minSalary": 32000,
         "isActiveSearch": true,
         "visibility": "PUBLIC",
-        "desiredProfessions": ["Fullstack-розробник"],
-        "employmentTypes": ["Повна зайнятість", "Стажування"],
-        "workSchedules": ["Гнучкий графік"],
-        "workFormats": ["Віддалена робота", "Гібридний формат"],
+        "desiredProfessions": [
+          "Fullstack-розробник"
+        ],
+        "employmentTypes": [
+          "Повна зайнятість",
+          "Стажування"
+        ],
+        "workSchedules": [
+          "Гнучкий графік"
+        ],
+        "workFormats": [
+          "Віддалена робота",
+          "Гібридний формат"
+        ],
         "desiredLocations": [
           {
             "country": "Україна",
@@ -302,7 +312,7 @@
       "projects": [
         {
           "title": "Student Career Match Platform",
-          "description": "<p>Fullstack pet-проєкт для пошуку junior-вакансій студентами. Реалізовано React-інтерфейс, Node.js REST API, PostgreSQL, SQL-запити, Docker Compose для локального запуску та перевірку endpoint-ів через Postman.</p>",
+          "description": "Fullstack pet-проєкт для пошуку junior-вакансій студентами. Реалізовано React-інтерфейс, Node.js REST API, PostgreSQL, SQL-запити, Docker Compose для локального запуску та перевірку endpoint-ів через Postman.",
           "projectUrl": "https://github.com/example/student-career-match",
           "skills": [
             "React",
@@ -322,7 +332,7 @@
         },
         {
           "title": "Course Progress Dashboard",
-          "description": "<p>Frontend dashboard для візуалізації навчального прогресу з картками курсів, фільтрами, адаптивною версткою та повторним використанням компонентів.</p>",
+          "description": "Frontend dashboard для візуалізації навчального прогресу з картками курсів, фільтрами, адаптивною версткою та повторним використанням компонентів.",
           "projectUrl": "https://github.com/example/course-progress-dashboard",
           "skills": [
             "React",
@@ -338,7 +348,7 @@
         },
         {
           "title": "Realtime Notes API",
-          "description": "<p>Експериментальний backend-проєкт із Node.js, REST API, Redis для кешування та PostgreSQL як основним сховищем даних.</p>",
+          "description": "Експериментальний backend-проєкт із Node.js, REST API, Redis для кешування та PostgreSQL як основним сховищем даних.",
           "projectUrl": "https://github.com/example/realtime-notes-api",
           "skills": [
             "Node.js",
@@ -360,7 +370,7 @@
           "sphere": "EdTech",
           "startDate": "2024-02-01",
           "endDate": "2024-06-01",
-          "achievements": "<p>Працювала над кабінетом студента: React-компоненти, інтеграція з REST API, виправлення помилок, адаптивність сторінок і участь у code review.</p>",
+          "achievements": "Працювала над кабінетом студента: React-компоненти, інтеграція з REST API, виправлення помилок, адаптивність сторінок і участь у code review.",
           "skills": [
             "React",
             "TypeScript",
@@ -390,7 +400,7 @@
       "profile": {
         "gender": "MALE",
         "birthDate": "2001-08-19",
-        "about": "<p><strong>Junior Fullstack Developer</strong> із сильним backend-фокусом. Працюю з Node.js, TypeScript, REST API, PostgreSQL і Docker, а frontend закріплюю через React-проєкти та адаптивні інтерфейси.</p>",
+        "about": "**Junior Fullstack Developer** із сильним backend-фокусом. Працюю з Node.js, TypeScript, REST API, PostgreSQL і Docker, а frontend закріплюю через React-проєкти та адаптивні інтерфейси.",
         "contactEmail": "kailas11251996@gmail.com",
         "primaryPhone": "+380 63 251 96 11",
         "secondaryPhone": null,
@@ -398,10 +408,20 @@
         "minSalary": 34000,
         "isActiveSearch": true,
         "visibility": "PUBLIC",
-        "desiredProfessions": ["Fullstack-розробник"],
-        "employmentTypes": ["Повна зайнятість", "Стажування"],
-        "workSchedules": ["Гнучкий графік"],
-        "workFormats": ["Віддалена робота", "Гібридний формат"],
+        "desiredProfessions": [
+          "Fullstack-розробник"
+        ],
+        "employmentTypes": [
+          "Повна зайнятість",
+          "Стажування"
+        ],
+        "workSchedules": [
+          "Гнучкий графік"
+        ],
+        "workFormats": [
+          "Віддалена робота",
+          "Гібридний формат"
+        ],
         "desiredLocations": [
           {
             "country": "Україна",
@@ -479,7 +499,7 @@
       "projects": [
         {
           "title": "Inventory SaaS Dashboard",
-          "description": "<p>Fullstack-проєкт для обліку товарів: React dashboard, Node.js REST API, PostgreSQL, фільтрація записів, Docker та перевірка API через Postman.</p>",
+          "description": "Fullstack-проєкт для обліку товарів: React dashboard, Node.js REST API, PostgreSQL, фільтрація записів, Docker та перевірка API через Postman.",
           "projectUrl": "https://github.com/example/inventory-saas-dashboard",
           "skills": [
             "React",
@@ -499,7 +519,7 @@
         },
         {
           "title": "Team Tasks Board",
-          "description": "<p>Канбан-дошка для командних задач із React-інтерфейсом, REST API і базовою роботою зі станами завантаження та помилок.</p>",
+          "description": "Канбан-дошка для командних задач із React-інтерфейсом, REST API і базовою роботою зі станами завантаження та помилок.",
           "projectUrl": "https://github.com/example/team-tasks-board",
           "skills": [
             "React",
@@ -521,7 +541,7 @@
           "sphere": "Cloud Solutions / SaaS",
           "startDate": "2025-02-01",
           "endDate": "2025-05-01",
-          "achievements": "<p>Допомагав реалізовувати невеликі frontend/backend задачі, тестував REST API, працював із Git та SQL-запитами під менторством.</p>",
+          "achievements": "Допомагав реалізовувати невеликі frontend/backend задачі, тестував REST API, працював із Git та SQL-запитами під менторством.",
           "skills": [
             "React",
             "Node.js",
@@ -552,7 +572,7 @@
       "profile": {
         "gender": "FEMALE",
         "birthDate": "2002-02-13",
-        "about": "<p>Junior fullstack кандидатка з акцентом на якісний frontend: React, TypeScript, HTML5/CSS3, REST API. Додатково маю практику з Node.js, PostgreSQL, SQL, Docker і командною роботою.</p>",
+        "about": "Junior fullstack кандидатка з акцентом на якісний frontend: React, TypeScript, HTML5/CSS3, REST API. Додатково маю практику з Node.js, PostgreSQL, SQL, Docker і командною роботою.",
         "contactEmail": "completelydummy13@gmail.com",
         "primaryPhone": "+380 93 130 13 13",
         "secondaryPhone": null,
@@ -560,10 +580,20 @@
         "minSalary": 33000,
         "isActiveSearch": true,
         "visibility": "PUBLIC",
-        "desiredProfessions": ["Fullstack-розробник"],
-        "employmentTypes": ["Повна зайнятість", "Стажування"],
-        "workSchedules": ["Гнучкий графік"],
-        "workFormats": ["Віддалена робота", "Гібридний формат"],
+        "desiredProfessions": [
+          "Fullstack-розробник"
+        ],
+        "employmentTypes": [
+          "Повна зайнятість",
+          "Стажування"
+        ],
+        "workSchedules": [
+          "Гнучкий графік"
+        ],
+        "workFormats": [
+          "Віддалена робота",
+          "Гібридний формат"
+        ],
         "desiredLocations": [
           {
             "country": "Україна",
@@ -632,13 +662,19 @@
           "startDate": "2024-02-01",
           "endDate": "2024-04-01",
           "certificateUrl": "https://example.test/certificates/mariia-node-basics.pdf",
-          "skills": ["Node.js", "REST API", "PostgreSQL", "SQL", "Postman"]
+          "skills": [
+            "Node.js",
+            "REST API",
+            "PostgreSQL",
+            "SQL",
+            "Postman"
+          ]
         }
       ],
       "projects": [
         {
           "title": "EdTech Student Cabinet",
-          "description": "<p>React/TypeScript застосунок для студентського кабінету: профіль, список курсів, статуси задач, адаптивний інтерфейс і підключення до REST API.</p>",
+          "description": "React/TypeScript застосунок для студентського кабінету: профіль, список курсів, статуси задач, адаптивний інтерфейс і підключення до REST API.",
           "projectUrl": "https://github.com/example/edtech-student-cabinet",
           "skills": [
             "React",
@@ -655,7 +691,7 @@
         },
         {
           "title": "Mini CRM API",
-          "description": "<p>Невеликий Node.js backend для заявок клієнтів із PostgreSQL, SQL-вибірками та перевіркою endpoint-ів через Postman.</p>",
+          "description": "Невеликий Node.js backend для заявок клієнтів із PostgreSQL, SQL-вибірками та перевіркою endpoint-ів через Postman.",
           "projectUrl": "https://github.com/example/mini-crm-api",
           "skills": [
             "Node.js",
@@ -677,7 +713,7 @@
           "sphere": "EdTech",
           "startDate": "2024-05-01",
           "endDate": "2024-07-01",
-          "achievements": "<p>Покращувала React-компоненти, працювала з REST API, HTML/CSS і брала участь у командних обговореннях.</p>",
+          "achievements": "Покращувала React-компоненти, працювала з REST API, HTML/CSS і брала участь у командних обговореннях.",
           "skills": [
             "React",
             "TypeScript",
@@ -708,7 +744,7 @@
       "profile": {
         "gender": "MALE",
         "birthDate": "2002-11-09",
-        "about": "<p>Початковий fullstack-розробник. Маю базу React, Node.js, TypeScript і REST API, але поки більше навчального досвіду, ніж реальних проєктів. Хочу розвиватися у продуктовій команді.</p>",
+        "about": "Початковий fullstack-розробник. Маю базу React, Node.js, TypeScript і REST API, але поки більше навчального досвіду, ніж реальних проєктів. Хочу розвиватися у продуктовій команді.",
         "contactEmail": "absolutelyunknowneugene@gmail.com",
         "primaryPhone": "+380 50 912 48 31",
         "secondaryPhone": null,
@@ -716,10 +752,20 @@
         "minSalary": 30000,
         "isActiveSearch": true,
         "visibility": "PUBLIC",
-        "desiredProfessions": ["Fullstack-розробник"],
-        "employmentTypes": ["Повна зайнятість", "Стажування"],
-        "workSchedules": ["Гнучкий графік"],
-        "workFormats": ["Віддалена робота", "Гібридний формат"],
+        "desiredProfessions": [
+          "Fullstack-розробник"
+        ],
+        "employmentTypes": [
+          "Повна зайнятість",
+          "Стажування"
+        ],
+        "workSchedules": [
+          "Гнучкий графік"
+        ],
+        "workFormats": [
+          "Віддалена робота",
+          "Гібридний формат"
+        ],
         "desiredLocations": [
           {
             "country": "Україна",
@@ -783,13 +829,16 @@
           "startDate": "2024-06-01",
           "endDate": "2024-07-01",
           "certificateUrl": null,
-          "skills": ["SQL", "PostgreSQL"]
+          "skills": [
+            "SQL",
+            "PostgreSQL"
+          ]
         }
       ],
       "projects": [
         {
           "title": "Personal Notes App",
-          "description": "<p>Навчальний fullstack-проєкт: React-форма нотаток, простий Node.js REST API та збереження даних у PostgreSQL.</p>",
+          "description": "Навчальний fullstack-проєкт: React-форма нотаток, простий Node.js REST API та збереження даних у PostgreSQL.",
           "projectUrl": "https://github.com/example/personal-notes-app",
           "skills": [
             "React",
@@ -805,7 +854,7 @@
         },
         {
           "title": "Landing Page Practice",
-          "description": "<p>Адаптивна сторінка для навчального проєкту з базовими інтерактивними елементами на JavaScript.</p>",
+          "description": "Адаптивна сторінка для навчального проєкту з базовими інтерактивними елементами на JavaScript.",
           "projectUrl": "https://github.com/example/landing-practice",
           "skills": [
             "HTML5",
@@ -835,7 +884,7 @@
       "profile": {
         "gender": "MALE",
         "birthDate": "2003-07-22",
-        "about": "<p>Кандидат початкового рівня. Закрив базовий стек вакансії: React, TypeScript, Node.js і REST API. Додаткові інструменти та база даних поки на рівні ознайомлення.</p>",
+        "about": "Кандидат початкового рівня. Закрив базовий стек вакансії: React, TypeScript, Node.js і REST API. Додаткові інструменти та база даних поки на рівні ознайомлення.",
         "contactEmail": "yevhenlabun@gmail.com",
         "primaryPhone": "+380 67 422 18 60",
         "secondaryPhone": null,
@@ -843,10 +892,19 @@
         "minSalary": 30000,
         "isActiveSearch": true,
         "visibility": "PUBLIC",
-        "desiredProfessions": ["Fullstack-розробник"],
-        "employmentTypes": ["Повна зайнятість", "Стажування"],
-        "workSchedules": ["Гнучкий графік"],
-        "workFormats": ["Віддалена робота"],
+        "desiredProfessions": [
+          "Fullstack-розробник"
+        ],
+        "employmentTypes": [
+          "Повна зайнятість",
+          "Стажування"
+        ],
+        "workSchedules": [
+          "Гнучкий графік"
+        ],
+        "workFormats": [
+          "Віддалена робота"
+        ],
         "desiredLocations": [
           {
             "country": "Україна",
@@ -890,15 +948,25 @@
           "startDate": "2024-09-01",
           "endDate": "2024-11-01",
           "certificateUrl": "https://example.test/certificates/yevhen-first-steps.pdf",
-          "skills": ["React", "TypeScript", "Node.js", "REST API"]
+          "skills": [
+            "React",
+            "TypeScript",
+            "Node.js",
+            "REST API"
+          ]
         }
       ],
       "projects": [
         {
           "title": "Simple Fullstack Todo",
-          "description": "<p>Навчальний todo-застосунок із React-клієнтом і простим Node.js REST API. Основна мета — закріпити критичні навички fullstack-напряму.</p>",
+          "description": "Навчальний todo-застосунок із React-клієнтом і простим Node.js REST API. Основна мета — закріпити критичні навички fullstack-напряму.",
           "projectUrl": "https://github.com/example/simple-fullstack-todo",
-          "skills": ["React", "TypeScript", "Node.js", "REST API"]
+          "skills": [
+            "React",
+            "TypeScript",
+            "Node.js",
+            "REST API"
+          ]
         }
       ],
       "experiences": []
@@ -920,7 +988,7 @@
       "profile": {
         "gender": "FEMALE",
         "birthDate": "2004-01-18",
-        "about": "<p>Студентка, яка шукає перше стажування у fullstack-напрямі. Маю базову практику з React, TypeScript, Node.js і REST API, готова швидко навчатися та працювати з ментором.</p>",
+        "about": "Студентка, яка шукає перше стажування у fullstack-напрямі. Маю базову практику з React, TypeScript, Node.js і REST API, готова швидко навчатися та працювати з ментором.",
         "contactEmail": "anonimka.gor@gmail.com",
         "primaryPhone": "+380 66 718 40 15",
         "secondaryPhone": null,
@@ -928,10 +996,19 @@
         "minSalary": 30000,
         "isActiveSearch": true,
         "visibility": "PUBLIC",
-        "desiredProfessions": ["Fullstack-розробник"],
-        "employmentTypes": ["Стажування"],
-        "workSchedules": ["Гнучкий графік"],
-        "workFormats": ["Гібридний формат", "Віддалена робота"],
+        "desiredProfessions": [
+          "Fullstack-розробник"
+        ],
+        "employmentTypes": [
+          "Стажування"
+        ],
+        "workSchedules": [
+          "Гнучкий графік"
+        ],
+        "workFormats": [
+          "Гібридний формат",
+          "Віддалена робота"
+        ],
         "desiredLocations": [
           {
             "country": "Україна",
@@ -975,22 +1052,34 @@
           "startDate": "2024-02-01",
           "endDate": "2024-04-01",
           "certificateUrl": "https://example.test/certificates/alina-web-basics.pdf",
-          "skills": ["TypeScript", "JavaScript", "React"]
+          "skills": [
+            "TypeScript",
+            "JavaScript",
+            "React"
+          ]
         },
         {
           "title": "Node.js REST API Intro",
           "startDate": "2024-05-01",
           "endDate": "2024-06-15",
           "certificateUrl": null,
-          "skills": ["Node.js", "REST API"]
+          "skills": [
+            "Node.js",
+            "REST API"
+          ]
         }
       ],
       "projects": [
         {
           "title": "Student Events Mini App",
-          "description": "<p>Мініпроєкт для перегляду студентських подій: React-інтерфейс, TypeScript і простий Node.js REST API для списку подій.</p>",
+          "description": "Мініпроєкт для перегляду студентських подій: React-інтерфейс, TypeScript і простий Node.js REST API для списку подій.",
           "projectUrl": "https://github.com/example/student-events-mini-app",
-          "skills": ["React", "TypeScript", "Node.js", "REST API"]
+          "skills": [
+            "React",
+            "TypeScript",
+            "Node.js",
+            "REST API"
+          ]
         }
       ],
       "experiences": []
