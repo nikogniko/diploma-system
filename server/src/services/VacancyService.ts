@@ -226,7 +226,7 @@ export class VacancyService {
     const ownedVacancy = await this.getOwnedVacancyOrThrow(vacancyId, hrProfile.id);
     this.ensureAllowedStatus(status);
     if (status === ListingStatus.ACTIVE) {
-      await this.ensureCompanyApprovedForPublishing(ownedVacancy.companyId);
+      await this.ensureVacancyCanBeActivated(ownedVacancy);
     }
     const updated = await prisma.$transaction(async (tx) => {
       const txVacancies = new VacancyRepository(tx);
@@ -489,6 +489,17 @@ export class VacancyService {
         "Only verified companies can publish active vacancies",
         HttpStatus.FORBIDDEN,
         "COMPANY_VERIFICATION_REQUIRED",
+      );
+    }
+  }
+
+  private async ensureVacancyCanBeActivated(vacancy: { companyId: string; closingDate: Date }) {
+    await this.ensureCompanyApprovedForPublishing(vacancy.companyId);
+    if (vacancy.closingDate <= this.todayDateOnly()) {
+      throw new BusinessLogicError(
+        "Vacancy closing date must be in the future before publishing",
+        HttpStatus.BAD_REQUEST,
+        "VACANCY_CLOSING_DATE_EXPIRED",
       );
     }
   }

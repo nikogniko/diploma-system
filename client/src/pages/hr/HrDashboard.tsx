@@ -1057,9 +1057,15 @@ export default function HrDashboard() {
           body: JSON.stringify({ status }),
         },
       );
+      setVacancies((current) =>
+        current.map((vacancy) => (vacancy.id === vacancyId ? updated : vacancy)),
+      );
       setSelectedVacancy((current) =>
         current?.id === vacancyId ? updated : current,
       );
+      if (editingVacancyId === vacancyId) {
+        setVacancyForm(vacancyToForm(updated));
+      }
     });
 
   /** Архівує вакансію з таблиці управління. */
@@ -1071,9 +1077,15 @@ export default function HrDashboard() {
         token,
         { method: "POST" },
       );
+      setVacancies((current) =>
+        current.map((vacancy) => (vacancy.id === vacancyId ? updated : vacancy)),
+      );
       setSelectedVacancy((current) =>
         current?.id === vacancyId ? updated : current,
       );
+      if (editingVacancyId === vacancyId) {
+        setVacancyForm(vacancyToForm(updated));
+      }
     });
 
   if (isLoading) return <AppLoader text={ui.loading} />;
@@ -1151,7 +1163,7 @@ export default function HrDashboard() {
                   setSelectedSkillDraft={setSelectedSkillDraft}
                   selectedLanguageDraft={selectedLanguageDraft}
                   setSelectedLanguageDraft={setSelectedLanguageDraft}
-                  error={blockErrors.vacancy}
+                  error={blockErrors.vacancy ?? blockErrors.vacancyBoard}
                   saving={saving.vacancy}
                   onAddSkill={upsertVacancySkill}
                   onAddLanguage={upsertVacancyLanguage}
@@ -1174,7 +1186,7 @@ export default function HrDashboard() {
                   setSelectedSkillDraft={setSelectedSkillDraft}
                   selectedLanguageDraft={selectedLanguageDraft}
                   setSelectedLanguageDraft={setSelectedLanguageDraft}
-                  error={blockErrors.vacancy}
+                  error={blockErrors.vacancy ?? blockErrors.vacancyBoard}
                   saving={saving.vacancy}
                   onAddSkill={upsertVacancySkill}
                   onAddLanguage={upsertVacancyLanguage}
@@ -1196,7 +1208,7 @@ export default function HrDashboard() {
                   sortBy={vacancySortBy}
                   sortDirection={vacancySortDirection}
                   loading={isVacancyTableLoading}
-                  error={vacancyListError}
+                  error={vacancyListError ?? blockErrors.vacancyBoard}
                   onSearchChange={(search) => {
                     setVacancySearch(search);
                     setVacancyPage(1);
@@ -3855,9 +3867,16 @@ function formatLocationByIds(
     .join(", ");
 }
 function getErrorMessage(error: unknown) {
-  return error instanceof ApiError || error instanceof Error
-    ? error.message
-    : commonUi.messages.unknownError;
+  if (error instanceof ApiError) {
+    if (error.code === "COMPANY_VERIFICATION_REQUIRED") {
+      return "Компанія має бути підтверджена перед публікацією вакансій.";
+    }
+    if (error.code === "VACANCY_CLOSING_DATE_EXPIRED") {
+      return "Оновіть дату завершення вакансії: для публікації вона має бути в майбутньому.";
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : commonUi.messages.unknownError;
 }
 function statusLabel(status: VacancyStatus) {
   return {
