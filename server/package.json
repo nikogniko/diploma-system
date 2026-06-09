@@ -13,6 +13,7 @@
     "import:demo-students": "tsx prisma/importDemoStudents.ts",
     "search:ensure-indexes": "tsx src/scripts/ensureSearchIndexes.ts",
     "search:reindex:vacancies": "tsx src/scripts/reindexVacancies.ts",
+    "matches:refresh": "tsx src/scripts/refreshApplicationMatches.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

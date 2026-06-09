@@ -463,12 +463,13 @@ Backend - Express API. Основний потік: route → controller → ser
 - `baseRequirementsPercent` рахується за weighted requirement items: `CRITICAL=3`, `IMPORTANT=2`, `NICE_TO_HAVE=1`; у details зберігаються загальна кількість вимог, кількість збігів і окремий coverage фактичних blocking-вимог.
 - Кожний `requirementItem` містить `key`, `label`, `category`, `weight`, `matched`, `isBlocking`, `blockingReason` і `details`. Критичні вимоги поділено на critical skills та mandatory vacancy conditions: profession, language requirements, задані employment type/schedule/work format і salary; локація належить до умов вакансії та є blocking лише при `isLocationCritical=true`.
 - Необов'язкова location лишається пунктом покриття/додаткового бала, але не eligibility-блокером. Якщо `student.minSalary=null`, salary requirement вважається matched, бо кандидат не задав нижню межу очікувань. Для grouped-параметрів і profession у `details` зберігаються required/student values, щоб UI міг показати інформацію кандидата.
-- `skillDepthScore` рахує підтвердження skills лише з вимог вакансії: course `2/4`, project `6/8`, experience `max(1, fullMonths*2)`; сума джерел множиться на вагу skill.
+- `skillDepthScore` рахує підтвердження skills лише з вимог вакансії: course `2/4`, project `6/8`, experience `max(1, fullMonths*3)`; сума джерел множиться на вагу skill.
 - `additionalCriteriaScore` складається з bonus за відповідні мови, необов'язковий location match, найвищу освіту/диплом та активний пошук; у UI ця складова називається `Додаткові бали`. Критична локація є умовою допуску і не додає балів.
 - `score` дорівнює `totalScore = skillDepthScore + additionalCriteriaScore`; пояснення повертає deterministic codes для frontend-локалізації, matched/missing groups і `requirementEligibility.matchesBlockingRequirements`.
 
 ### `ApplicationMatchRefreshService.ts`
 
+- `npm run matches:refresh` перераховує всі збережені application snapshots після змін констант або логіки matching-алгоритму.
 - `recalculateForStudent(studentProfileId)` оновлює `matchScore`/`matchDetails` applications після змін резюме або параметрів пошуку студента.
 - `recalculateForVacancy(vacancyId)` оновлює snapshots після редагування вимог вакансії та перед HR-переглядом.
 - Snapshot не видаляє application: якщо після зміни blocking-вимог кандидат більше не проходить допуск, `requirementEligibility.matchesBlockingRequirements=false` дозволяє UI показати його неактивним і сортувати нижче.
